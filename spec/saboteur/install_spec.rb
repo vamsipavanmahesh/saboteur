@@ -29,7 +29,7 @@ RSpec.describe Saboteur::Install do
       original.call(*args).force_encoding(Encoding::US_ASCII)
     end
     installer = described_class.new(root: @root)
-    expect(installer.gemfile_hint).to be_nil
+    expect(installer.gemfile_hint).to eq(described_class::RUN_HINT)
     ignore = installer.call.find { |result| result.path == ".gitignore" }
     expect(ignore.status).to eq(:appended)
     expect(File.binread(File.join(@root, ".gitignore"))).to eq("caf\xC3\xA9\n.saboteur/\n".b)
@@ -88,7 +88,14 @@ RSpec.describe Saboteur::Install do
     expect(installer.gemfile_hint).to include('gem "saboteur"')
     expect(read("Gemfile")).to eq("source 'x'\n")
     File.write(File.join(@root, "Gemfile"), "gem \"saboteur\", group: :test\n")
-    expect(installer.gemfile_hint).to be_nil
+    expect(installer.gemfile_hint).to eq(described_class::RUN_HINT)
+    File.write(File.join(@root, "Gemfile"), "  gem 'saboteur'\n")
+    expect(installer.gemfile_hint).to eq(described_class::RUN_HINT)
+    ["# gem \"saboteur\"\n", "mygem \"saboteur\"\n", "gem \"saboteur-extras\"\n", "gem saboteur\n",
+     "gem\"saboteur\"\n"].each do |line|
+      File.write(File.join(@root, "Gemfile"), line)
+      expect(installer.gemfile_hint).to eq(described_class::GEMFILE_HINT), line
+    end
   end
 
   it "does not write through a dangling symlink without force" do

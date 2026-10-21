@@ -54,7 +54,7 @@ RSpec.describe "reporter pins" do
       out = StringIO.new
       described_class.new(out, Saboteur::Reporter::Palette.for(out, mode: :never)).call(report_of(survivor))
       expect(out.string.lines).to include(
-        %(    i.mutation "#{survivor.digest}", subject: "#{survivor.subject.id}", reason: "why it is equivalent"\n)
+        %(      i.mutation "#{survivor.digest}", subject: "#{survivor.subject.id}", reason: "why it is equivalent"\n)
       )
     end
   end

@@ -130,7 +130,7 @@ module Saboteur
         current = candidates[entry["id"]]
         fail!("acceptance candidate") unless current && current["status"] == "survived"
         fail!("acceptance context") unless current["context"] == entry["context"]
-        text!(entry["reason"], "reason")
+        text!(entry["reason"], "reason on acceptance #{entry['id'][0, 16]} (write a non-blank reason)")
       end
 
       def fields!(value, fields, name)

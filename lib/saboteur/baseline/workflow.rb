@@ -3,6 +3,7 @@
 
 require_relative "acceptance"
 require_relative "comparison"
+require_relative "identity"
 require_relative "loader"
 require_relative "../engine"
 require_relative "../text"
@@ -41,15 +42,36 @@ module Saboteur
         payload
       end
 
+      # Blockers carry only a digest and a status. Name the subject, operator
+      # and the engine's recorded reason, and say how to unblock the proposal.
+      def refuse_proposal(evidence, report)
+        blockers = evidence.fetch("blockers")
+        by_id = report.results.to_h do |result|
+          [Identity.new(subject: result.subject, mutation: result.mutation, root: @root).entry.fetch("id"), result]
+        end
+        blockers.each { |issue| @err.puts("saboteur: baseline proposal blocker: #{describe_blocker(issue, by_id)}") }
+        if blockers.any? { |issue| issue.start_with?("unexecuted:") }
+          @err.puts("saboteur: cover the skipped code with specs or narrow include, then propose again")
+        end
+        raise Error, "baseline proposal needs a proposable run"
+      end
+
+      def describe_blocker(issue, by_id)
+        match = /\Aunexecuted:([0-9a-f]{64}):(\w+)\z/.match(issue)
+        result = match && by_id[match[1]]
+        return issue unless result
+
+        detail = "#{result.subject.id} #{result.mutation.operator}"
+        detail += " - #{result.reason}" if result.reason
+        "#{issue} (#{detail})"
+      end
+
       def propose(proposal:, destination:, previous: nil)
         guard_artifacts(proposal, destination)
+        preflight_outputs(proposal, destination, previous)
         report = Engine.new(@config, err: @err, capture_evidence: true).call
         evidence = report.run_evidence
-        unless evidence["proposable"] == true
-          evidence.fetch("blockers").each { |issue| @err.puts("saboteur: baseline proposal blocker: #{issue}") }
-          raise Error,
-                "baseline proposal needs a proposable run"
-        end
+        refuse_proposal(evidence, report) unless evidence["proposable"] == true
 
         captured = Evidence.new(evidence)
         store(captured.document.fetch("snapshot")).propose(document: captured.manifest,
@@ -86,10 +108,18 @@ module Saboteur
           extras = saved.inventory.select { |entry| entry.kind == "extra" }.map do |entry|
             { path: input_path(entry.path), required: entry.required }
           end
-          Engine::RunFingerprint.new(config: @config, extra_files: extras).verify(saved).unchanged
+          raise_unless_unchanged(Engine::RunFingerprint.new(config: @config, extra_files: extras).verify(saved))
         end
         Acceptance.new(directory: File.join(Identity.canonical_path(@config.path("cache_dir")), "baseline-evidence"),
                        protected_paths: protected, verify: verifier, require_evidence: true)
+      end
+
+      def raise_unless_unchanged(result)
+        return true if result.unchanged
+
+        detail = result.changes.map { |change| "#{change.path} #{change.reason}" }.join(", ")
+        detail = "verification incomplete" if detail.empty?
+        raise ConfigError, "baseline inputs changed or unverified: #{detail}"
       end
 
       def input_paths(snapshot)
@@ -98,6 +128,18 @@ module Saboteur
 
       def input_path(path)
         path.start_with?("external:") ? path.delete_prefix("external:") : File.join(@root, path)
+      end
+
+      # Cheap pre-checks before the full run; Acceptance re-verifies exclusively after it.
+      def preflight_outputs(proposal, destination, previous)
+        raise ConfigError, "baseline output exists: #{Identity.canonical_path(proposal)}" if File.exist?(proposal)
+
+        # Mirrors Acceptance#verify_previous so a doomed proposal fails before the run.
+        if previous.nil?
+          raise ConfigError, "baseline destination exists" if File.exist?(destination)
+        elsif !File.file?(destination) || Digest::SHA256.file(destination).hexdigest != previous
+          raise ConfigError, "baseline previous destination changed"
+        end
       end
 
       def guard_artifacts(*paths)

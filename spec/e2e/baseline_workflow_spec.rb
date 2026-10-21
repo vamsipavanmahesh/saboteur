@@ -126,7 +126,7 @@ RSpec.describe "opt-in baseline commands", :e2e do
     out, err, status = command(dir, "propose", "--baseline", "baseline.json", "--proposal", "proposal.json")
     expect(status.exitstatus).to eq(0), out + err
     expect(out).to include("baseline proposal written:", "matched mutants:",
-                           "proposed with 1 untested subjects:", "BaselineProbe#other",
+                           "proposed with 1 untested subject:", "BaselineProbe#other",
                            "the baseline cannot speak for them", "saboteur baseline accept")
     expect { JSON.parse(out) }.to raise_error(JSON::ParserError)
     proposal = JSON.parse(File.read(File.join(dir, "proposal.json"), encoding: "UTF-8"))

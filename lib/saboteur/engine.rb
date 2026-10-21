@@ -51,7 +51,7 @@ module Saboteur
       @replay = Replay.new(digest: digest) if digest
       if capture_evidence && (digest || config["since"] || config["incremental"] || config["resume"] || config["shard"])
         raise ConfigError,
-              "baseline evidence requires fresh whole-scope execution: no since, replay, shard or incremental"
+              "baseline evidence requires fresh whole-scope execution: no since, replay, shard, resume or incremental"
       end
 
       @capture_evidence = capture_evidence

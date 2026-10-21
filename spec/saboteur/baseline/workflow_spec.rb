@@ -38,6 +38,20 @@ RSpec.describe Saboteur::Baseline::Workflow do
     record
   end
 
+  it "refuses an existing proposal or unreviewed destination before running the engine" do
+    stub_run
+    proposal = File.join(@root, "proposal.json")
+    File.write(proposal, "{}")
+    expect { workflow.propose(proposal: proposal, destination: File.join(@root, "b.json")) }
+      .to raise_error(Saboteur::ConfigError, "baseline output exists: #{proposal}")
+    File.delete(proposal)
+    destination = File.join(@root, "baseline.json")
+    File.write(destination, "{}")
+    expect { workflow.propose(proposal: proposal, destination: destination) }
+      .to raise_error(Saboteur::ConfigError, "baseline destination exists")
+    expect(Saboteur::Engine).not_to have_received(:new)
+  end
+
   it "proposes bound immutable producer evidence and accepts it only once" do
     stub_run
     proposal = File.join(@root, "proposal.json")
@@ -159,7 +173,8 @@ RSpec.describe Saboteur::Baseline::Workflow do
       metadata = { "snapshot" => snapshot.to_h }
       expect(store.instance_variable_get(:@verify).call(metadata)).to be(true)
       File.write(extra, "changed")
-      expect(store.instance_variable_get(:@verify).call(metadata)).to be(false)
+      expect { store.instance_variable_get(:@verify).call(metadata) }
+        .to raise_error(Saboteur::ConfigError, /baseline inputs changed or unverified: external:.*changed/)
     end
   end
 
@@ -168,8 +183,9 @@ RSpec.describe Saboteur::Baseline::Workflow do
     source = File.join(@root, "probe.rb")
     alias_path = File.join(@root, "alias.json")
     File.link(source, alias_path)
+    # An existing alias is refused before the run; Acceptance still rejects input aliases on write.
     expect { workflow.propose(proposal: alias_path, destination: File.join(@root, "b.json")) }
-      .to raise_error(Saboteur::ConfigError, /input/)
+      .to raise_error(Saboteur::ConfigError, "baseline output exists: #{alias_path}")
     expect { workflow.accept(proposal: File.join(@root, "p.json"), destination: source) }
       .to raise_error(Saboteur::ConfigError, /overlaps/)
   end
@@ -180,13 +196,15 @@ RSpec.describe Saboteur::Baseline::Workflow do
     allow(workflow).to receive(:store).and_return(store)
     proposal = File.join(@root, "p.json")
     destination = File.join(@root, "b.json")
+    File.write(destination, "reviewed")
+    previous = Digest::SHA256.file(destination).hexdigest
     expect(store).to receive(:propose).with(document: anything, evidence: document, proposal: proposal,
-                                            destination: destination, previous: "a" * 64)
-    workflow.propose(proposal: proposal, destination: destination, previous: "a" * 64)
+                                            destination: destination, previous: previous)
+    workflow.propose(proposal: proposal, destination: destination, previous: previous)
     expect(Saboteur::Engine).to have_received(:new).with(config, err: $stderr, capture_evidence: true)
-    expect(store).to receive(:accept).with(proposal: proposal, destination: destination, previous: "a" * 64)
+    expect(store).to receive(:accept).with(proposal: proposal, destination: destination, previous: previous)
                                      .and_return(destination)
-    workflow.accept(proposal: proposal, destination: destination, previous: "a" * 64)
+    workflow.accept(proposal: proposal, destination: destination, previous: previous)
   end
 
   it "rejects both output positions under explicitly declared extra fixture patterns" do
@@ -221,11 +239,81 @@ RSpec.describe Saboteur::Baseline::Workflow do
   end
 
   it "does not publish a proposal from an incomplete run even with no survivors" do
-    report = instance_double(Saboteur::Report, run_evidence: document.merge("proposable" => false, "candidates" => []))
+    evidence = document.merge("proposable" => false, "candidates" => [])
+    report = instance_double(Saboteur::Report, run_evidence: evidence, results: [])
     allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, call: report))
     expect { workflow.propose(proposal: File.join(@root, "p.json"), destination: File.join(@root, "b.json")) }
       .to raise_error(Saboteur::Error, /needs a proposable run/)
     expect(File.exist?(File.join(@root, "p.json"))).to be(false)
+  end
+
+  it "names the subject, operator and skip reason in an unexecuted blocker" do
+    file = File.join(@root, "probe.rb")
+    File.write(file, "class Probe; def value; 1; end; end")
+    subject = Saboteur::SubjectFinder.new.call(file).subjects.first
+    mutation = Saboteur::MutationSource::Builtin.new.mutations_for(subject).first
+    result = Saboteur::MutantResult.new(subject: subject, mutation: mutation, status: :skipped,
+                                        mutated_source: "1", reason: "no coverage")
+    id = Saboteur::Baseline::Identity.new(subject: subject, mutation: mutation, root: @root).entry.fetch("id")
+    evidence = document.merge("proposable" => false, "blockers" => ["unexecuted:#{id}:skipped", "inputs_unverified"])
+    report = instance_double(Saboteur::Report, run_evidence: evidence, results: [result])
+    allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, call: report))
+    err = StringIO.new
+    flow = described_class.new(config: config, err: err)
+    expect { flow.propose(proposal: File.join(@root, "p.json"), destination: File.join(@root, "b.json")) }
+      .to raise_error(Saboteur::Error, /needs a proposable run/)
+    expect(err.string).to include("unexecuted:#{id}:skipped (#{subject.id} #{mutation.operator} - no coverage)")
+    expect(err.string).to include("saboteur: baseline proposal blocker: inputs_unverified\n")
+    expect(err.string).to include("cover the skipped code with specs or narrow include, then propose again")
+  end
+
+  it "leaves lookalike blockers and reasonless skips undecorated" do
+    file = File.join(@root, "probe.rb")
+    File.write(file, "class Probe; def value; 1; end; end")
+    subject = Saboteur::SubjectFinder.new.call(file).subjects.first
+    mutation = Saboteur::MutationSource::Builtin.new.mutations_for(subject).first
+    result = Saboteur::MutantResult.new(subject: subject, mutation: mutation, status: :skipped, mutated_source: "1")
+    id = Saboteur::Baseline::Identity.new(subject: subject, mutation: mutation, root: @root).entry.fetch("id")
+    blockers = ["x-unexecuted:#{id}:skipped", "unexecuted:#{id}:skipped!", "unexecuted:#{id}:",
+                "unexecuted:#{id}:skipped"]
+    evidence = document.merge("proposable" => false, "blockers" => blockers)
+    report = instance_double(Saboteur::Report, run_evidence: evidence, results: [result])
+    allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, call: report))
+    err = StringIO.new
+    flow = described_class.new(config: config, err: err)
+    expect { flow.propose(proposal: File.join(@root, "p.json"), destination: File.join(@root, "b.json")) }
+      .to raise_error(Saboteur::Error)
+    expect(err.string.lines.grep(/blocker:/).map { |l| l.split("blocker: ", 2).last }).to eq(
+      ["x-unexecuted:#{id}:skipped\n", "unexecuted:#{id}:skipped!\n",
+       "unexecuted:#{id}:\n",
+       "unexecuted:#{id}:skipped (#{subject.id} #{mutation.operator})\n"]
+    )
+    expect(err.string).to include("cover the skipped code with specs or narrow include, then propose again")
+  end
+
+  it "refuses a missing or changed previous destination before running the engine" do
+    stub_run
+    destination = File.join(@root, "baseline.json")
+    proposal = File.join(@root, "proposal.json")
+    expect { workflow.propose(proposal: proposal, destination: destination, previous: "a" * 64) }
+      .to raise_error(Saboteur::ConfigError, "baseline previous destination changed")
+    File.write(destination, "reviewed")
+    expect { workflow.propose(proposal: proposal, destination: destination, previous: "a" * 64) }
+      .to raise_error(Saboteur::ConfigError, "baseline previous destination changed")
+    expect(Saboteur::Engine).not_to have_received(:new)
+  end
+
+  it "lists every changed input, or says verification was incomplete" do
+    change = Struct.new(:path, :reason)
+    result = Struct.new(:unchanged, :changes)
+    expect(workflow.send(:raise_unless_unchanged, result.new(true, []))).to be(true)
+    expect do
+      workflow.send(:raise_unless_unchanged,
+                    result.new(false, [change.new("a.rb", "changed"), change.new("b.rb", "missing")]))
+    end
+      .to raise_error(Saboteur::ConfigError, "baseline inputs changed or unverified: a.rb changed, b.rb missing")
+    expect { workflow.send(:raise_unless_unchanged, result.new(false, [])) }
+      .to raise_error(Saboteur::ConfigError, "baseline inputs changed or unverified: verification incomplete")
   end
 
   it "rejects stale inputs or editable execution history before publishing" do
