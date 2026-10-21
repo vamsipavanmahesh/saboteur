@@ -230,12 +230,21 @@ module Saboteur
         rest = group.drop(1)
         return if rest.empty?
 
+        head_label = @classifier.label(group.first)
         list = rest.first(SIBLING_DIGEST_CAP)
-                   .map { |result| "#{result.digest} (#{result.mutation.operator})" }.join(", ")
+                   .map { |result| sibling_entry(result, head_label) }.join(", ")
         overflow = rest.size - SIBLING_DIGEST_CAP
         list = "#{list} (+#{overflow} more)" if overflow.positive?
         @out.puts @palette.paint(:dim, "  #{rest.size} more #{rest.one? ? 'mutant' : 'mutants'} here: #{list}")
         @out.puts @palette.paint(:dim, "       expand: saboteur run --all-mutants#{' --since main' if report.diff?}")
+      end
+
+      # A sibling earns a label only when it differs from the block
+      # head's: an equal label is already named by the head's suffix.
+      def sibling_entry(result, head_label)
+        entry = "#{result.digest} (#{result.mutation.operator})"
+        label = @classifier.label(result)
+        label && label != head_label ? "#{entry} [#{label}]" : entry
       end
 
       # Accepted (ignored) survivors stay visible but never earn a block:
