@@ -6,6 +6,28 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-21
+
+### Added
+
+- Survivor labels in the terminal: surviving mutants carry a label and
+  the findings collapse per statement, ignored mutants are reported with
+  their reasons, and external-runner runs emit the `tool_limit` label
+  (#1065, #1071).
+- Pins covering the terminal collapse, the `--all-mutants` wiring, and
+  the phase1 end-to-end default (#1065).
+
+### Changed
+
+- The terminal disambiguates the two no-coverage skip counts (#1087).
+- `test_selection = :all` is gone: the 17 mirror-breaking files are
+  mapped explicitly instead (#1077).
+
+### Fixed
+
+- The `element_removal` help text shows that any array literal works
+  (#1086).
+
 ## [0.9.0] - 2026-10-20
 
 ### Added
