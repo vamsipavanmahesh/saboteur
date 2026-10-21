@@ -66,7 +66,8 @@ module Saboteur
                      .map { |label, group| "#{group.size} #{label}" }
                      .join(", ")
         @out.puts "      #{@palette.paint(:red, '-')} #{count}: #{mix}"
-        tests_line(on_line.flat_map(&:covered_by).uniq, on_line.first.reused?)
+        tests_line(on_line.flat_map(&:covered_by).uniq, on_line.first.reused?,
+                   ran: on_line.flat_map { |result| result.executed || result.covered_by }.uniq)
         digests = on_line.map(&:digest)
         more = digests.size - 3
         suffix = " (+#{more} more in the JSON report)" if more.positive?
@@ -128,11 +129,17 @@ module Saboteur
       # killers first, the order the run used. Line coverage can overstate which
       # tests exercise the line, so the list is a lead, not proof.
       def passing_tests(result)
-        tests_line(result.covered_by, result.reused?)
+        tests_line(result.covered_by, result.reused?, ran: (result.executed || result.covered_by).uniq)
       end
 
-      def tests_line(tests, reused)
+      # ran is which of the covering tests actually executed against the
+      # mutant (nil recorded as covered_by). When fewer ran than covered the
+      # line, the survivor rests on the ran subset - say so and name the rest.
+      def tests_line(tests, reused, ran: tests)
         return if tests.empty?
+
+        unrun = tests - ran
+        return ran_line(tests, unrun, reused) if unrun.any? && (ran - tests).empty?
 
         @out.puts "      #{tests.size} #{tests.one? ? 'test' : 'tests'} covered this line and " \
                   "#{reused ? 'passed in an earlier run (--incremental)' : 'still passed'} " \
@@ -140,6 +147,18 @@ module Saboteur
         tests.first(MAX_PASSING_TESTS).each { |name| @out.puts "        #{name}" }
         more = tests.size - MAX_PASSING_TESTS
         @out.puts "        ... #{more} more in the JSON report (coveredBy)" if more.positive?
+      end
+
+      def ran_line(tests, unrun, reused)
+        ran = tests - unrun
+        @out.puts "      #{ran.size} of the #{tests.size} tests that covered this line " \
+                  "#{reused ? 'passed in an earlier run (--incremental)' : 'ran and still passed'} " \
+                  "(the missing check may belong in one of them):"
+        ran.first(MAX_PASSING_TESTS).each { |name| @out.puts "        #{name}" }
+        more = ran.size - MAX_PASSING_TESTS
+        @out.puts "        ... #{more} more in the JSON report (executed)" if more.positive?
+        suffix = unrun.size > 3 ? " (+#{unrun.size - 3} more)" : ""
+        @out.puts "      did not run: #{unrun.first(3).join(', ')}#{suffix}"
       end
 
       # In diff mode: the changed lines this mutant touches.

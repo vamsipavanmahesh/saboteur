@@ -89,7 +89,7 @@ module Saboteur
       end
 
       def self.test_index(results)
-        names = results.flat_map { |result| result.covered_by + result.killed_by }.uniq
+        names = results.flat_map { |result| result.covered_by + result.killed_by + result.executed.to_a }.uniq
         names.each_with_index.to_h { |name, index| [name, index.to_s] }
       end
 
@@ -131,6 +131,9 @@ module Saboteur
           classification: SurvivorClassification.label(result),
           killedBy: result.killed_by.map { |name| test_ids.fetch(name) }.then { |ids| ids.empty? ? nil : ids },
           coveredBy: result.covered_by.map { |name| test_ids.fetch(name) }.then { |ids| ids.empty? ? nil : ids },
+          # Which of the covering tests actually ran against the mutant; absent
+          # when the run did not record them (a reused result, an older worker).
+          executed: result.executed.to_a.map { |name| test_ids.fetch(name) }.then { |ids| ids.empty? ? nil : ids },
           duration: result.runtime && (result.runtime * 1000).round
         }.compact
       end
