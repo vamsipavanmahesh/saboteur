@@ -116,6 +116,18 @@ RSpec.describe Saboteur::CLI, "survivors (#475)" do
     end
   end
 
+  it "fills the ignore subject from the files section when findings lack the digest (#1181)" do
+    Dir.mktmpdir do |dir|
+      path = write_report(dir, survivors: [])
+      report = JSON.parse(File.read(path))
+      report["files"]["lib/order.rb"]["mutants"].each { |m| m["subject"] = "Order#total" }
+      File.write(path, JSON.generate(report))
+      expect(cli("survivors", path, "--show", "b" * 16).call).to eq(0)
+      expect(out.string).to include(%(i.mutation "#{'b' * 16}")).and include('subject: "Order#total"')
+      expect(out.string).not_to include("TODO")
+    end
+  end
+
   describe "CLI parse layer (#520 dogfood survivors)" do
     it "orders by the report's ranked findings with --ranked, by path and digest without" do
       Dir.mktmpdir do |dir|

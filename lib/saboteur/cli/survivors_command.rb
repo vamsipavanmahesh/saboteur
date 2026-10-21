@@ -73,7 +73,7 @@ module Saboteur
         survivor = all_survivors.find { |s| s[:digest].start_with?(digest) } ||
                    raise(UsageError, "no survivor with digest #{digest} in this report")
         finding = findings_by_digest[survivor[:digest]] || {}
-        subject = finding["subject"]
+        subject = finding["subject"] || survivor[:subject]
         [
           "#{survivor[:path]}:#{survivor[:line]}  #{survivor[:operator]}  #{survivor[:digest]}",
           "",
@@ -124,7 +124,7 @@ module Saboteur
             entry.fetch("mutants", []).select { |m| m["status"] == "Survived" }.map do |m|
               { path: path, line: m.dig("location", "start", "line").to_i, operator: m["mutatorName"],
                 digest: m["id"], replacement: m["replacement"], classification: m["classification"],
-                covered: m["coveredBy"] || [], source: entry["source"] }
+                subject: m["subject"], covered: m["coveredBy"] || [], source: entry["source"] }
             end
           end
           survivors.sort_by { |s| [s[:path], s[:line], s[:digest]] }

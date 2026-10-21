@@ -110,6 +110,7 @@ module Saboteur
       def self.mutant(result, source, test_ids)
         entry = {
           id: result.digest,
+          subject: result.subject.id,
           mutatorName: result.mutation.operator,
           replacement: result.mutation.edits.map(&:replacement).join(" | "),
           location: location(result.mutation.edits.first, source),
