@@ -182,7 +182,7 @@ RSpec.describe Saboteur::Reporter::Terminal, "quiet pins" do
   end
 
   it "prints no label bracket for a survivor the classifier leaves unlabeled" do
-    unlabeled = result(:survived, "**years", "**months", covered_by: [])
+    unlabeled = result(:survived, "**years", "**months", covered_by: [], coarse: true)
     report = Saboteur::Report.new(results: [killed, unlabeled], subjects:, wall_time: 62,
                                   root: File.dirname(calculator.file), seed: 1)
     text = render(report, exit_code: 1, quiet: true)
@@ -199,7 +199,7 @@ RSpec.describe Saboteur::Reporter::Terminal, "quiet pins" do
                                   root: File.dirname(calculator.file), seed: 1)
     ranked = Saboteur::Reporter::SurvivorRanking.ordered(report, report.unignored_survivors)
     expect(ranked.map { |survivor| Saboteur::Reporter::SurvivorClassification.label(survivor) })
-      .to eq(["boundary", nil])
+      .to eq(%w[boundary input_gap])
     text = render(report, exit_code: 1, quiet: true)
     expect(text).to include("[boundary] - #{ranked.first.digest} (+1 more)\n")
   end
