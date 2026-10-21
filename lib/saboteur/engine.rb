@@ -252,7 +252,8 @@ module Saboteur
       @phase_timings = PhaseTimings.new(baseline_seconds: @baseline_elapsed || 0.0,
                                         map_seconds:, map_cached:,
                                         mutants_seconds: monotonic - started,
-                                        jobs: config["jobs"])
+                                        jobs: config["jobs"], baseline_passes: @completed_baseline_passes,
+                                        map_tests: @map_tests)
       results
     end
 
@@ -329,6 +330,7 @@ module Saboteur
     end
 
     def inform_about_run(subjects, map)
+      @map_tests = map.tests.size
       if @diagnostics.quiet_start && !@diagnostics.verbose
         @diagnostics.quiet_baseline(passes: @completed_baseline_passes, elapsed: @baseline_elapsed,
                                     tests: map.tests.size, cached: @map_cached)

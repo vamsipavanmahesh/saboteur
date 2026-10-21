@@ -157,10 +157,13 @@ module Saboteur
   # clocks at the phase boundaries; a reused map reports 0.0 s (cached), so
   # the three phases never double count the cached build and their sum stays
   # inside the wall time.
-  PhaseTimings = Data.define(:baseline_seconds, :map_seconds, :map_cached, :mutants_seconds, :jobs) do
-    def initialize(baseline_seconds:, map_seconds:, map_cached:, mutants_seconds:, jobs:)
+  # baseline_passes and map_tests feed the clean screen's phase lines (#1139).
+  PhaseTimings = Data.define(:baseline_seconds, :map_seconds, :map_cached, :mutants_seconds, :jobs,
+                             :baseline_passes, :map_tests) do
+    def initialize(baseline_seconds:, map_seconds:, map_cached:, mutants_seconds:, jobs:,
+                   baseline_passes: nil, map_tests: nil)
       super(baseline_seconds:, map_seconds: map_cached ? 0.0 : map_seconds, map_cached:,
-            mutants_seconds:, jobs:)
+            mutants_seconds:, jobs:, baseline_passes:, map_tests:)
     end
   end
 

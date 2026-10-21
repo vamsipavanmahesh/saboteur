@@ -27,6 +27,7 @@ require_relative "cli/matrix_option"
 require_relative "cli/output_options"
 require_relative "cli/explicit_file_options"
 require_relative "cli/doctor_command"
+require_relative "cli/clean_screen_context"
 require_relative "cli/agent_provenance"
 require_relative "cli/preview_command"
 require_relative "cli/help_command"
@@ -43,6 +44,7 @@ module Saboteur
     include ExitStatus
     include BaselineGate
     include RunReporting
+    include CleanScreenContext
     include SurvivorsCommand
     include SourceSet
     include RunBudgetOptions
