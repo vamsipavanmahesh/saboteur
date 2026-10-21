@@ -171,4 +171,67 @@ RSpec.describe Saboteur::Reporter::DefaultFindings, "default findings pins" do
     expect(text.scan(/^\d+\. widget\.rb:\d+ /).size).to eq(3)
     expect(text).not_to include("more finding")
   end
+  it "keeps accepted-only reports on the full path: no list, no closer" do
+    ignored = survivor("Beta#four")
+    ignored.ignored = "not a real defect"
+    text = render([ignored])
+    expect(text).to include("Accepted (1, not scored):")
+    expect(text).not_to include("more findings")
+  end
+end
+RSpec.describe Saboteur::Reporter::Terminal, "default findings wiring (D1)" do
+  around do |example|
+    saved = ENV.to_h.slice("LC_ALL", "LC_CTYPE", "LANG")
+    ENV["LC_ALL"] = "C.UTF-8"
+    example.run
+  ensure
+    keys = %w[LC_ALL LC_CTYPE LANG]
+    keys.each { |key| saved.key?(key) ? ENV[key] = saved[key] : ENV.delete(key) }
+  end
+
+  after { FileUtils.rm_rf(@dirs.to_a) }
+
+  def dir
+    @dirs ||= []
+    @dirs << (@dir ||= File.realpath(Dir.mktmpdir("saboteur-d1-wire-")))
+    @dir
+  end
+
+  it "routes the default whole-project report through DefaultFindings" do
+    source = <<~RUBY
+      class Wired
+        def a = 1 + 1
+        def b = 2 + 2
+        def c = 3 + 3
+        def d = 4 + 4
+      end
+    RUBY
+    path = File.join(dir, "wired.rb")
+    File.write(path, source)
+    subjects = Saboteur::SubjectFinder.new.call(path).subjects
+    results = subjects.map do |subject|
+      at = subject.file_source.index("+", subject.start_byte)
+      edit = Saboteur::MutationSource::Edit.new(file: subject.file, start_byte: at, end_byte: at + 1,
+                                                replacement: "-")
+      mutation = Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: "arithmetic",
+                                                        edits: [edit], coarse: false)
+      Saboteur::MutantResult.new(subject:, mutation:, status: :survived,
+                                 mutated_source: subject.apply(mutation.edits),
+                                 covered_by: ["./spec/wired_spec.rb[2:1]"])
+    end
+    report = Saboteur::Report.new(results:, subjects:, wall_time: 1.0, root: dir, warnings: [], seed: 1)
+
+    io = StringIO.new
+    described_class.new(io).call(report)
+    text = io.string
+    expect(text).to include("... 1 more finding - saboteur survivors .saboteur/report.json, " \
+                            "or re-run with --details")
+    expect(text).to include("#3 of 4")
+    expect(text).not_to include("#4 of 4")
+
+    io = StringIO.new
+    described_class.new(io, details: true).call(report)
+    expect(io.string).to include("#4 of 4")
+    expect(io.string).not_to include("more findings")
+  end
 end
