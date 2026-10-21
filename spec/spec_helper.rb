@@ -5,6 +5,12 @@ require "fileutils"
 require "saboteur"
 require "saboteur/cli"
 
+# The palette colours output on a known colour-capable CI (GITHUB_ACTIONS)
+# in auto mode; rendering specs must not depend on the ambient environment,
+# so the suite drops the key. Palette detection specs pass an explicit
+# environment: hash instead.
+ENV.delete("GITHUB_ACTIONS")
+
 # The specs call the sandbox layers (Sandbox, Seatbelt, LibC) directly and
 # run in any order, so a file can touch Fiddle before any code path has gone
 # through the lazy door (#697) - cold NameError flakes on CI shards. Load
