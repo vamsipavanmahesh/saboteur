@@ -588,11 +588,11 @@ RSpec.describe Saboteur::CLI do
     allow(Saboteur::Engine).to receive(:new)
       .and_raise(Saboteur::Error, "baseline check 1 failed at seed 42: the suite failed: spec/a_spec.rb")
     expect(cli("run", "--color").call).to eq(5)
-    expect(err.string).to include("\e[31mexit 5 - baseline suite red: fix your tests first\e[0m")
+    expect(err.string).to include("\e[31;1mexit 5 - baseline suite red: fix your tests first\e[0m")
 
     allow(Saboteur::Engine).to receive(:new).and_raise(RuntimeError, "boom")
     expect(cli("run", "--color").call).to eq(70)
-    expect(err.string).to include("\e[31mexit 70 - internal crash (a saboteur bug, never your code)\e[0m")
+    expect(err.string).to include("\e[31;1mexit 70 - internal crash (a saboteur bug, never your code)\e[0m")
 
     err.truncate(0)
     err.rewind

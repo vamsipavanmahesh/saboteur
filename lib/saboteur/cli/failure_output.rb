@@ -51,7 +51,7 @@ module Saboteur
       # The terminal verdict names the reason for a nonzero exit. Painted
       # red under the same colour rules as the report.
       def verdict_line(code)
-        Reporter::Palette.for(@err, mode: @color || :auto).paint(:red, ErrorCause.verdict_line(code))
+        Reporter::Palette.for(@err, mode: @color || :auto).paint(:fail, ErrorCause.verdict_line(code))
       end
     end
   end
