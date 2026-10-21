@@ -2691,4 +2691,12 @@ i.mutation "fdc4600f4e8e8625",
              subject: "Saboteur::Reporter::Terminal#error_part",
              reason: "equivalent: rejected > 1 -> rejected != 1 sits behind rejected.positive?, " \
                      "and for integers >= 1 the two predicates agree"
+  # selection_options.rb:25/26 --ignore-empty flag<->help argument_swap - OptionParser#on
+  # classifies its string arguments by shape, not position, so the swap builds the
+  # identical parser entry (same equivalence as 455660d7ea53007b above). Hand-probed:
+  # the swap leaves `run --help` byte-identical.
+  i.mutation "79a0a3ee707564ea",
+             subject: "Saboteur::CLI::SelectionOptions#define_selection_options",
+             reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not " \
+                     "position - hand-applied swap leaves run --help byte-identical"
 end

@@ -854,6 +854,37 @@ RSpec.describe Saboteur::CLI do
       expect(cli("run", "--threshold", "90", "--json", File.join(Dir.mktmpdir, "r.json")).call).to eq(1)
     end
 
+    it "is 0 with a note for a zero-mutant --since diff under --ignore-empty, even under --threshold" do
+      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of)
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      allow(Saboteur::Selection::GitDiff).to receive(:verify_ref!)
+      expect(cli("run", "--since", "HEAD~1", "--threshold", "90", "--ignore-empty",
+                 "--json", File.join(Dir.mktmpdir, "r.json")).call).to eq(0)
+      expect(err.string).to include("no mutants in the diff")
+    end
+
+    it "keeps the gate without --ignore-empty: a zero-mutant --since diff still fails under --threshold" do
+      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of)
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      allow(Saboteur::Selection::GitDiff).to receive(:verify_ref!)
+      expect(cli("run", "--since", "HEAD~1", "--threshold", "90",
+                 "--json", File.join(Dir.mktmpdir, "r.json")).call).to eq(1)
+      expect(err.string).not_to include("no mutants in the diff")
+    end
+
+    it "still fails a non-empty --since run under --ignore-empty" do
+      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of(result_for(:survived)))
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      allow(Saboteur::Selection::GitDiff).to receive(:verify_ref!)
+      expect(cli("run", "--since", "HEAD~1", "--ignore-empty",
+                 "--json", File.join(Dir.mktmpdir, "r.json")).call).to eq(1)
+    end
+
+    it "refuses --ignore-empty without --since" do
+      expect(cli("run", "--ignore-empty").call).to eq(2)
+      expect(err.string).to include("--ignore-empty applies to --since runs")
+    end
+
     it "is 3 under --threshold when some mutants errored, even with a passing score" do
       report = report_of(result_for(:killed), result_for(:error))
       allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, guessed_tests: nil,

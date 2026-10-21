@@ -25,6 +25,7 @@ RSpec.describe Saboteur::CLI::ExitStatus do
       def surv_cause(report) = survivors_cause(report)
 
       def quality_gate?(report) = failed_quality_gate?(report)
+      def ignore_empty?(report) = ignore_empty_diff?(report)
     end.new(config)
   end
 
@@ -291,6 +292,61 @@ RSpec.describe Saboteur::CLI::ExitStatus do
     it "fails a full run the same way: unreachable mutants verified nothing" do
       report = unreachable_report(results: [result_for(:unreachable)], review: false)
       expect(harness.code(report)).to eq(Saboteur::CLI::EXIT_TOOL)
+    end
+  end
+
+  describe "--ignore-empty" do
+    let(:config) { {} }
+
+    def empty_report(results, omissions: [], inline_suppressions: [], discovery_failures: [])
+      instance_double(Saboteur::Report, results:, omissions:, inline_suppressions:, discovery_failures:)
+    end
+
+    context "with the flag and --since set" do
+      let(:config) { { "ignore_empty" => true, "since" => "main" } }
+
+      it "is true and notes when the run selected no mutants" do
+        expect(harness.ignore_empty?(empty_report([]))).to be(true)
+        expect(harness.err.string).to include("no mutants in the diff")
+      end
+
+      it "is false when the run selected mutants" do
+        expect(harness.ignore_empty?(empty_report([:result]))).to be(false)
+      end
+
+      it "is false when the empty diff still carries omissions" do
+        expect(harness.ignore_empty?(empty_report([], omissions: ["1 mutant omitted"]))).to be(false)
+      end
+
+      it "is false when the empty diff's mutants were all inline-suppressed" do
+        expect(harness.ignore_empty?(empty_report([], inline_suppressions: ["Person#adult?"]))).to be(false)
+      end
+
+      it "is false when mutant discovery failed in the diff" do
+        expect(harness.ignore_empty?(empty_report([], discovery_failures: ["lib/a.rb: parse error"]))).to be(false)
+      end
+    end
+
+    it "is false without --since, flag or not" do
+      expect(harness.ignore_empty?(empty_report([]))).to be(false)
+    end
+
+    context "with the flag but no --since (below the validation that refuses it)" do
+      let(:config) { { "ignore_empty" => true } }
+
+      it "is false and silent" do
+        expect(harness.ignore_empty?(empty_report([]))).to be(false)
+        expect(harness.err.string).to be_empty
+      end
+    end
+
+    context "with --since but no flag" do
+      let(:config) { { "since" => "main" } }
+
+      it "is false and silent" do
+        expect(harness.ignore_empty?(empty_report([]))).to be(false)
+        expect(harness.err.string).to be_empty
+      end
     end
   end
 end
