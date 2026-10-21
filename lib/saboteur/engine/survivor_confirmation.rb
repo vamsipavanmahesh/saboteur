@@ -44,7 +44,7 @@ module Saboteur
         return unconfirmed(result, "the --max-duration budget is spent") if @budget_exceeded.call
 
         tests = unrun_covering_tests(result)
-        return result if tests.empty?
+        return unconfirmed(result, "no covering tests") if tests.empty?
 
         outcome = run_confirmation(result, tests)
         @remaining -= outcome.runtime || 0
