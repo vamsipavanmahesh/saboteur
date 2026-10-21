@@ -1,0 +1,41 @@
+# SPDX-License-Identifier: MIT
+# frozen_string_literal: true
+
+require "digest"
+require "json"
+
+require_relative "acceptance"
+require_relative "evidence"
+require_relative "manifest"
+require_relative "../text"
+
+module Saboteur
+  module Baseline
+    # Loading an accepted baseline manifest, shared by the baseline workflow
+    # and the `run --baseline` gate: size cap, strict parse, then manifest and
+    # evidence validation. Returns [manifest, sha256 of the exact bytes], so a
+    # caller can notice the file changing while the run executes.
+    module Loader
+      module_function
+
+      def call(path)
+        raise ConfigError, "baseline file too large" if File.size(path) > Acceptance::MAX_BYTES
+
+        bytes = File.read(path)
+        digest = Digest::SHA256.hexdigest(bytes)
+        manifest = Manifest.new(JSON.parse(Text.utf8_strict(bytes)))
+        metadata = manifest.to_h.fetch("metadata")
+        candidates = manifest.candidates.values
+        restored = metadata.slice("snapshot", "subjects", "complete", "issues").merge(
+          "compatibility" => manifest.compatibility, "candidates" => candidates,
+          "planned" => candidates.map { |entry| entry.slice(*Evidence::PLAN_FIELDS) },
+          "generation_events" => [], "omissions" => [], "discovery_failures" => [], "inline_suppressions" => []
+        )
+        Evidence.new(restored)
+        [manifest, digest]
+      rescue SystemCallError, JSON::ParserError, ArgumentError => e
+        raise ConfigError, "baseline file: #{e.message}"
+      end
+    end
+  end
+end
