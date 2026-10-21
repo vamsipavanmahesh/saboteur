@@ -162,7 +162,7 @@ RSpec.describe "opt-in baseline commands", :e2e do
     out, err, status = command(dir, "propose", "--baseline", "baseline.json", "--proposal", "proposal.json")
     expect(status.exitstatus).to eq(3), out + err
     blocker = err.index("saboteur: baseline proposal blocker: unchanged_suite_incomplete")
-    refusal = err.index("saboteur: baseline proposal requires complete execution evidence")
+    refusal = err.index("saboteur: baseline proposal needs a proposable run")
     expect(blocker).not_to be_nil, err
     expect(refusal).not_to be_nil, err
     expect(blocker).to be < refusal
