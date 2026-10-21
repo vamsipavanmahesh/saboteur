@@ -35,7 +35,10 @@ module Saboteur
 
     def call
       expected = @integration.all_tests.map(&:id)
-      raise Error, "baseline has no tests; check rspec_args and spec paths" if expected.empty?
+      if expected.empty?
+        raise Error, "baseline has no tests; check rspec_args and the suite filters, " \
+                     "then run saboteur doctor --suite again"
+      end
 
       first = check_run(1, expected)
       second = check_run(2, expected)

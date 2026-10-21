@@ -425,7 +425,7 @@ RSpec.describe Saboteur::CLI do
 
     it "exits 2 when a --test spec does not exist" do
       expect(cli("doctor", "--test", "spec/nope_spec.rb").call).to eq(2)
-      expect(err.string).to include("test file not found: spec/nope_spec.rb")
+      expect(err.string).to include("test file not found: spec/nope_spec.rb; check the path or drop --test")
     end
 
     it "exits 3 with a plain diagnostic and writes nothing when the sandbox probe is refused" do
@@ -2177,7 +2177,7 @@ RSpec.describe Saboteur::CLI, "explicit files" do
 
   it "still refuses a missing test file when --since scopes the run" do
     expect(cli("run", "--since", "origin/main", "--test", "spec/nope_spec.rb").call).to eq(2)
-    expect(err.string).to include("test file not found: spec/nope_spec.rb")
+    expect(err.string).to include("test file not found: spec/nope_spec.rb; check the path or drop --test")
   end
 
   it "refuses a source that does not exist, with exit 2 and no run" do
@@ -2198,7 +2198,7 @@ RSpec.describe Saboteur::CLI, "explicit files" do
 
   it "refuses a test file that does not exist" do
     expect(cli("run", "lib/a.rb", "--test", "spec/typo_spec.rb:3").call).to eq(2)
-    expect(err.string).to include("test file not found: spec/typo_spec.rb:3")
+    expect(err.string).to include("test file not found: spec/typo_spec.rb:3; check the path or drop --test")
   end
 
   it "parses --threshold as a number" do

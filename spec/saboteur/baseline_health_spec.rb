@@ -136,7 +136,8 @@ RSpec.describe Saboteur::BaselineHealth do
   it "refuses to call an empty suite healthy" do
     allow(integration).to receive(:all_tests).and_return([])
     expect { described_class.new(config, integration: integration, supervisor: supervisor).call }
-      .to raise_error(Saboteur::Error, /no tests/)
+      .to raise_error(Saboteur::Error,
+                      /baseline has no tests; check rspec_args and the suite filters, /)
     expect(supervisor).not_to receive(:run)
   end
 end

@@ -47,7 +47,7 @@ RSpec.describe "saboteur run with explicit files and a threshold (end to end)", 
   it "exits 2 when a test does not exist" do
     run = saboteur(dir, "lib/people.rb", "--test", "spec/typo_spec.rb")
     expect(run.status).to eq(2)
-    expect(run.err).to include("test file not found: spec/typo_spec.rb")
+    expect(run.err).to include("test file not found: spec/typo_spec.rb; check the path or drop --test")
   end
 
   it "fails --threshold 100 while a mutant survives, and passes a score above a lower threshold" do
