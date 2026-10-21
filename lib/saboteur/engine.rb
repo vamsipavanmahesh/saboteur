@@ -174,7 +174,7 @@ module Saboteur
                  hazard_suppressions: @diagnostics.hazard_suppressions, early_stop: @early_stop,
                  matrix: config["matrix"], inline_suppressions: @diagnostics.inline_suppressions,
                  operator_policy: config.operator_policy, discovery_failures: @diagnostics.discovery_failures,
-                 test_command: config["test_command"],
+                 test_command: config["test_command"], reuse_label: reuse_label,
                  shard: @shard, memory: @memory_report, referenced: @guessed_referenced || {})
     end
 
@@ -371,6 +371,10 @@ module Saboteur
                       suite_digest: SuiteFiles.new(config).digest,
                       coverage: map, fallback_files: source_files(files))
     end
+
+    # Which reuse mechanism is on, named as the flag the user typed, so
+    # the terminal's reuse note never cites a flag that was not passed.
+    def reuse_label = config["incremental"] ? "--incremental" : ("--resume" if config["resume"])
 
     def verdict_inputs
       JSON.generate(VERDICT_INPUTS.to_h { |key| [key, config[key]] }.merge("operator_policy" => config.operator_policy))

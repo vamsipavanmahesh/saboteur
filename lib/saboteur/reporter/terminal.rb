@@ -411,8 +411,13 @@ module Saboteur
       def details(report)
         report.skip_reasons.each { |reason, count| @out.puts skip_reason_line(reason, count) } if @verbose
         reused = report.results.count(&:reused?)
-        @out.puts "reused #{reused} of #{report.results.size} verdicts from earlier runs (--incremental)" if
+        label = report.reuse_label || "--incremental"
+        @out.puts "reused #{reused} of #{report.results.size} verdicts from earlier runs (#{label})" if
           reused.positive?
+        if reused.zero? && report.reuse_label
+          @out.puts "no earlier verdicts applied (#{label}): first run, or code, tests, dependencies or settings " \
+                    "changed since they were recorded"
+        end
         @out.puts "invalid mutations dropped (did not parse): #{report.invalid_mutations}" if
           report.invalid_mutations.positive?
         hazard_suppressions(report)

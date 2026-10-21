@@ -717,6 +717,20 @@ RSpec.describe Saboteur::Reporter::Terminal, "details" do
                                       "reused 1 of 1 verdicts from earlier runs")
   end
 
+  # The reuse note names the flag the user actually passed, and a run that
+  # applied nothing says why instead of staying silent (#1111 audit).
+  it "names the reuse flag that was passed, and says when nothing applied" do
+    resumed = report_of(result_for(:killed, reused: true), reuse_label: "--resume")
+    expect(render(resumed)).to include("reused 1 of 1 verdicts from earlier runs (--resume)")
+
+    first = report_of(result_for(:killed), reuse_label: "--incremental")
+    expect(render(first)).to include("no earlier verdicts applied (--incremental): first run, or code, tests, " \
+                                     "dependencies or settings changed since they were recorded")
+
+    quiet_run = render(report_of(result_for(:killed)))
+    expect(quiet_run).not_to include("no earlier verdicts applied")
+  end
+
   it "prints no kill line without kills, and no crash lines without crashes" do
     expect(verbose_render(report_of(result_for(:survived)))).not_to include("kills:")
     text = verbose_render(report_of(result_for(:killed, kill_cause: "assertion")))
