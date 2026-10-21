@@ -345,4 +345,88 @@ RSpec.describe Saboteur::Reporter::Html do
                          root: File.dirname(subject_under_test.file),
                          skipped_subjects: { subject_under_test => reason })
   end
+
+  describe "diff mode" do
+    def diff_report(results, changed, subject: person_subject)
+      scope = Saboteur::Engine::DiffScope.new({ subject.file => Set.new(changed) })
+      Saboteur::Report.new(results:, subjects: [subject], wall_time: 1.0,
+                           root: File.dirname(subject.file), review: true, diff_scope: scope)
+    end
+
+    # The mutated statement spans two lines, so the mutant is reported at its
+    # first line while the change sits one line below it.
+    def multiline_result
+      source = <<~RUBY
+        class Person
+          def describe
+            format("%s years",
+                   age)
+          end
+        end
+      RUBY
+      subject = subjects_in(source, name: "person.rb").first
+      edit = Saboteur::MutationSource::Edit.new(file: subject.file, start_byte: source.index("format"),
+                                                end_byte: source.index(")") + 1, replacement: "age.to_s")
+      mutation = Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: "statement_nil",
+                                                        edits: [edit])
+      result = Saboteur::MutantResult.new(subject:, mutation:, status: :survived,
+                                          mutated_source: subject.apply(mutation.edits))
+      [subject, result]
+    end
+
+    it "names the changed line a mutant touches, under the mutant's own location" do
+      page = described_class.build(diff_report([result_for(:survived)], [2]))
+      expect(page).to match(%r{<td class="fit">line 2, column \d+<br>changed line 2</td>})
+    end
+
+    it "names the changed line when the mutated statement starts above it" do
+      subject, result = multiline_result
+      page = described_class.build(diff_report([result], [4], subject:))
+      expect(page).to match(%r{<td class="fit">line 3, column \d+<br>changed line 4</td>})
+    end
+
+    it "lists every changed line a statement-spanning mutant touches" do
+      subject, result = multiline_result
+      page = described_class.build(diff_report([result], [3, 4], subject:))
+      expect(page).to include("changed lines 3, 4")
+    end
+
+    it "names the changed lines of killed mutants too" do
+      page = described_class.build(diff_report([result_for(:killed)], [2]))
+      expect(page).to include("changed line 2")
+    end
+
+    it "says nothing about changed lines outside diff mode" do
+      expect(described_class.build(report_of(result_for(:survived)))).not_to include("changed line")
+    end
+  end
+
+  it "wraps each row's status badge in its own cell" do
+    expect(html).to include('<td><span class="status Killed">Killed</span></td>')
+  end
+
+  it "keeps the closing tags on their own last line" do
+    expect(html.lines.last).to eq("</body></html>\n")
+  end
+
+  it "joins two files' sections with a newline" do
+    Dir.mktmpdir do |dir|
+      results = %w[a b].map do |name|
+        source = "class #{name.capitalize}\n  def m\n    1 >= 0\n  end\nend\n"
+        path = File.join(dir, "#{name}.rb")
+        File.write(path, source)
+        subject = Saboteur::SubjectFinder.new.call(path).subjects.first
+        at = source.index(">=")
+        edit = Saboteur::MutationSource::Edit.new(file: subject.file, start_byte: at, end_byte: at + 2,
+                                                  replacement: ">")
+        mutation = Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: "comparison",
+                                                          edits: [edit])
+        Saboteur::MutantResult.new(subject:, mutation:, status: :killed,
+                                   mutated_source: subject.apply(mutation.edits))
+      end
+      report = Saboteur::Report.new(results:, subjects: results.map(&:subject), wall_time: 1.0, root: dir,
+                                    seed: 1, operator_policy: Saboteur::Config.new({}).operator_policy)
+      expect(described_class.build(report)).to include("</details>\n<details")
+    end
+  end
 end
