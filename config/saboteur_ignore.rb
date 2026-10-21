@@ -2437,4 +2437,40 @@ i.mutation "fdc4600f4e8e8625",
       reason: "equivalent: each and map differ only in the returned array, and the " \
               "block's result is discarded"
 
+
+  i.mutation "f7058d3116116d65",
+      subject: "Saboteur::SubjectFinder#heredoc_eval?",
+      reason: "equivalent: its only caller, walk_call, tests it as an if condition, " \
+              "so nil and false take the same branch"
+
+  i.mutation "da2797abc9e66630",
+      subject: "Saboteur::SubjectFinder#heredoc_eval?",
+      reason: "equivalent: its only caller, walk_call, tests it as an if condition, " \
+              "so nil and false take the same branch"
+
+  i.mutation "73fbc92a1f878817",
+      subject: "Saboteur::SubjectFinder#define_method_subject?",
+      reason: "equivalent: its only caller, call_defined_method?, returns it from a " \
+              "case branch that walk_call tests as a condition"
+
+  i.mutation "52aff07c1854d240",
+      subject: "Saboteur::SubjectFinder#call_defined_method?",
+      reason: "equivalent: its only caller, walk_call, tests it with unless, so nil " \
+              "and false take the same branch"
+
+  i.mutation "e5dd5501fca8ba1d",
+      subject: "Saboteur::SubjectFinder#call_defined_method?",
+      reason: "equivalent: its only caller, walk_call, tests it with unless, so nil " \
+              "and false take the same branch"
+
+  i.mutation "24041e831b061953",
+      subject: "Saboteur::SubjectFinder#class_factory?",
+      reason: "equivalent: its only caller, walk_constant_assignment, tests it with " \
+              "unless, so nil and false take the same branch"
+
+  i.mutation "8c405e2c95dc2bad",
+      subject: "Saboteur::SubjectFinder#class_factory?",
+      reason: "equivalent: its only caller, walk_constant_assignment, tests it with " \
+              "unless, so nil and false take the same branch"
+
 end
