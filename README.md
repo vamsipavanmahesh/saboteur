@@ -82,15 +82,36 @@ properly - that is the bet. Minitest is not supported today;
 ## What a run tells you
 
 ```text
-saboteur 0.7.0: 1 subjects, 10 mutants, wall 0.70 s, seed 1
-killed 8  survived 2  timeout 0  resource limit 0  error 0  score 80.0 %
+saboteur 0.10.0: 1 subjects, 10 mutants, wall 0.70 s, seed 1 (repeat with --seed 1)
+Score: 80.0% (8/10 killed, tested subjects)
+saboteur: 8 killed, 2 survived in 1s - score 80.0%
 ```
 
-Each survivor comes with its diff, the tests that ran, and a triage label
-(`likely_equivalent`, `arid`, `missing_test`) to sort what to read first.
-The labels are heuristics for reading order, never a diagnosis, and they
-never change the score. The terminal prints one finding per statement with
-the label mix and mutant count; `--all-mutants` lists every mutant.
+The score covers tested subjects only. A method no test covers is never
+folded in: the headline names the count (`2 subjects not scored - no tests
+exist`), and a `Not scored` list names the methods themselves, up to ten,
+as the gaps to close first. Kills split by cause (`kills: 7 by a failed
+assertion, 1 by a crash`), so a crash-heavy score reads as weaker evidence;
+the agent JSON carries the same split as `killCauses`. The end-of-run skip
+counts say which kind of "no coverage" each is: `methods never run by
+tests` for whole subjects, `mutant locations not reached` for single edits.
+
+Each survivor comes with its diff, its triage label (`likely_equivalent`,
+`arid`, `missing_test`) and its covering tests, split into the tests that
+actually ran against the mutant and the ones that only covered the line
+(`did not run: ...`) - the missing check may belong in one of those. The
+labels are heuristics for reading order, never a diagnosis, and they never
+change the score. The terminal prints one finding per statement with the
+label mix and mutant count; `--all-mutants` lists every mutant.
+
+A finished run exits 0 when clean, 1 when survivors or a gate fail it, 2 on
+a usage or configuration error, 3 when the run is incomplete (it tested
+nothing, most mutants errored, or nothing about the change could be
+verified), and 4 when a `--max-duration` budget stopped it early. Two more
+exits name failures that are not verdicts: 5 when the unchanged suite
+already fails its baseline check, so fix your tests first, and 70 on an
+internal crash, which names a log with the full backtrace and is always a
+saboteur bug, never your code.
 
 A run on a tree with uncommitted changes opens with a warning that splits
 the count into changes inside the mutation scope, outside it, and
@@ -126,10 +147,17 @@ the macro itself `ran at load` instead of letting its mutants survive.
   named with its tests, and stays out of the score. A spec
   file whose examples depend on earlier ones is retried in defined order
   before a kill is rejected, so its mutants are still scored.
+  With `partial_coverage = "use"`, every open survivor whose covering
+  specs never ran against it gets one budgeted confirmation run (up to
+  eight specs per survivor, `c.confirmation_budget` seconds overall): a
+  failing run kills it, a passing run marks it confirmed, and anything
+  that cannot run is marked unconfirmed with the reason.
 - **Reports for people and tools.** Terminal, HTML, a Stryker-compatible
   JSON report, and a stable agent JSON API with a deprecation policy.
   The GitHub Action posts surviving mutants as review comments on the
-  diff lines of the pull request.
+  diff lines of the pull request. In diff mode the HTML report names the
+  changed lines each mutant touches, since the mutated statement can
+  start a line or two above the changed line.
 - **Resumable runs.** `--resume DIR` keeps verdicts across runs and
   `--incremental` checkpoints them while the run is going, so a stopped
   run picks up where it left off.
