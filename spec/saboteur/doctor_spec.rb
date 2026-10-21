@@ -47,6 +47,9 @@ RSpec.describe Saboteur::Doctor do
 
   it "boots once, checks coverage before and after boot, and reports two baseline runs" do
     hide_const("SimpleCov")
+    # The repo's own dogfood map must not move this pin (#1077): doctor reports
+    # whatever custom map the project has, so the check sees none here.
+    allow(Saboteur::CustomMap).to receive(:load).and_return(Saboteur::CustomMap.new([]))
     integration = instance_double(Saboteur::Integration::Base)
     boot = instance_double(Saboteur::Engine::Boot, load_target: integration)
     expect(Saboteur::Engine::Boot).to receive(:new).with(config, instance_of(Saboteur::Hooks)).and_return(boot)
