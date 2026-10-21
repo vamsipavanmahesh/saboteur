@@ -304,9 +304,12 @@ module Saboteur
 
     # An explicitly named ignore file that is missing is a typo: every
     # accepted entry would silently stop applying. The default path being
-    # absent is the normal case and stays silent.
+    # absent is the normal case and stays silent - even when a full config
+    # dump (a baseline document) restates it, so only a non-default value
+    # can raise.
     def validate_ignore_file!
       return unless explicit?("ignore_file")
+      return if self["ignore_file"] == DEFAULTS["ignore_file"]
       return if File.file?(path("ignore_file"))
 
       raise ConfigError,

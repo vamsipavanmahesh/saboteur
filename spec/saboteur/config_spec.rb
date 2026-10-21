@@ -373,6 +373,11 @@ RSpec.describe Saboteur::Config do
     expect(described_class.new({}, root: @root).explicit?("ignore_file")).to be(false)
   end
 
+  it "stays silent when a full config dump restates the default ignore_file path" do
+    config = described_class.new({ "ignore_file" => described_class::DEFAULTS["ignore_file"] }, root: @root)
+    expect(config["ignore_file"]).to eq(described_class::DEFAULTS["ignore_file"])
+  end
+
   it "accepts an explicitly set ignore_file that exists" do
     write("config/my_ignore.rb", "# entries\n")
     config = described_class.new({ "ignore_file" => "config/my_ignore.rb" }, root: @root)
