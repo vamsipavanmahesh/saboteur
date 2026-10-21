@@ -117,6 +117,16 @@ module Saboteur
                    ["Run only some specs twice", "saboteur doctor --test spec/models"]]
       ),
       Command.new(
+        name: "init",
+        summary: "Write a starter config/saboteur.rb for an RSpec project",
+        description: "Writes config/saboteur.rb with the rspec integration, a starter threshold and a " \
+                     "commented ignore_file line, then prints the next commands. Refuses to overwrite an " \
+                     "existing config (exit 2) unless --force.",
+        takes_options: true,
+        exit_codes: EXIT_CODE_MEANINGS,
+        examples: [["Set up a project", "saboteur init"]]
+      ),
+      Command.new(
         name: "baseline",
         summary: "Check, propose or accept a fresh opt-in survivor baseline",
         description: "Check runs every mutant fresh and reports new, changed or unmatched accepted survivors. " \

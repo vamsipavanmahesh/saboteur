@@ -43,10 +43,11 @@ RSpec.describe Saboteur::Help do
     headers = overview.lines.grep(/\A[A-Z][A-Z ]+( \(.*\))?\n\z/).map(&:strip)
     expect(headers).to eq(["USAGE", "COMMANDS", "OPTIONS (saboteur run)", "OPTIONS (saboteur pr)",
                            "OPTIONS (saboteur audit)", "OPTIONS (saboteur doctor)",
+                           "OPTIONS (saboteur init)",
                            "OPTIONS (saboteur baseline)", "OPTIONS (saboteur badge)", "OPTIONS (saboteur trend)",
                            "EXAMPLES",
                            "EXIT CODES (saboteur run)", "EXIT CODES (saboteur pr)", "EXIT CODES (saboteur audit)",
-                           "EXIT CODES (saboteur doctor)",
+                           "EXIT CODES (saboteur doctor)", "EXIT CODES (saboteur init)",
                            "EXIT CODES (saboteur baseline)", "EXIT CODES (saboteur survivors)",
                            "EXIT CODES (saboteur badge)", "EXIT CODES (saboteur trend)",
                            "CONFIG FILE (config/saboteur.rb)", "FILES"])

@@ -27,6 +27,7 @@ require_relative "cli/matrix_option"
 require_relative "cli/output_options"
 require_relative "cli/explicit_file_options"
 require_relative "cli/doctor_command"
+require_relative "cli/init_command"
 require_relative "cli/agent_provenance"
 require_relative "cli/preview_command"
 require_relative "cli/help_command"
@@ -55,6 +56,7 @@ module Saboteur
     include OutputOptions
     include ExplicitFileOptions
     include DoctorCommand
+    include InitCommand
     include AgentProvenance
     include HelpOptions
     include PreviewCommand
@@ -103,7 +105,7 @@ module Saboteur
       when "run" then run_command
       when "baseline" then baseline
       when "survivors" then survivors_command
-      when "doctor" then doctor_command
+      when "doctor", "init" then environment_command(command)
       when "badge", "trend" then history_entry(command)
       when "version", "--version" then @out.puts(VERSION) || EXIT_OK
       when "help", "--help", "-h" then show_help(@argv.shift)
@@ -131,6 +133,8 @@ module Saboteur
     end
 
     private
+
+    def environment_command(command) = command == "init" ? init_command : doctor_command
 
     def history_entry(command) = help_requested? ? show_help(command) : history_command(command)
 
