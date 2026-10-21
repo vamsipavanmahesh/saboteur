@@ -11,7 +11,11 @@ module Saboteur
   # own line, command and key rows start with two spaces. Option lines come from
   # the CLI's own option parser, so a new option shows up here without an edit.
   class Help
-    Command = Data.define(:name, :summary, :description, :takes_options, :exit_codes, :examples)
+    Command = Data.define(:name, :summary, :description, :takes_options, :exit_codes, :examples, :usage) do
+      def initialize(name:, summary:, description:, takes_options:, exit_codes:, examples:, usage: nil)
+        super
+      end
+    end
 
     PURPOSE = "mutation testing for Ruby and RSpec"
     DOCUMENTATION = "https://github.com/vamsipavanmahesh/saboteur"
@@ -139,15 +143,19 @@ module Saboteur
         name: "survivors",
         summary: "Browse a report's survivors in the terminal, read-only",
         description: "Reads the Stryker JSON report without booting the project or rerunning tests. " \
-                     "Lists every survivor with rank, file, line, operator, digest and triage label; " \
-                     "filters with --file, --operator and --triage; --ranked uses the report's ranked " \
-                     "findings order. --show DIGEST prints the diff, the exact replay command and an " \
-                     "ignore-file entry template for that mutant. It never edits the ignore file.",
-        takes_options: false,
+                     "Lists every survivor with rank, file, line, operator, digest and triage label in " \
+                     "the report's ranked findings order, the same order the run's terminal report " \
+                     "prints; filters with --file, --operator and --triage; accepts --color and " \
+                     "--no-color exactly as run does. --show DIGEST prints the diff, the exact replay " \
+                     "command and an ignore-file entry template for that mutant. It never edits the " \
+                     "ignore file.",
+        takes_options: true,
+        usage: "saboteur survivors [options] REPORT",
         exit_codes: { 0 => "Survivors listed or shown (including none).",
                       2 => "Missing, malformed or unreadable report; bad arguments." },
         examples: [["List survivors from the last run", "saboteur survivors .saboteur/report.json"],
-                   ["Review-priority order", "saboteur survivors .saboteur/report.json --ranked"],
+                   ["Only survivors of one operator",
+                    "saboteur survivors .saboteur/report.json --operator and_to_or"],
                    ["Diff, replay command and ignore template for one mutant",
                     "saboteur survivors .saboteur/report.json --show 1a2b3c4d5e6f7a8b"]]
       ),
@@ -278,7 +286,7 @@ module Saboteur
 
     def command_usage(command)
       suffix = command.takes_options ? " [options]" : ""
-      "USAGE\n  saboteur #{command.name}#{suffix}\n"
+      "USAGE\n  #{command.usage || "saboteur #{command.name}#{suffix}"}\n"
     end
 
     def commands_section

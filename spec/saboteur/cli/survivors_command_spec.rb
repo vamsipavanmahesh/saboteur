@@ -117,7 +117,7 @@ RSpec.describe Saboteur::CLI, "survivors (#475)" do
   end
 
   describe "CLI parse layer (#520 dogfood survivors)" do
-    it "orders by the report's ranked findings with --ranked, by path and digest without" do
+    it "orders by the report's ranked findings by default; --ranked is an accepted no-op" do
       Dir.mktmpdir do |dir|
         path = write_report(dir, survivors: [])
         report = JSON.parse(File.read(path))
@@ -129,11 +129,29 @@ RSpec.describe Saboteur::CLI, "survivors (#475)" do
         File.write(path, JSON.generate(report))
 
         expect(cli("survivors", path).call).to eq(0)
-        expect(out.string.index("a" * 16)).to be < out.string.index("b" * 16)
+        expect(out.string.index("b" * 16)).to be < out.string.index("a" * 16)
 
         ranked_out = StringIO.new
         expect(described_class.new(["survivors", path, "--ranked"], out: ranked_out, err: err).call).to eq(0)
-        expect(ranked_out.string.index("b" * 16)).to be < ranked_out.string.index("a" * 16)
+        expect(ranked_out.string).to eq(out.string)
+      end
+    end
+
+    it "accepts --no-color and keeps the output plain, and paints the header with --color=always" do
+      Dir.mktmpdir do |dir|
+        path = write_report(dir, survivors: [])
+        expect(cli("survivors", path, "--no-color").call).to eq(0)
+        expect(out.string).to include("2 survivors")
+        expect(out.string).not_to include("\e[")
+
+        coloured = StringIO.new
+        expect(described_class.new(["survivors", path, "--color", "always"], out: coloured, err: err).call)
+          .to eq(0)
+        expect(coloured.string).to include("\e[1m2 survivors").and include("\e[2mmissing_test\e[0m")
+
+        auto = StringIO.new
+        expect(described_class.new(["survivors", path, "--color"], out: auto, err: err).call).to eq(0)
+        expect(auto.string).to include("\e[1m") # bare --color means always
       end
     end
 
@@ -156,7 +174,8 @@ RSpec.describe Saboteur::CLI, "survivors (#475)" do
 
     it "refuses a missing report path with the exact usage line and exit 2" do
       expect(cli("survivors").call).to eq(2)
-      expect(err.string).to eq("saboteur: survivors expects a report path: saboteur survivors .saboteur/report.json\n")
+      expect(err.string).to eq("saboteur: survivors expects a report path.\n" \
+                               "Usage: saboteur survivors [options] REPORT\n")
     end
 
     it "refuses extra arguments with the exact message and exit 2" do
@@ -177,11 +196,14 @@ RSpec.describe Saboteur::CLI, "survivors (#475)" do
       ensure
         $stdout = STDOUT
       end
-      expect(captured.string).to include("Review-priority order",
+      expect(captured.string).to include("Usage: saboteur survivors [options] REPORT",
+                                         "Deprecated: the list is in the report's ranked order by default",
                                          "Only survivors whose path contains SUBSTR",
                                          "Only survivors of operator NAME",
                                          "Only survivors classified LABEL",
-                                         "Diff, replay command and ignore template")
+                                         "Diff, replay command and ignore template",
+                                         "Colour the list: always, never or auto (default: auto)",
+                                         "Deprecated alias for --color=never")
     end
 
     it "does not leak subcommand flags into the CLI's options" do

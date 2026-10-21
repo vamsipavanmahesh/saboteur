@@ -7,7 +7,7 @@ require "tmpdir"
 
 # Exact-output pins for the survivors browser layer (#520): list header,
 # filters note, truncated-findings suffix and its limit fallback, row
-# format, default and ranked order with every sort key element made
+# format and the default ranked order with every sort key element made
 # decisive, the show view (diff, replay command, ignore-entry template,
 # findings/accepted/source-line fallbacks, short digest prefixes) and
 # both load_survivor_report refusal messages.
@@ -49,21 +49,21 @@ RSpec.describe Saboteur::CLI::SurvivorsBrowser, "output pins (#520)" do
 
   let(:browser) { described_class.new(report) }
 
-  it "lists by path, line and digest - killed mutants excluded - with exact header and rows" do
+  it "lists in the report's ranked order by default - killed mutants excluded - with exact header and rows" do
     expect(browser.list).to eq(
       ["7 survivors (the report's ranked findings name only the first 10)",
-       "  1. lib/alpha.rb:9  body_nil                     ffffffffffffffff  -",
-       "  2. lib/order.rb:3  and_to_or                    bbbbbbbbbbbbbbbb  -",
-       "  3. lib/order.rb:4  condition_true               eeeeeeeeeeeeeeee  order_dependent",
-       "  4. lib/order.rb:5  sum_to_map_sum               aaaaaaaaaaaaaaaa  missing_test",
-       "  5. lib/order.rb:7  comparison                   0000000000000000  -",
-       "  6. lib/order.rb:7  literal_number               hhhhhhhhhhhhhhhh  -",
-       "  7. lib/zeta.rb:1  literal_string               dddddddddddddddd  -"]
+       "  1. lib/order.rb:4  condition_true               eeeeeeeeeeeeeeee  order_dependent",
+       "  2. lib/order.rb:5  sum_to_map_sum               aaaaaaaaaaaaaaaa  missing_test",
+       "  3. lib/zeta.rb:1  literal_string               dddddddddddddddd  -",
+       "  4. lib/alpha.rb:9  body_nil                     ffffffffffffffff  -",
+       "  5. lib/order.rb:3  and_to_or                    bbbbbbbbbbbbbbbb  -",
+       "  6. lib/order.rb:7  comparison                   0000000000000000  -",
+       "  7. lib/order.rb:7  literal_number               hhhhhhhhhhhhhhhh  -"]
     )
   end
 
   it "ranks findings first, then unranked by coverage count, path, line and digest" do
-    expect(browser.list(ranked: true)).to eq(
+    expect(browser.list).to eq(
       ["7 survivors (the report's ranked findings name only the first 10)",
        "  1. lib/order.rb:4  condition_true               eeeeeeeeeeeeeeee  order_dependent",
        "  2. lib/order.rb:5  sum_to_map_sum               aaaaaaaaaaaaaaaa  missing_test",
@@ -106,16 +106,15 @@ RSpec.describe Saboteur::CLI::SurvivorsBrowser, "output pins (#520)" do
     expect(described_class.new(untruncated).list.first).to eq("7 survivors")
   end
 
-  it "works without a findings section at all, ranked included" do
+  it "works without a findings section at all" do
     bare = described_class.new({ "files" => report["files"] })
     expect(bare.list.first).to eq("7 survivors")
-    expect(bare.list(ranked: true).first).to eq("7 survivors")
     expect(bare.show("bbbb")).to include(
       "subject: \"Klass#meth\" # TODO: capped findings omit this digest - fill it in,"
     )
   end
 
-  it "treats a survivor entry with a null coveredBy as zero coverage, ranked included" do
+  it "treats a survivor entry with a null coveredBy as zero coverage" do
     # The Stryker writer emits null coveredBy for uncovered mutants.
     entry = { "id" => "9" * 16, "mutatorName" => "body_nil", "replacement" => "nil",
               "location" => { "start" => { "line" => 2, "column" => 3 },
@@ -123,7 +122,7 @@ RSpec.describe Saboteur::CLI::SurvivorsBrowser, "output pins (#520)" do
               "status" => "Survived", "coveredBy" => nil }
     report = { "files" => { "lib/solo.rb" => { "language" => "ruby", "source" => "a\nb\nc\n",
                                                "mutants" => [entry] } } }
-    expect(described_class.new(report).list(ranked: true)).to eq(
+    expect(described_class.new(report).list).to eq(
       ["1 survivor", "  1. lib/solo.rb:2  body_nil                     #{'9' * 16}  -"]
     )
   end

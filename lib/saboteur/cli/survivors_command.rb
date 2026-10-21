@@ -3,6 +3,8 @@
 
 require "json"
 
+require_relative "../reporter/palette"
+
 module Saboteur
   class CLI
     # saboteur survivors <report.json> (#475): a read-only, line-oriented
@@ -21,27 +23,42 @@ module Saboteur
       end
 
       def survivors_command_inner
-        parser = OptionParser.new do |opts|
-          opts.on("--ranked", "Review-priority order: the report's ranked findings first")
+        options = {}
+        args = survivors_parser.parse!(@argv, into: options)
+        path = args.shift or raise UsageError,
+                                   "survivors expects a report path.\nUsage: saboteur survivors [options] REPORT"
+        raise UsageError, "unexpected arguments: #{args.join(' ')}" if args.any?
+
+        report = load_survivor_report(path)
+        browser = SurvivorsBrowser.new(report,
+                                       palette: Reporter::Palette.for(@out, mode: @survivors_color || :auto))
+        if options[:show]
+          @out.puts(browser.show(options[:show]))
+        else
+          @out.puts(browser.list(**options.slice(:file, :operator, :triage)))
+        end
+        EXIT_OK
+      end
+
+      # The parser is a method so `saboteur help survivors` can print the
+      # same options. --ranked is a deprecated no-op: the list is in the
+      # report's ranked order by default (#1150). --color/--no-color are
+      # accepted exactly as on run.
+      def survivors_parser
+        @survivors_color = :auto
+        OptionParser.new do |opts|
+          opts.banner = "Usage: saboteur survivors [options] REPORT"
+          opts.on("--ranked", "Deprecated: the list is in the report's ranked order by default")
           opts.on("--file SUBSTR", "Only survivors whose path contains SUBSTR")
           opts.on("--operator NAME", "Only survivors of operator NAME")
           opts.on("--triage LABEL", "Only survivors classified LABEL (for example missing_test)")
           opts.on("--show DIGEST", "Diff, replay command and ignore template for one survivor")
+          opts.on("--color [MODE]", %w[always never auto],
+                  "Colour the list: always, never or auto (default: auto)") do |v|
+            @survivors_color = (v || :always).to_sym
+          end
+          opts.on("--no-color", "Deprecated alias for --color=never") { @survivors_color = :never }
         end
-        options = {}
-        args = parser.parse!(@argv, into: options)
-        path = args.shift or raise UsageError,
-                                   "survivors expects a report path: saboteur survivors .saboteur/report.json"
-        raise UsageError, "unexpected arguments: #{args.join(' ')}" if args.any?
-
-        report = load_survivor_report(path)
-        browser = SurvivorsBrowser.new(report)
-        if options[:show]
-          @out.puts(browser.show(options[:show]))
-        else
-          @out.puts(browser.list(**options.slice(:ranked, :file, :operator, :triage)))
-        end
-        EXIT_OK
       end
 
       def load_survivor_report(path)
@@ -56,17 +73,20 @@ module Saboteur
     # Reads the report's files section (the complete mutant list), not the
     # capped findings, so survivors beyond the findings limit still list.
     class SurvivorsBrowser
-      def initialize(report)
+      # The list is always in the report's ranked findings order - the same
+      # order the run's terminal report prints (#1150). The header is
+      # painted :head and the triage label :dim when colour is on.
+      def initialize(report, palette: Reporter::Palette.new(enabled: false))
         @report = report
         @findings = report.dig("saboteur", "findings") || {}
+        @palette = palette
       end
 
-      def list(ranked: false, file: nil, operator: nil, triage: nil)
-        survivors = filtered(file, operator, triage)
-        survivors = ranked_order(survivors) if ranked
+      def list(file: nil, operator: nil, triage: nil)
+        survivors = ranked_order(filtered(file, operator, triage))
         return "no survivors#{filters_note(file, operator, triage)}" if survivors.empty?
 
-        [header(survivors.size, file, operator, triage), *rows(survivors)]
+        [@palette.paint(:head, header(survivors.size, file, operator, triage)), *rows(survivors)]
       end
 
       def show(digest)
@@ -109,7 +129,7 @@ module Saboteur
         survivors.each_with_index.map do |s, i|
           format("%3<i>d. %<path>s:%<line>d  %-28<operator>s %<digest>s  %<classification>s",
                  i: i + 1, path: s[:path], line: s[:line], operator: s[:operator], digest: s[:digest],
-                 classification: s[:classification] || "-")
+                 classification: @palette.paint(:dim, s[:classification] || "-"))
         end
       end
 
