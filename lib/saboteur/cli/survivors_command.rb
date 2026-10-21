@@ -4,6 +4,7 @@
 require "json"
 
 require_relative "../survivor_guidance"
+require_relative "../reporter/survivor_hints"
 
 module Saboteur
   class CLI
@@ -75,13 +76,10 @@ module Saboteur
         survivor = all_survivors.find { |s| s[:digest].start_with?(digest) } ||
                    raise(UsageError, "no survivor with digest #{digest} in this report")
         finding = findings_by_digest[survivor[:digest]] || {}
-        subject = finding["subject"]
+        subject = finding["subject"] || survivor[:subject]
         seed = @report.dig("config", "seed")
         [
-          "#{survivor[:path]}:#{survivor[:line]}  #{survivor[:operator]}  #{survivor[:digest]}",
-          "",
-          "- #{finding['original'] || original_line(survivor)}",
-          "+ #{finding['replacement'] || survivor[:replacement]}",
+          *detail_lines(survivor, finding),
           "",
           "replay one survivor: #{SurvivorGuidance.replay_command(survivor[:digest], seed: seed)}",
           "  #{SurvivorGuidance::REPLAY_CAVEAT}",
@@ -92,6 +90,48 @@ module Saboteur
       end
 
       private
+
+      def detail_lines(survivor, finding)
+        [
+          "#{survivor[:path]}:#{survivor[:line]}  #{survivor[:operator]}  #{survivor[:digest]}",
+          *classification_line(survivor[:classification]),
+          "",
+          "- #{finding['original'] || original_line(survivor)}",
+          "+ #{finding['replacement'] || survivor[:replacement]}",
+          "why it matters: #{Reporter::SurvivorHints.why(survivor[:operator])}",
+          *covered_line(survivor),
+          *hint_line(survivor, survivor[:classification])
+        ]
+      end
+
+      # The same wording the terminal survivor block uses (#1183).
+      def classification_line(label)
+        return [] unless label
+
+        reason = Reporter::SurvivorHints.label_reason(label)
+        ["classification: #{label}#{" - #{reason}" if reason}"]
+      end
+
+      def covered_line(survivor)
+        names = survivor[:covered].map { |id| test_names[id] }.compact
+        return [] if names.empty?
+
+        rest = " (+#{names.size - 1} more)" if names.size > 1
+        ["covered by #{names.first}#{rest} - ran, still passed"]
+      end
+
+      def test_names
+        @test_names ||= @report.fetch("testFiles", {}).values
+                               .flat_map { |file| file.fetch("tests", []) }
+                               .to_h { |test| [test["id"], test["name"]] }
+      end
+
+      def hint_line(survivor, label)
+        return [] unless label
+
+        text = Reporter::SurvivorHints.for_label(survivor[:operator], label: label)
+        text ? ["hint: #{text}"] : []
+      end
 
       def filtered(file, operator, triage)
         survivors = all_survivors
@@ -129,7 +169,7 @@ module Saboteur
             entry.fetch("mutants", []).select { |m| m["status"] == "Survived" }.map do |m|
               { path: path, line: m.dig("location", "start", "line").to_i, operator: m["mutatorName"],
                 digest: m["id"], replacement: m["replacement"], classification: m["classification"],
-                covered: m["coveredBy"] || [], source: entry["source"] }
+                subject: m["subject"], covered: m["coveredBy"] || [], source: entry["source"] }
             end
           end
           survivors.sort_by { |s| [s[:path], s[:line], s[:digest]] }
