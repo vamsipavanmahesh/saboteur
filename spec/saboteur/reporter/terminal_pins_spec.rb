@@ -54,12 +54,18 @@ RSpec.describe Saboteur::Reporter::Terminal, "pins" do
                             "the canary still watches the tree)\n")
   end
 
-  it "lists skipped subjects with their file, line and reason" do
+  it "lists skipped subjects under verbose, no-coverage ones in the Not scored block only" do
+    other = subjects_in("class Other\n  def m; 1; end\nend\n", name: "other.rb").first
     root = File.dirname(person_subject.file)
-    text = render(report_with(result_for(:killed), skipped_subjects: { person_subject => "no coverage" }))
+    text = render(report_with(result_for(:killed),
+                              skipped_subjects: { person_subject => "no coverage",
+                                                  other => "intentionally untested" }), verbose: true)
     expect(text).to include("methods never run by tests: 1\n",
-                            "  #{person_subject.id} #{person_subject.file.delete_prefix("#{root}/")}:" \
-                            "#{person_subject.start_line}: no coverage\n")
+                            "skipped subjects: intentionally untested: 1\n",
+                            "  #{other.id} #{other.file.delete_prefix("#{root}/")}:#{other.start_line}: " \
+                            "intentionally untested\n")
+    expect(text).not_to include("  #{person_subject.id} #{person_subject.file.delete_prefix("#{root}/")}:" \
+                                "#{person_subject.start_line}: no coverage\n")
   end
 
   describe "kill causes" do

@@ -127,7 +127,7 @@ RSpec.describe "saboteur run (end to end)", :e2e do
 
     it "has no survivors, but exits 3 because most of the run errored" do
       expect(run.status).to eq(3)
-      expect(run.out).to include("killed 1  survived 0  timeout 1  resource limit 0  error 3  skipped 0")
+      expect(run.out).to include("saboteur: 1 killed, 1 timeout, 3 errors")
       expect(run.err).to include("3 of 5 mutants errored")
     end
   end

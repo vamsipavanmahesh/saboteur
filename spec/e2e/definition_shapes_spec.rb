@@ -35,6 +35,6 @@ RSpec.describe "definition shapes (end to end)", :e2e do
     expect(statuses_on(47..47)).to be_empty
     skipped = run.json.fetch("skippedSubjects").map(&:to_s)
     expect(skipped.join).to include("Shapes::Conditional#mode")
-    expect(run.out).to include("Shapes::Conditional#mode lib/shapes.rb:47: no coverage")
+    expect(run.out).to include("Shapes::Conditional#mode (lib/shapes.rb:47)")
   end
 end

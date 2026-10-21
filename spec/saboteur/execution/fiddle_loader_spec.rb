@@ -63,7 +63,7 @@ RSpec.describe Saboteur::Execution::FiddleLoader, "#require_fiddle! (#639)" do
     lib = File.expand_path("../../../lib", __dir__)
     offenders = Dir[File.join(lib, "**", "*.rb")].reject { |file| file.end_with?("fiddle_loader.rb") }
                                                  .flat_map do |file|
-      File.readlines(file).each_with_index.filter_map do |line, index|
+      File.readlines(file, encoding: "UTF-8").each_with_index.filter_map do |line, index|
         "#{file}:#{index + 1}" if line.match?(/^\s*require "fiddle/)
       end
     end

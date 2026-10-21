@@ -16,21 +16,29 @@ module Saboteur
     # Debug statistics (score split, timings, kill causes) need verbose.
     class Terminal
       MAX_ERRORS = 10
+      MAX_NOT_SCORED = 10
       MAX_PASSING_TESTS = SurvivorList::MAX_PASSING_TESTS
 
-      def initialize(out, verbose: false, color: :auto, replay_command: nil, all_mutants: false)
+      def initialize(out, verbose: false, color: :auto, replay_command: nil, all_mutants: false, exit_code: nil,
+                     threshold: nil, previous_score: nil)
         @out = SafeOut.new(out)
         @all_mutants = all_mutants
         @verbose = verbose
         @palette = Palette.for(out, mode: color)
         @score_table = ScoreTable.new(@out, @palette)
         @next_steps = NextSteps.new(@out, @palette, replay_command: replay_command)
+        # The CLI classifies the run: the closing verdict line names the
+        # exit and its reason; the threshold gives the score its colour.
+        @exit_code = exit_code
+        @threshold = threshold
+        # Last recorded score from the score history, for the headline delta.
+        @previous_score = previous_score
       end
 
       def call(report)
         survivors(report)
         errors(report)
-        skipped_subjects(report)
+        skipped_subjects(report) if @verbose
         test_command_gaps(report)
         outside_the_score(report)
         inline_suppressions(report)
@@ -101,31 +109,17 @@ module Saboteur
 
       def summary(report)
         seed = report.seed && ", seed #{report.seed} (repeat with --seed #{report.seed})"
-        @out.puts "saboteur #{VERSION}: #{report.subjects.size} subjects, #{mutant_counts(report)}, " \
-                  "wall #{format('%.2f', report.wall_time)} s#{seed}"
+        tally = "saboteur #{VERSION}: #{report.subjects.size} subjects, #{mutant_counts(report)}, " \
+                "wall #{format('%.2f', report.wall_time)} s#{seed}"
+        @out.puts @palette.paint(:dim, tally)
         @out.puts report.shard.line if report.shard
-        @out.puts status_line(report)
+        score_headline(report)
         details(report)
         @score_table.call(report)
-        @out.puts @score_table.legend
+        not_scored(report)
+        canonical_line(report)
+        verdict_line(report)
         @next_steps.call(report)
-      end
-
-      def status_line(report)
-        c = report.counts
-        survived = "survived #{c[:survived]}"
-        ignored = report.survivors.size - report.unignored_survivors.size
-        survived += " (#{ignored} ignored)" if ignored.positive?
-        rejected = report.rejected_kills
-        rejected_note = " (#{rejected} rejected kill#{'s' if rejected > 1})" if rejected.positive?
-        line = "#{@palette.paint(:green,
-                                 "killed #{c[:killed]}")}  #{@palette.paint(:red,
-                                                                            survived)}  timeout #{c[:timeout]}  " \
-               "resource limit #{c[:resource_limit]}  error #{c[:error]}#{rejected_note}  skipped #{c[:skipped]}"
-        line += "  ran at load #{c[:ran_at_load]}" if c[:ran_at_load].positive?
-        line += "  unreachable #{c[:unreachable]}" if c[:unreachable].positive?
-        line += "  unverified #{c[:unverified]}" if c[:unverified].positive?
-        line
       end
 
       def hazard_suppressions(report)
@@ -135,22 +129,188 @@ module Saboteur
                   "(--allow-hazardous runs them anyway; the canary still watches the tree)"
       end
 
-      def details(report)
+      # Subjects skipped for "no coverage" (CandidateSelection's reason).
+      def untested_subjects(report)
+        report.skipped_subjects.select { |_, reason| reason == ScoreTable::NO_COVERAGE }
+              .keys.sort_by { |subject| [subject.file, subject.start_line] }
+      end
+
+      # The score covers tested subjects only; the untested count stands
+      # next to it, never folded in.
+      def score_headline(report)
         breakdown = report.score_breakdown
+        untested = untested_subjects(report)
         # The share covers scored mutants only, so an error-dominated run
-        # must not print it as a bare score: "score 100.0 %" above "the run
+        # must not print it as a bare score: "100.0 %" above "the run
         # tested almost nothing" reads as a contradiction (#557).
         if report.majority_errored?
-          @out.puts "score n/a (#{breakdown.tested} of #{report.executed.size} mutants scored, " \
+          @out.puts "Score: n/a (#{breakdown.tested} of #{report.executed.size} mutants scored, " \
                     "#{percent(breakdown.value)} of scored)"
-        else
-          @out.puts "score #{percent(breakdown.value)}" \
-                    "#{if @verbose
-                         "#{score_split(breakdown)} (killed+timeout)/(killed+survived+timeout); " \
-                           'errors, resource limits and skips excluded'
-                       end}"
+          return
         end
-        report.skip_reasons.each { |reason, count| @out.puts skip_reason_line(reason, count) }
+
+        line = "Score: #{painted_score(breakdown.value)}#{headline_context(breakdown.value)}"
+        line << if breakdown.tested.zero?
+                  " - nothing tested"
+                else
+                  " (#{breakdown.detected}/#{breakdown.tested} killed, tested subjects)"
+                end
+        if @verbose && breakdown.tested.positive?
+          line << "#{score_split(breakdown)} (killed+timeout)/(killed+survived+timeout); " \
+                  "errors, resource limits and skips excluded"
+        end
+        if untested.any?
+          line << "  #{@palette.paint(:yellow, "#{untested.size} subject#{'s' unless untested.one?} " \
+                                               'not scored - no tests exist')}"
+        end
+        @out.puts line
+      end
+
+      # What the score is judged against and where it came from: the
+      # threshold it must meet, and the last score the history recorded.
+      def headline_context(value)
+        text = +""
+        text << threshold_echo(value) if @threshold
+        text << @palette.paint(:dim, " · prev #{format('%.1f%%', @previous_score * 100)}") if @previous_score
+        text
+      end
+
+      # The headline echoes the threshold it is judged against; a score
+      # below it is a break, painted with the fail colour.
+      def threshold_echo(value)
+        broken = value && value * 100 < @threshold
+        text = " · threshold #{format('%g', @threshold)}#{' (break)' if broken}"
+        broken ? @palette.paint(:red, text) : @palette.paint(:dim, text)
+      end
+
+      # No threshold, no colour. A single --threshold T is the band (T, T):
+      # red below, green at or above, no yellow state.
+      def painted_score(value)
+        text = value ? format("%.1f%%", value * 100) : "n/a"
+        return text unless @threshold && value
+
+        @palette.paint(band_color(value * 100, @threshold, @threshold), text)
+      end
+
+      # Stryker band: red below low, green at or above high, yellow inside.
+      # A single --threshold T passes (T, T), so yellow is unreachable there.
+      def band_color(score, low, high)
+        return :red if score < low
+        return :green if score >= high
+
+        :yellow
+      end
+
+      # The gaps the score cannot see, named with their location.
+      def not_scored(report)
+        untested = untested_subjects(report)
+        return if untested.empty?
+
+        @out.puts
+        @out.puts @palette.paint(:yellow, "Not scored - no tests exist (treat these as your biggest gaps):")
+        entries = untested.map { |subject| "#{subject.id} (#{subject.location(report.root)})" }
+        line = "  #{@palette.paint(:yellow, '!')} #{entries.first(MAX_NOT_SCORED).join(' · ')}"
+        line << " · ... #{entries.size - MAX_NOT_SCORED} more" if entries.size > MAX_NOT_SCORED
+        @out.puts line
+      end
+
+      # One greppable line, pytest-style.
+      def canonical_line(report)
+        parts = state_parts(report)
+        parts << "no mutants" if parts.empty?
+        line = "saboteur: #{parts.join(', ')} in #{duration(report.wall_time)}"
+        line += " - score #{painted_score(report.score)}"
+        line += " (threshold #{format('%g', @threshold)})" if @threshold
+        @out.puts line
+      end
+
+      # The states that say how the run went: nonzero counts only, except
+      # the untested count, which is always named when there is any.
+      def state_parts(report)
+        counts = report.counts
+        live = report.unignored_survivors.size
+        untested = untested_subjects(report).size
+        [counted(counts[:killed], "killed", plural: false, color: :green),
+         counted(live, "survived", plural: false, color: :red),
+         counted(report.survivors.size - live, "accepted", plural: false),
+         counted(counts[:timeout], "timeout", color: :yellow), counted(counts[:resource_limit], "resource limit"),
+         error_part(report, counts[:error]), counted(counts[:unverified], "unverified", plural: false),
+         ("#{untested} subject#{'s' unless untested == 1} untested" if untested.positive?)].compact
+      end
+
+      def counted(count, word, plural: true, color: nil)
+        return unless count.positive?
+
+        text = "#{count} #{word}#{'s' if plural && count != 1}"
+        color ? @palette.paint(color, text) : text
+      end
+
+      def error_part(report, errors)
+        return if errors.zero?
+
+        rejected = report.rejected_kills
+        note = " (#{rejected} rejected kill#{'s' if rejected > 1})" if rejected.positive?
+        "#{errors} error#{'s' unless errors == 1}#{note}"
+      end
+
+      def duration(seconds)
+        minutes, rest = seconds.round.divmod(60)
+        minutes.positive? ? "#{minutes}m#{rest.to_s.rjust(2, '0')}s" : "#{rest}s"
+      end
+
+      # Why the run exits the way it does, echoing the thresholds. Exit 0
+      # prints no verdict: PR6 owns the clean screen.
+      # The exit codes are the CLI's (CLI::EXIT_*): literals here, because
+      # the CLI requires this file, not the other way round.
+      def verdict_line(report)
+        return if @exit_code.nil? || @exit_code.zero?
+
+        case @exit_code
+        when 1 then @out.puts @palette.paint(:red, failure_verdict(report))
+        when 4
+          @out.puts @palette.paint(:red, "\u2717 exit 4 - --max-duration budget spent; " \
+                                         "the score covers only completed work")
+        else
+          @out.puts @palette.paint(:red, incomplete_verdict(report))
+        end
+      end
+
+      def failure_verdict(report)
+        reasons = []
+        score = report.score
+        if @threshold && score && score * 100 < @threshold
+          reasons << "score #{format('%.1f%%', score * 100)} below threshold #{format('%g', @threshold)}"
+        end
+        live = report.unignored_survivors.size
+        reasons << "#{live} survivor#{'s' unless live == 1}" if live.positive?
+        reasons << "gate limits exceeded" if reasons.empty?
+        "\u2717 exit 1 - #{reasons.join(', ')}"
+      end
+
+      def incomplete_verdict(report)
+        if report.majority_errored?
+          "\u2717 exit 3 - most executed mutants errored; the run tested almost nothing"
+        elsif unverifiable_change?(report)
+          count = report.subjects.size
+          reasons = report.skipped_subjects.values.uniq.join(", ")
+          "\u2717 exit 3 - #{count} change#{'s' unless count == 1} could not be verified (#{reasons})"
+        elsif report.executed.any? && report.executed.all? { |result| result.status == :unreachable }
+          "\u2717 exit 3 - the change could not be verified (all mutants unreachable)"
+        elsif report.early_stop && report.score_breakdown.tested.zero?
+          "\u2717 exit 3 - stopped before any mutant was tested; there is no score to judge"
+        else
+          "\u2717 exit 3 - run incomplete; the score is not a verified result"
+        end
+      end
+
+      # A scoped run whose every subject was skipped verified nothing (#574).
+      def unverifiable_change?(report)
+        report.review? && report.subjects.any? &&
+          report.subjects.all? { |subject| report.skipped_subjects.key?(subject) }
+      end
+
+      def details(report)
+        report.skip_reasons.each { |reason, count| @out.puts skip_reason_line(reason, count) } if @verbose
         reused = report.results.count(&:reused?)
         @out.puts "reused #{reused} of #{report.results.size} verdicts from earlier runs (--incremental)" if
           reused.positive?
@@ -249,9 +409,13 @@ module Saboteur
         reason == "no coverage" ? "methods never run by tests: #{count}" : "skipped subjects: #{reason}: #{count}"
       end
 
+      # Verbose-only: the Not scored block names the no-coverage subjects;
+      # other skips are announced live in a scoped run (#574).
       def skipped_subjects(report)
         report.skipped_subjects.values.tally.each { |reason, count| @out.puts skipped_subject_line(reason, count) }
         report.skipped_subjects.each do |subject, reason|
+          next if reason == ScoreTable::NO_COVERAGE
+
           @out.puts "  #{subject.id} #{relative(subject.file, report.root)}:#{subject.start_line}: #{reason}"
         end
       end

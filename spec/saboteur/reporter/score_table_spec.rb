@@ -39,11 +39,11 @@ RSpec.describe Saboteur::Reporter::ScoreTable do
     expect(table_for("a.rb" => %i[killed survived])).to eq("")
   end
 
-  it "prints two files, worst first, with padded scores and singular or plural survivors" do
+  it "prints two files, worst first, with padded scores and killed/tested counts" do
     text = table_for("good.rb" => %i[killed], "bad.rb" => %i[survived survived killed], "mid.rb" => %i[killed survived])
     expect(text).to eq(
-      "\nScore by file (worst first):\n  bad.rb    33.3 %  2 survivors\n  " \
-      "mid.rb    50.0 %  1 survivor\n  good.rb  100.0 %  0 survivors\n"
+      "\nScore by file (worst first):\n  bad.rb    33.3% (1/3)\n  " \
+      "mid.rb    50.0% (1/2)\n  good.rb  100.0% (1/1)\n"
     )
   end
 
@@ -61,12 +61,5 @@ RSpec.describe Saboteur::Reporter::ScoreTable do
   it "counts one extra file as one more" do
     sixteen = (1..16).to_h { |i| ["h#{i.to_s.rjust(2, '0')}.rb", %i[killed survived]] }
     expect(table_for(sixteen)).to include("  ... 1 more files")
-  end
-
-  it "wraps the legend in lines that fit a narrow terminal" do
-    lines = described_class.new(out, palette).legend.lines.map(&:chomp)
-    expect(lines.first).to start_with("legend: killed: a test failed")
-    expect(lines.drop(1)).to all(start_with("        ").and(satisfy { |line| line[8] != " " }))
-    expect(lines.map(&:length).max).to be <= 80
   end
 end

@@ -13,7 +13,9 @@ RSpec.describe "load-time statuses (end to end)", :e2e do
       expect(unignored.map { |m| m["status"] }).not_to include("Survived")
       size_mutants = mutants(run).select { |m| m.dig("location", "start", "line") == 23 }
       expect(size_mutants.map { |m| m["status"] }.uniq).to eq(["Killed"])
-      expect(run.out).to include("ran at load", "Hooks.label_for", "Hooks.included")
+      expect(run.out).to include("Ran at load (out of the score):", "ran at load:")
+      verbose_run = saboteur(copy_fixture("loadtime"), "--verbose")
+      expect(verbose_run.out).to include("Hooks.label_for", "Hooks.included")
     end
   end
 

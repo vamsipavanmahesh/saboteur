@@ -95,12 +95,12 @@ RSpec.describe Saboteur::Reporter::Terminal, "early stop and rejected kills" do
     expect(lines_for([result_for(:survived)]).grep(/no coverage map/)).to be_empty
   end
 
-  it "counts rejected kills in the status line, with a plural only for more than one" do
+  it "counts rejected kills in the closing summary line, with a plural only for more than one" do
     one = result_for(:error, reason: "x", rejected_kill: true)
     two = result_for(:error, replacement: "<", reason: "x", rejected_kill: true)
-    expect(lines_for([one])).to include(a_string_including("error 1 (1 rejected kill)  skipped 0"))
-    expect(lines_for([one, two])).to include(a_string_including("error 2 (2 rejected kills)  skipped 0"))
-    expect(lines_for([result_for(:killed)])).to include(a_string_including("error 0  skipped 0"))
+    expect(lines_for([one])).to include(a_string_including("1 error (1 rejected kill)"))
+    expect(lines_for([one, two])).to include(a_string_including("2 errors (2 rejected kills)"))
+    expect(lines_for([result_for(:killed)])).not_to include(a_string_including("error"))
   end
 
   it "leaves a blank line after the survivors only when there are some" do

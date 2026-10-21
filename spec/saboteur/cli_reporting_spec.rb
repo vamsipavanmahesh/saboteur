@@ -16,7 +16,8 @@ RSpec.describe "finished run reporting" do
       terminal = instance_double(Saboteur::Reporter::Terminal)
       expect(cli).to receive(:survivor_replay_command).with(report, nil).and_return(->(digest) { "replay #{digest}" })
       expect(Saboteur::Reporter::Terminal).to receive(:new)
-        .with(out, verbose: verbose || false, color: color || :auto, replay_command: kind_of(Proc), all_mutants: false)
+        .with(out, verbose: verbose || false, color: color || :auto, replay_command: kind_of(Proc), all_mutants: false,
+                   exit_code: 0, threshold: nil, previous_score: nil)
         .and_return(terminal)
       expect(terminal).to receive(:call).with(report)
       replay_report = instance_double(Saboteur::Reporter::Replay)
@@ -53,6 +54,26 @@ RSpec.describe "finished run reporting" do
     expect(cli).to receive(:write_json).with(report, "ok").ordered
     expect(cli.send(:agent_run, arguments)).to eq(0)
   end
+  it "wires the replay command through text_run with report first, engine last" do
+    report = report_of(result_for(:survived))
+    cli = Saboteur::CLI.new([], out: StringIO.new, err: StringIO.new)
+    engine = instance_double(Saboteur::Engine, guessed_tests: nil)
+    terminal = instance_double(Saboteur::Reporter::Terminal, call: nil)
+    captured = nil
+    allow(Saboteur::Reporter::Terminal).to receive(:new) do |*_args, **kwargs|
+      captured = kwargs[:replay_command]
+      terminal
+    end
+    allow(cli).to receive(:validate_history)
+    allow(cli).to receive(:write_html)
+    allow(cli).to receive(:record_history)
+    allow(cli).to receive(:write_json)
+    state = Saboteur::WorkingTree::State.new(head: "a" * 40, dirty: false, changed_files: 0)
+    allow(Saboteur::WorkingTree).to receive(:new).and_return(instance_double(Saboteur::WorkingTree, state: state))
+    expect(cli.send(:text_run, report, engine)).to eq(1)
+    expect(captured.call("53b683c4659bb71c")).to include("saboteur run", "--id", "53b683c4659bb71c")
+  end
+
   it "builds survivor replay commands from a working tree that excludes output paths" do
     cli = Saboteur::CLI.new([], out: StringIO.new, err: StringIO.new)
     config = cli.config
@@ -89,5 +110,30 @@ RSpec.describe "finished run reporting" do
     expect(Saboteur::Reporter::ScoreHistory).to receive(:new).with(config.path("score_history")).and_return(history)
     expect(history).to receive(:validate_existing)
     cli.send(:validate_history)
+  end
+  it "reads the previous covered score from the history, tolerating its absence" do
+    cli = Saboteur::CLI.new([], out: StringIO.new, err: StringIO.new)
+    expect(cli.send(:previous_score)).to be_nil
+
+    config = Saboteur::Config.new({ "score_history" => "out/history.jsonl" })
+    allow(cli).to receive(:config).and_return(config)
+    reads = []
+    allow(Saboteur::Reporter::HistoryReader).to receive(:read) { |path| reads << path }
+    expect(cli.send(:previous_score)).to be_nil
+    expect(reads).to eq([])
+
+    allow(File).to receive(:exist?).and_call_original
+    allow(File).to receive(:exist?).with(config.path("score_history")).and_return(true)
+    reader = Saboteur::Reporter::HistoryReader
+    history_path = config.path("score_history")
+    allow(reader).to receive(:read).with(history_path).and_return([])
+    expect(cli.send(:previous_score)).to be_nil
+    allow(reader).to receive(:read).with(history_path).and_return([{ "coveredTime" => 1 }])
+    expect(cli.send(:previous_score)).to be_nil
+    allow(reader).to receive(:read).with(history_path).and_return([{ "coveredScore" => 0.5 },
+                                                                   { "coveredScore" => 0.732 }])
+    expect(cli.send(:previous_score)).to eq(0.732)
+    allow(reader).to receive(:read).with(history_path).and_raise(Saboteur::Error, "corrupt")
+    expect(cli.send(:previous_score)).to be_nil
   end
 end

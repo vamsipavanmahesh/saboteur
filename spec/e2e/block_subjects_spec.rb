@@ -16,14 +16,16 @@ RSpec.describe "block-defined subjects (end to end)", :e2e do
 
   it "names uncovered factory methods as no coverage, not skipped (#290)" do
     %w[Uncovered#tripled Uncovered#nothing].each do |id|
-      expect(run.out).to include("#{id} lib/blocks.rb:").and include("no coverage")
+      expect(run.out).to include("#{id} (lib/blocks.rb:")
     end
-    expect(run.out).not_to include("Covered#doubled lib/blocks.rb:")
+    expect(run.out).to include("no tests exist")
+    expect(run.out).not_to include("Covered#doubled (lib/blocks.rb:")
   end
 
   it "does not treat a non-factory block as a class owner" do
-    expect(run.out).to include("(anonymous block)#registered").or include("Plain#registered")
-    expect(run.out).not_to include("Registry#registered")
+    verbose_run = saboteur(copy_fixture("blocks"), "--verbose")
+    expect(verbose_run.out).to include("(anonymous block)#registered").or include("Plain#registered")
+    expect(verbose_run.out).not_to include("Registry#registered")
   end
 
   it "mutates the factory-defined methods and no other block-defined ones" do
