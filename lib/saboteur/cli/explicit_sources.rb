@@ -39,7 +39,7 @@ module Saboteur
       # A test may carry an example selector: spec/a_spec.rb:12 or spec/a_spec.rb[1:2].
       def require_existing_test(test)
         path = test.sub(/(:\d+|\[[\d:,]+\])+\z/, "")
-        raise UsageError, "test file not found: #{test}" unless File.exist?(path)
+        raise UsageError, "test file not found: #{test}; check the path or drop --test" unless File.exist?(path)
       end
     end
   end
