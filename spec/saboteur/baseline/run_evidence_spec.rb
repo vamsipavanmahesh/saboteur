@@ -192,7 +192,7 @@ RSpec.describe Saboteur::Baseline::RunEvidence do
                                             ))
     expect(metadata.fetch("config")).to eq(Saboteur::Engine::RunFingerprint.canonical_value(
                                              config.selection_settings.except("cache_dir", "json_report", "html_report",
-                                                                              "score_history", "resume")
+                                                                              "score_history", "resume", "palette")
                                            ))
     expect(metadata.fetch("scope")).to eq("include" => config["include"], "exclude" => config["exclude"],
                                           "subjects" => config["subjects"])
