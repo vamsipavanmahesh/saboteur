@@ -6,6 +6,50 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-10-21
+
+### Added
+
+- The colour contract palette: six tokens with overrides and CI-aware
+  detection (#1112), the `c.palette` setting for text-report colour
+  overrides (#1114), and one palette per stream wired from the CLI
+  through the engine (#1117). The terminal report, score table and safe
+  output (#1115), the survivor list and next steps (#1116), and the
+  crash and failure exit lines (#1118) render with contract tokens.
+- `run --baseline PATH` with `--epsilon POINTS`: an accepted baseline
+  absorbs legacy survivors; only new survivors or a score drop beyond
+  epsilon fail the run (#1120, #1121). The run tail reports matched
+  counts, the gate verdict, and a re-baseline hint (#1122).
+- `run --ignore-empty`: a zero-mutant `--since` diff exits 0 with a
+  note (#1119).
+- Quiet output: the terminal reporter gains a quiet mode - one line per
+  finding plus the score line and verdict (#1126) - wired through the
+  CLI as `--quiet` (#1133). Startup chatter moves behind `--verbose`
+  and runs open with three quiet lines (#1134). Clean runs close with a
+  success screen: win tally, untested note, and reports line (#1137),
+  plus baseline, coverage and dots lines when phase data is present
+  (#1139). Progress streams as width-sized glyph chunks on a redrawing
+  terminal line (#1127).
+- Survivors render as per-statement blocks with fenced source and
+  killer-test details (#1136), built from prose templates and an
+  edit-span helper (#1123). Each survivor shows which covering tests
+  ran against it (#1106), survivor labels mark exception message edits
+  arid (#1095), and an opt-in pass confirms survivors against the
+  coverage map (#1089).
+- The HTML report vendors and pins the mutation-testing-elements 3.9.0
+  viewer (#1124), mounts it in the report (#1125) with an end-to-end
+  smoke test (#1128), and names the changed line each mutant relates to
+  in diff mode (#1110).
+
+### Changed
+
+- Exit-code split: a red baseline exits 5 and an internal crash exits
+  70 (both were exit 3) (#1098), documented in the Action (#1099).
+- The score is honest about untested subjects (#1104).
+- The kill split counts cause-not-recorded kills and exposes them to
+  agents (#1109).
+- The README is rewritten as a top-tier dev-tool README.
+
 ## [0.10.0] - 2026-10-21
 
 ### Added

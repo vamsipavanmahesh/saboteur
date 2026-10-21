@@ -51,7 +51,7 @@ RSpec.describe "the colour contract (DX wave 1, PR1)" do
     # why-it-matters line and the tally).
     expect(text).to include("\e[2m   comparison \u00b7 #{digest}\e[0m", "\e[2m- ran, still passed\e[0m")
     expect(text).to include("\e[2mwhy it matters: the boundary between the two comparisons is untested\e[0m",
-                            "\e[2msaboteur 0.10.0: 1 subjects, 2 mutants, wall 1.25 s, seed 1 " \
+                            "\e[2msaboteur 0.11.0: 1 subjects, 2 mutants, wall 1.25 s, seed 1 " \
                             "(repeat with --seed 1)\e[0m")
     # info: the paste-able replay command, with its lead-in.
     expect(text).to include("  replay one survivor: \e[36msaboteur run --id #{digest} --seed 1\e[0m")
