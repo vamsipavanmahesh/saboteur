@@ -165,6 +165,26 @@ RSpec.describe Saboteur::Reporter::SurvivorList, "survivor blocks" do
     expect(text).not_to include("cart.rb:2 Cart#total")
   end
 
+  it "carries the classification label on an accepted line, like JSON and HTML do (#1074)" do
+    accepted = edited("class Cart\n  def total; @items.sum.round(2); end\nend\n", ".round(2)", "",
+                      operator: "chain_removal", dir:, name: "cart.rb",
+                      covered_by: ["./spec/cart_spec.rb[1:1]"])
+    accepted.ignored = "display-only rounding"
+    text = render([operand, accepted])
+    expected = %(Accepted (1, not scored): cart.rb:2 chain_removal [missing_test] - "display-only rounding"\n)
+    expect(text).to include(expected)
+  end
+
+  it "marks a wont_fix triage on the accepted line, like JSON and HTML do (#1074)" do
+    accepted = edited("class Cart\n  def total; @items.sum.round(2); end\nend\n", ".round(2)", "",
+                      operator: "chain_removal", dir:, name: "cart.rb")
+    accepted.ignored = "display-only rounding"
+    accepted.triage_state = "wont_fix"
+    accepted.triage_reason = "display-only rounding"
+    text = render([operand, accepted])
+    expect(text).to include(%(Accepted (1, not scored): cart.rb:2 chain_removal - "display-only rounding" (wont_fix)\n))
+  end
+
   it "marks an incremental survivor's covering tests as passed in an earlier run" do
     reused = edited(PINS_CALCULATOR, "**", "*", operator: "comparison", dir:, covered_by: ["./spec/c_spec.rb[1:1]"],
                                                 reused: true)
