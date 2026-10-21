@@ -33,4 +33,27 @@ RSpec.describe Saboteur::Reporter::Diff do
   it "terminates a last line that has no newline" do
     expect(described_class.unified("a", "b", path: "f.rb")).to end_with("-a\n+b\n")
   end
+
+  describe ".edit_span" do
+    def edit(at, length, replacement)
+      Saboteur::MutationSource::Edit.new(file: "f.rb", start_byte: at, end_byte: at + length,
+                                         replacement: replacement)
+    end
+
+    it "spans the replacement text exactly, relative to the line start" do
+      expect(described_class.edit_span(100, [edit(111, 3, "years")])).to eq([11, 5])
+    end
+
+    it "starts at the earliest edit and sums single-line replacement lengths" do
+      expect(described_class.edit_span(0, [edit(10, 2, "aa"), edit(4, 1, "bbb")])).to eq([4, 5])
+    end
+
+    it "still marks one column for a pure removal" do
+      expect(described_class.edit_span(7, [edit(9, 5, "")])).to eq([2, 1])
+    end
+
+    it "counts only the first line of a multi-line replacement" do
+      expect(described_class.edit_span(0, [edit(2, 1, "aaaa\nbb")])).to eq([2, 4])
+    end
+  end
 end

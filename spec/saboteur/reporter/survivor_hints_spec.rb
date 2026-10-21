@@ -85,3 +85,28 @@ RSpec.describe Saboteur::Reporter::SurvivorList do
     expect(text).not_to include("hint:", "Hints are suggestions")
   end
 end
+
+RSpec.describe Saboteur::Reporter::SurvivorHints, "label gating and block prose" do
+  it "hints every label except likely_equivalent" do
+    expect(described_class.for_label("arithmetic",
+                                     label: "missing_test")).to eq("try asserting the exact computed number")
+    expect(described_class.for_label("arithmetic", label: nil)).to eq("try asserting the exact computed number")
+    expect(described_class.for_label("arithmetic", label: "likely_equivalent")).to be_nil
+  end
+
+  it "passes coarse through to the operator hint" do
+    expect(described_class.for_label("unknown_op", label: "missing_test", coarse: true))
+      .to eq(described_class.for("unknown_op", coarse: true))
+  end
+
+  it "answers the per-operator why-it-matters sentence, with a fallback" do
+    expect(described_class.why("operand_replacement")).to eq("the result no longer depends on the replaced operand")
+    expect(described_class.why("made_up")).to eq("no test observes this change")
+  end
+
+  it "answers the per-label reason, nil for an unlabeled or unknown label" do
+    expect(described_class.label_reason("likely_equivalent")).to eq("compiles to the same instructions as the original")
+    expect(described_class.label_reason("made_up")).to be_nil
+    expect(described_class.label_reason(nil)).to be_nil
+  end
+end

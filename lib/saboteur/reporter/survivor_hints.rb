@@ -45,7 +45,77 @@ module Saboteur
       EQUAL_CASE = [%w[< <=], %w[> >=]].map(&:to_set).freeze
       UNEQUAL_CASE = [%w[< >], %w[<= >=]].map(&:to_set).freeze
 
+      # Labels that never get a hint: a generated assertion on an equivalent
+      # mutant is the worst kind of hint noise. The assertion_gap/input_gap
+      # split (#1064) narrows this further; until it lands, every other
+      # label keeps the operator hint unchanged.
+      NO_HINT_LABELS = %w[likely_equivalent].freeze
+
+      # One deterministic template sentence per operator: what the change
+      # means for behaviour, never an inference beyond the operator.
+      WHY_IT_MATTERS = {
+        "comparison" => "the boundary between the two comparisons is untested",
+        "arithmetic" => "the computed value can drift without a test noticing",
+        "boolean_logic" => "one side of the condition no longer decides the result",
+        "condition_negation" => "the condition now picks the opposite branch",
+        "negation_removal" => "the negated value is no longer distinguished",
+        "literal_number" => "no test depends on this exact number",
+        "literal_boolean" => "no test depends on this exact true/false value",
+        "literal_string" => "no test asserts on this exact text",
+        "statement_removal" => "the statement's effect goes unobserved",
+        "and_assign" => "the nil-or-false case of &&= is untested",
+        "or_assign" => "the already-set case of ||= is untested",
+        "safe_navigation" => "a nil receiver now behaves like any other value",
+        "argument_removal" => "the call no longer depends on this argument",
+        "argument_swap" => "the argument order no longer matters to any test",
+        "pair_removal" => "the hash no longer depends on this key",
+        "chain_removal" => "part of the call chain has no observable effect",
+        "endpoint_replacement" => "first and last are no longer distinguished",
+        "jump_value" => "the early exit's value goes unobserved",
+        "rescue_removal" => "the rescue handler's behaviour goes unobserved",
+        "ensure_removal" => "the ensure cleanup's effect goes unobserved",
+        "when_removal" => "the values only this branch matches are untested",
+        "unary_removal" => "the sign or complement change goes unobserved",
+        "copy_replacement" => "aliasing and copying are no longer distinguished",
+        "filter_replacement" => "select and reject are no longer distinguished",
+        "interpolation_removal" => "the interpolated value goes unobserved",
+        "regex_replacement" => "the pattern's matched set changed unnoticed",
+        "method_swap" => "the swapped method's different behaviour goes unobserved",
+        "element_removal" => "the removed element goes unobserved",
+        "operand_replacement" => "the result no longer depends on the replaced operand",
+        "operator_assignment" => "the combined assignment operation goes unobserved"
+      }.freeze
+      WHY_FALLBACK = "no test observes this change"
+
+      # The deterministic per-label reason printed next to a survivor's rank.
+      # Labels come from SurvivorClassification; they are heuristics, not
+      # diagnoses. #1064 lands the assertion_gap label: add its reason here
+      # and its gate in NO_HINT_LABELS when it does.
+      LABEL_REASONS = {
+        "likely_equivalent" => "compiles to the same instructions as the original",
+        "arid" => "every edited line matches an arid pattern",
+        "missing_test" => "the covering specs pass without pinning this change",
+        "tool_limit" => "the tool could not observe this mutant faithfully"
+      }.freeze
+
       module_function
+
+      # The hint for a labeled survivor; nil when the label suppresses hints.
+      def for_label(operator, label:, coarse: false)
+        return nil if NO_HINT_LABELS.include?(label)
+
+        self.for(operator, coarse: coarse)
+      end
+
+      # The per-operator "why it matters" sentence for a survivor block.
+      def why(operator)
+        WHY_IT_MATTERS.fetch(operator, WHY_FALLBACK)
+      end
+
+      # The per-label reason sentence; nil when the label has none.
+      def label_reason(label)
+        LABEL_REASONS[label]
+      end
 
       def for(operator, coarse: false)
         BY_OPERATOR.fetch(operator) { coarse ? COARSE : nil }

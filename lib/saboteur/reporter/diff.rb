@@ -87,6 +87,16 @@ module Saboteur
         out
       end
 
+      # The [column, length] span a mutant's edits cover within their
+      # line's replacement text: the exact replacement span (a pure
+      # insertion still gets one caret), so a survivor block's ^^^ marker
+      # sits under the changed text rather than a prefix/suffix guess.
+      def edit_span(line_start_byte, edits)
+        from = edits.map(&:start_byte).min - line_start_byte
+        length = edits.sum { |edit| edit.replacement.partition("\n").first.size }
+        [from, [length, 1].max]
+      end
+
       def range(start, count)
         return "#{start - 1},0" if count.zero?
 
