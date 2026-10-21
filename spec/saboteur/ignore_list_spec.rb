@@ -25,6 +25,15 @@ RSpec.describe Saboteur::IgnoreList do
     expect(described_class.load("/nonexistent/saboteur_ignore.rb").entries).to eq([])
   end
 
+  it "says an unreadable file is unreadable, not missing" do
+    with_file(entry_for("abc")) do |path|
+      allow(File).to receive(:readable?).and_call_original
+      allow(File).to receive(:readable?).with(path).and_return(false)
+      expect { described_class.load(path) }
+        .to raise_error(Saboteur::Error, "#{path}:cannot read the file - check its permissions")
+    end
+  end
+
   it "marks matching survivors as ignored with the reason" do
     survivor = result_for(:survived)
     with_file(entry_for(survivor.digest, reason: "equivalent: ages are whole years")) do |path|

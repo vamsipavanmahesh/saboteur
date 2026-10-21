@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "stringio"
+require "tmpdir"
 require "saboteur/cli"
 
 RSpec.describe "baseline CLI validation" do
@@ -76,7 +77,9 @@ RSpec.describe "baseline CLI validation" do
     end
     expect(workflow).to receive(:propose).with(proposal: "p.json", destination: "b.json", previous: "a" * 64)
                                          .and_return("state" => "proposal")
-    expect(command("propose", "--config", "nonexistent-config.rb", "--baseline", "b.json", "--proposal", "p.json",
+    config_path = File.join(Dir.mktmpdir, "custom.rb")
+    File.write(config_path, "")
+    expect(command("propose", "--config", config_path, "--baseline", "b.json", "--proposal", "p.json",
                    "--subject", "A#m", "--subject", "B.n", "--seed", "7", "--previous", "a" * 64)).to eq(0)
     expect(JSON.parse(@out.string)).to eq("state" => "proposal")
   end

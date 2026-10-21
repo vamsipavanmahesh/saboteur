@@ -30,6 +30,14 @@ RSpec.describe Saboteur::ConfigFile do
     expect([config["include"], config["jobs"], config["threshold"]]).to eq([["app/**/*.rb"], 4, 80.0])
   end
 
+  it "says an unreadable config file is unreadable, not missing" do
+    path = write_config("Saboteur.configure { |c| c.jobs = 4 }\n")
+    allow(File).to receive(:readable?).and_call_original
+    allow(File).to receive(:readable?).with(path).and_return(false)
+    expect { Saboteur::Config.load(root: @root, path: path) }
+      .to raise_error(Saboteur::ConfigError, "#{path}:cannot read the file - check its permissions")
+  end
+
   it "rejects a Symbol integration with the config file and assignment line (#614)" do
     path = write_config("Saboteur.configure do |c|\n  c.integration = :rspec\nend\n")
     expect { Saboteur::Config.load(root: @root, path: path) }

@@ -133,6 +133,13 @@ module Saboteur
     attr_reader :root
 
     def self.load(root: Dir.pwd, path: nil, overrides: {})
+      # An explicitly named config file that is missing is a typo: the run
+      # would silently use defaults. The default path being absent is the
+      # normal case and stays silent.
+      if path && !File.file?(path)
+        raise ConfigError, "config file #{path} does not exist; check the path or drop --config"
+      end
+
       path ||= File.join(root, FILE)
       legacy = File.join(root, LEGACY_FILE)
       if File.file?(legacy)
@@ -286,7 +293,7 @@ module Saboteur
     def coerce!
       INTEGER_KEYS.each { |key| @values[key] = Integer(@values[key]) }
       FLOAT_KEYS.each { |key| @values[key] = Float(@values[key]) }
-      LIST_KEYS.each { |key| @values[key] = Array(@values[key]).map(&:to_s) }
+      LIST_KEYS.each { |key| @values[key] = coerce_list(key, @values[key]) }
       NILABLE_FLOAT_KEYS.each { |key| @values[key] = Float(@values[key]) unless @values[key].nil? }
       STRING_KEYS.each { |key| @values[key] = @values[key].to_s }
     rescue ArgumentError, TypeError => e
@@ -306,6 +313,17 @@ module Saboteur
 
       raise ConfigError,
             "ignore_file #{self['ignore_file'].inspect} does not exist; create it or remove the setting"
+    end
+
+    # A scalar that is not a string (c.include = 5) used to become ["5"] and
+    # silently match nothing. Arrays are fine: their entries are stringified
+    # (rspec_args mixes flags and values).
+    def coerce_list(key, value)
+      unless value.is_a?(String) || value.is_a?(Symbol) || value.is_a?(Array)
+        raise ConfigError, "#{key} must be a String or an Array of strings, got #{value.inspect}"
+      end
+
+      Array(value).map(&:to_s)
     end
 
     def validate_partial_coverage!
