@@ -34,6 +34,36 @@ RSpec.describe Saboteur::Reporter::SurvivorClassification do
     expect(described_class.label(result)).to eq("likely_equivalent")
   end
 
+  it "labels an exception message edit as arid: raise, fail and warn (#1066)" do
+    %w[raise fail warn].each do |call|
+      source = "class A\n  def go\n    #{call} \"boom\"\n  end\nend\n"
+      result = survivor_for(source, from: '"boom"', to: '""')
+      expect(described_class.label(result)).to eq("arid"), "expected #{call} message edit to be arid"
+    end
+  end
+
+  it "does not label a non-diagnostic string edit as arid" do
+    result = survivor_for("class A\n  def go\n    register \"boom\"\n  end\nend\n",
+                          from: '"boom"', to: '""')
+    expect(described_class.label(result)).not_to eq("arid")
+  end
+
+  # The patterns match whole lines, so every edit on a modifier-if raise
+  # line reads as arid - the condition's mutants included (#1066).
+  it "labels a condition edit on a modifier-if raise line as arid" do
+    result = survivor_for("class A\n  def go(c)\n    raise \"boom\" if c\n  end\nend\n",
+                          from: "if c", to: "unless c")
+    expect(described_class.label(result)).to eq("arid")
+  end
+
+  # A bare re-raise in a rescue body is an arid line too: removing the
+  # statement (statement_removal) labels arid like any raise line.
+  it "labels the removal of a bare re-raise in a rescue body as arid" do
+    result = survivor_for("class A\n  def go\n    go\n  rescue StandardError\n    raise\n  end\nend\n",
+                          from: "raise", to: "nil")
+    expect(described_class.label(result)).to eq("arid")
+  end
+
   it "labels a survivor on an arid line as arid, before missing test" do
     result = survivor_for("class A\n  def tell(msg)\n    puts msg\n  end\nend\n", from: "puts msg", to: "nil")
     expect(described_class.label(result)).to eq("arid")
