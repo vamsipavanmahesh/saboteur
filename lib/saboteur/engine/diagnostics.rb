@@ -88,12 +88,13 @@ module Saboteur
       DiscoveryFailure = Data.define(:file, :reason)
 
       attr_reader :warnings, :live_announced, :invalid_mutations, :generation_events, :omissions, :discovery_failures,
-                  :hazard_suppressions, :inline_suppressions, :verbose, :quiet_start
+                  :hazard_suppressions, :inline_suppressions, :verbose, :quiet_start, :silent
 
-      def initialize(err, verbose: false, palette: nil, quiet_start: true)
+      def initialize(err, verbose: false, palette: nil, quiet_start: true, silent: false)
         @err = err
         @verbose = verbose
         @quiet_start = quiet_start
+        @silent = silent
         @palette = palette || Reporter::Palette.for(err)
         @warnings = []
         @invalid_mutations = 0
@@ -175,7 +176,13 @@ module Saboteur
         @omissions << Omission.new(subject: subject.id.dup.freeze, count: count, limit: limit)
       end
 
+      # --quiet silences every informational line (#1149): the report's
+      # findings, summary and verdict are the whole output. Warnings still
+      # land in report.warnings through #warn, so JSON, HTML and agent
+      # consumers keep them.
       def inform(message)
+        return if @silent
+
         @err.puts("saboteur: #{Text.display_safe_lines(message)}")
       end
 
@@ -198,7 +205,7 @@ module Saboteur
       # The quiet start: three lines, then progress. --verbose keeps
       # today's chatter instead and never prints these.
       def quiet_start_header(scope:, seed:, operators:)
-        return if @verbose || !@quiet_start
+        return if @silent || @verbose || !@quiet_start
 
         dot = @palette.glyph(:middot)
         line = "saboteur #{Saboteur::VERSION} #{dot} #{scope} #{dot} seed #{seed} #{dot} " \
@@ -207,7 +214,7 @@ module Saboteur
       end
 
       def quiet_baseline(passes:, elapsed:, tests:, cached:)
-        return if @verbose || !@quiet_start
+        return if @silent || @verbose || !@quiet_start
 
         check = @palette.paint(:pass, @palette.glyph(:check))
         suffix = cached ? " (cached)" : ""
@@ -218,7 +225,7 @@ module Saboteur
       end
 
       def quiet_inference(spec_count)
-        return if spec_count.nil? || @verbose || !@quiet_start
+        return if spec_count.nil? || @silent || @verbose || !@quiet_start
 
         files = spec_count == 1 ? "spec file" : "spec files"
         @err.puts(@palette.paint(:dim, "spec inference: #{spec_count} #{files} (details: --verbose)"))
@@ -266,10 +273,12 @@ module Saboteur
         @progress_file.binmode
         @progress_file.sync = true
         @glyphs = +""
-        @err.puts(@palette.paint(:dim, LEGEND))
+        @err.puts(@palette.paint(:dim, LEGEND)) unless @silent
       end
 
       def progress(result)
+        return if @silent
+
         mark = MARKS.fetch(result.status, "?")
         return plain_progress(painted_mark(mark)) unless @progress_file
 
@@ -290,6 +299,7 @@ module Saboteur
 
       def finish_progress
         return unless @progress_file
+        return @progress_file.close! if @silent
 
         size = @progress_file.size
         pending = size % chunk_width

@@ -36,6 +36,7 @@ module Saboteur
 
         # PR6: CI and pre-push output - the findings and the verdict only.
         opts.on("--quiet", "Text report: print only the findings and the verdict;",
+                "silences the startup lines, the progress bar and the reports line;",
                 "no effect with --format json/agent; ignores --all-mutants") do
           @quiet = true
           set(:quiet, true)

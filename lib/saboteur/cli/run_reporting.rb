@@ -12,7 +12,7 @@ module Saboteur
       private
 
       def text_run(report, engine)
-        @err.puts
+        @err.puts unless @quiet
         # Classify before printing: the terminal's closing verdict line names
         # the exit and its reason, so the code must be known up front. The
         # gate and skip notes exit_code writes to @err now precede the
@@ -34,7 +34,9 @@ module Saboteur
         record_history(report)
         validate_history
         json = write_json(report, exit_cause(report, code))
-        announce_reports(json => "JSON", html => "HTML")
+        # --quiet prints exactly the findings, the summary and the verdict
+        # (#1149): no reports line.
+        announce_reports(json => "JSON", html => "HTML") unless @quiet
         code
       end
 
@@ -71,7 +73,7 @@ module Saboteur
 
         # Text mode only: the engine prints a per-subject marks line when
         # --verbose is on (#262); --agent output stays as it is.
-        engine = Engine.new(config, **arguments, verbose: @verbose || false)
+        engine = Engine.new(config, **arguments, verbose: @verbose || false, quiet: @quiet || false)
         text_run(engine.call, engine)
       end
 

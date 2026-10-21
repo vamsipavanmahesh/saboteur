@@ -1753,6 +1753,26 @@ RSpec.describe Saboteur::CLI, "details" do
     end
   end
 
+  describe "--quiet (#1149)" do
+    def stub_quiet_run(report)
+      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, call: report))
+    end
+
+    it "hands quiet to the engine and skips the reports announcement" do
+      stub_quiet_run(report_of(result_for(:killed)))
+      cli("run", "--quiet").call
+      expect(Saboteur::Engine).to have_received(:new).with(anything, hash_including(quiet: true))
+      expect(out.string).not_to include("Reports:")
+    end
+
+    it "keeps the reports announcement without --quiet" do
+      stub_quiet_run(report_of(result_for(:killed)))
+      cli("run").call
+      expect(Saboteur::Engine).to have_received(:new).with(anything, hash_including(quiet: false))
+      expect(out.string).to include("Reports:")
+    end
+  end
+
   it "prints the summary and writes the JSON report it names" do
     Dir.mktmpdir do |dir|
       path = File.join(dir, "r.json")
