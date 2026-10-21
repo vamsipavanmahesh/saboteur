@@ -151,8 +151,9 @@ RSpec.describe Saboteur::CLI::SurvivorsBrowser, "output pins (#520)" do
       "(add this run's own --config, --since, --subject, --test and source options)\n" \
       "\n" \
       "accept an equivalent one: add to your ignore file (c.ignore_file, default config/saboteur_ignore.rb):\n  " \
-      "" \
-      "i.mutation \"aaaaaaaaaaaaaaaa\", subject: \"Order#total\", reason: \"why it is equivalent\""
+      "Saboteur.ignore do |i|\n    " \
+      "i.mutation \"aaaaaaaaaaaaaaaa\", subject: \"Order#total\", reason: \"why it is equivalent\"\n  " \
+      "end"
     )
   end
 
@@ -168,9 +169,10 @@ RSpec.describe Saboteur::CLI::SurvivorsBrowser, "output pins (#520)" do
       "(add this run's own --config, --since, --subject, --test and source options)\n" \
       "\n" \
       "accept an equivalent one: add to your ignore file (c.ignore_file, default config/saboteur_ignore.rb):\n  " \
-      "" \
+      "Saboteur.ignore do |i|\n    " \
       "i.mutation \"bbbbbbbbbbbbbbbb\", subject: \"Klass#meth\", reason: \"why it is equivalent\" " \
-      "# TODO: capped findings omit this digest - fill in the subject"
+      "# TODO: capped findings omit this digest - fill in the subject\n  " \
+      "end"
     )
   end
 
@@ -186,8 +188,9 @@ RSpec.describe Saboteur::CLI::SurvivorsBrowser, "output pins (#520)" do
       "(add this run's own --config, --since, --subject, --test and source options)\n" \
       "\n" \
       "accept an equivalent one: add to your ignore file (c.ignore_file, default config/saboteur_ignore.rb):\n  " \
-      "" \
-      "i.mutation \"dddddddddddddddd\", subject: \"Zeta#one\", reason: \"why it is equivalent\""
+      "Saboteur.ignore do |i|\n    " \
+      "i.mutation \"dddddddddddddddd\", subject: \"Zeta#one\", reason: \"why it is equivalent\"\n  " \
+      "end"
     )
   end
 

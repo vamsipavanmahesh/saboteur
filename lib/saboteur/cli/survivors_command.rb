@@ -116,7 +116,7 @@ module Saboteur
         names = survivor[:covered].map { |id| test_names[id] }.compact
         return [] if names.empty?
 
-        rest = " (+#{names.size - 1} more)" if names.size > 1
+        rest = " (+#{names.size - 1} more)" if names.size >= 2
         ["covered by #{names.first}#{rest} - ran, still passed"]
       end
 
@@ -157,10 +157,13 @@ module Saboteur
       end
 
       def ignore_entry(survivor, subject)
-        return SurvivorGuidance.ignore_entry(survivor[:digest], subject) if subject
-
-        SurvivorGuidance.ignore_entry(survivor[:digest], "Klass#meth",
-                                      todo: "capped findings omit this digest - fill in the subject")
+        block = if subject
+                  SurvivorGuidance.ignore_block(survivor[:digest], subject)
+                else
+                  SurvivorGuidance.ignore_block(survivor[:digest], "Klass#meth",
+                                                todo: "capped findings omit this digest - fill in the subject")
+                end
+        block.gsub("\n", "\n  ")
       end
 
       def all_survivors

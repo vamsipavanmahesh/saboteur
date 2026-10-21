@@ -147,6 +147,73 @@ RSpec.describe Saboteur::CLI, "survivors (#475)" do
     end
   end
 
+  describe "detail lines (#1194 dogfood survivors)" do
+    it "names the first covering test and counts the rest" do
+      Dir.mktmpdir do |dir|
+        path = write_report(dir, survivors: [])
+        report = JSON.parse(File.read(path))
+        report["files"]["lib/order.rb"]["mutants"].first["coveredBy"] = %w[0 1 2]
+        report["testFiles"]["spec/order_spec.rb"]["tests"] +=
+          [{ "id" => "1", "name" => "./spec/order_spec.rb[1:2]" },
+           { "id" => "2", "name" => "./spec/order_spec.rb[1:3]" }]
+        File.write(path, JSON.generate(report))
+        report["files"]["lib/order.rb"]["mutants"].last["coveredBy"] = %w[0 1]
+        File.write(path, JSON.generate(report))
+        expect(cli("survivors", path, "--show", "a" * 16).call).to eq(0)
+        expect(out.string).to include("covered by ./spec/order_spec.rb[1:1] (+2 more) - ran, still passed")
+        expect(cli("survivors", path, "--show", "b" * 16).call).to eq(0)
+        expect(out.string).to include("covered by ./spec/order_spec.rb[1:1] (+1 more) - ran, still passed")
+      end
+    end
+
+    it "prints the hint for a hint-bearing classification" do
+      Dir.mktmpdir do |dir|
+        path = write_report(dir, survivors: [])
+        report = JSON.parse(File.read(path))
+        report["files"]["lib/order.rb"]["mutants"].first
+                                                  .merge!("mutatorName" => "comparison", "classification" => "arid")
+        File.write(path, JSON.generate(report))
+        expect(cli("survivors", path, "--show", "a" * 16).call).to eq(0)
+        expect(out.string).to include("hint: try an example at the boundary: equal values, or values one apart")
+      end
+    end
+
+    it "prints a bare classification line for a label with no reason" do
+      Dir.mktmpdir do |dir|
+        path = write_report(dir, survivors: [])
+        report = JSON.parse(File.read(path))
+        report["files"]["lib/order.rb"]["mutants"].first["classification"] = "assertion_gap"
+        File.write(path, JSON.generate(report))
+        expect(cli("survivors", path, "--show", "a" * 16).call).to eq(0)
+        expect(out.string).to include("classification: assertion_gap\n")
+        expect(out.string).not_to include("assertion_gap -")
+      end
+    end
+
+    it "tolerates a testFiles entry without a tests list" do
+      Dir.mktmpdir do |dir|
+        path = write_report(dir, survivors: [])
+        report = JSON.parse(File.read(path))
+        report["testFiles"][""] = {}
+        File.write(path, JSON.generate(report))
+        expect(cli("survivors", path, "--show", "a" * 16).call).to eq(0)
+        expect(out.string).to include("covered by ./spec/order_spec.rb[1:1] - ran, still passed")
+      end
+    end
+
+    it "returns empty line arrays from the detail helpers when nothing applies" do
+      browser = Saboteur::CLI::SurvivorsBrowser.new({})
+      expect(browser.send(:classification_line, nil)).to eq([])
+      expect(browser.send(:covered_line, { covered: [] })).to eq([])
+      expect(browser.send(:hint_line, { operator: "comparison" }, nil)).to eq([])
+    end
+
+    it "memoizes the test-name index" do
+      browser = Saboteur::CLI::SurvivorsBrowser.new({ "testFiles" => {} })
+      expect(browser.send(:test_names)).to equal(browser.send(:test_names))
+    end
+  end
+
   describe "CLI parse layer (#520 dogfood survivors)" do
     it "orders by the report's ranked findings with --ranked, by path and digest without" do
       Dir.mktmpdir do |dir|

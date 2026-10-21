@@ -24,5 +24,10 @@ module Saboteur
       entry = %(i.mutation "#{digest}", subject: "#{subject_id}", reason: "#{REASON_PLACEHOLDER}")
       todo ? "#{entry} # TODO: #{todo}" : entry
     end
+
+    # The entry wrapped so it pastes into the ignore file as-is (#1194).
+    def ignore_block(digest, subject_id, todo: nil)
+      "Saboteur.ignore do |i|\n  #{ignore_entry(digest, subject_id, todo: todo)}\nend"
+    end
   end
 end
