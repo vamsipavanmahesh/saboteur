@@ -16,6 +16,8 @@ RSpec.describe "whole_file re-evaluation (end to end)", :e2e do
     expect(statuses_on(10)).to eq(["Killed"])
     expect(statuses_on(6)).to eq([])
     expect(mutants(run).map { |m| m["status"] }).not_to include("Survived")
-    expect(run.out).to include("Doubled#replaced (lib/doubled.rb:5)")
+    expect(run.out).to include("1 subject not scored - no tests exist: Doubled#replaced")
+    entry = run.json.fetch("skippedSubjects").find { |s| s["subject"] == "Doubled#replaced" }
+    expect(entry.values_at("file", "line")).to eq(["lib/doubled.rb", 5])
   end
 end

@@ -24,11 +24,15 @@ module Saboteur
 
       def initialize(out, verbose: false, quiet: false, color: :auto, overrides: nil,
                      replay_command: nil, all_mutants: false, exit_code: nil,
-                     threshold: nil, previous_score: nil, baseline_gate: nil)
+                     threshold: nil, previous_score: nil, baseline_gate: nil,
+                     scope: "whole project", html_report: nil)
         @out = SafeOut.new(out)
         @all_mutants = all_mutants
         @verbose = verbose
         @quiet = quiet
+        # Clean-screen context: the run's scope and report path come from the CLI.
+        @scope = scope
+        @html_report = html_report
         @palette = Palette.for(out, mode: color, overrides: overrides)
         @score_table = ScoreTable.new(@out, @palette)
         @next_steps = NextSteps.new(@out, @palette, replay_command: replay_command)
@@ -140,6 +144,9 @@ module Saboteur
       end
 
       def summary(report)
+        # A gated run's clean screen is PR8's baseline tail, not this one.
+        return clean_screen(report) if !@baseline_gate && clean_run?(report)
+
         seed = report.seed && ", seed #{report.seed} (repeat with --seed #{report.seed})"
         tally = "saboteur #{VERSION}: #{report.subjects.size} subjects, #{mutant_counts(report)}, " \
                 "wall #{format('%.2f', report.wall_time)} s#{seed}"
@@ -152,6 +159,45 @@ module Saboteur
         @baseline_gate ? BaselineTail.new(@out, @palette).call(@baseline_gate, @exit_code) : canonical_line(report)
         verdict_line(report)
         @next_steps.call(report)
+      end
+
+      # The deliberate success screen (PR6): a fully-killed run says the win
+      # out loud. Replaces the whole closing block on a clean run.
+      def clean_run?(report)
+        counts = report.counts
+        @exit_code&.zero? && report.executed.any? && report.unignored_survivors.empty? && !report.early_stop &&
+          (counts[:error] + counts[:timeout] + counts[:unverified] + counts[:resource_limit]).zero?
+      end
+
+      def clean_screen(report)
+        header = "saboteur #{VERSION} #{middot} #{@scope}"
+        header += " #{middot} seed #{report.seed}" if report.seed
+        @out.puts @palette.paint(:dim, header)
+        @out.puts
+        win = "#{@palette.glyph(:check)} #{win_tally(report)} #{middot} " \
+              "score #{format('%.1f%%', report.score * 100)}"
+        total = @palette.paint(:dim, "#{middot} #{format('%.1f', report.wall_time)}s total")
+        @out.puts "#{@palette.paint(:pass, win)} #{total}"
+        untested = untested_subjects(report)
+        @out.puts "  #{@palette.paint(:warn, untested_win_note(untested))}" if untested.any?
+        clean_reports_line
+      end
+
+      def win_tally(report)
+        "#{report.counts[:killed]}/#{report.executed.size} mutants killed"
+      end
+
+      def untested_win_note(untested)
+        ids = untested.map(&:id).join(", ")
+        "#{untested.size} subject#{'s' unless untested.one?} not scored - no tests exist: #{ids}"
+      end
+
+      def clean_reports_line
+        return unless @html_report
+
+        line = "reports: #{@html_report}"
+        line += " #{middot} next: saboteur run --since origin/main" if @scope == "whole project"
+        @out.puts "  #{@palette.paint(:dim, line)}"
       end
 
       def hazard_suppressions(report)

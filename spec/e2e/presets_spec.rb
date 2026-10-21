@@ -21,7 +21,7 @@ RSpec.describe "saboteur pr / saboteur audit presets (end to end)", :e2e do
     run = saboteur(dir, "pr", "HEAD", "--all", "--verbose", command: nil)
     expect(run.err).to include("preset 'pr': --baseline-passes 1 --max-duration 10m --since HEAD")
     expect(run.err).to include("checking the unchanged suite once (seed 1)")
-    expect(run.out).to include("1 subjects")
+    expect(run.out).to include("4/4 mutants killed")
   end
 
   it "pr defaults the ref to main, says nothing to test, and exits 0 on an empty range (#659) (#244)" do

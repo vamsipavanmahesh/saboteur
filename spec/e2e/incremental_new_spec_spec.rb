@@ -52,6 +52,8 @@ RSpec.describe "--incremental cache invalidation by a new spec (end to end)", :e
     second = saboteur(dir, "--all", *subject_flags)
 
     expect(second.out).not_to include("reused")
+    # A fresh verdict records the tests that ran against the mutant.
+    expect(mutants(second).map { |m| m["executed"] }).to all(be_a(Array))
   end
 
   it "reuses every verdict when nothing changed (positive control)" do
@@ -62,7 +64,9 @@ RSpec.describe "--incremental cache invalidation by a new spec (end to end)", :e
     total = mutants(third).size
 
     expect(first.out).not_to include("reused")
-    expect(third.out).to include("reused #{total} of #{total} verdicts")
+    # A reused verdict keeps its killer but has no executed-tests record.
+    expect(third.out).to include("#{total}/#{total} mutants killed")
+    expect(mutants(third).map { |m| m["executed"] }.uniq).to eq([nil])
     expect(mutants(third).map { |m| [m["id"], m["status"]] }).to eq(mutants(second).map { |m| [m["id"], m["status"]] })
   end
 end

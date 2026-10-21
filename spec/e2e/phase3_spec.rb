@@ -27,7 +27,7 @@ RSpec.describe "saboteur run: diff mode, ignore list, exit codes", :e2e do
       File.write(path, File.read(path).sub("@age}", "@age.to_s}"))
       run = saboteur(dir, "--since", "HEAD", "--all")
       expect(subject_lines(run)).to eq([31])
-      expect(run.out).to include("1 subjects")
+      expect(run.out).to include("4/4 mutants killed")
     end
 
     it "mutates only the changed lines of a changed method, plus its coarse mutants" do
@@ -53,7 +53,7 @@ RSpec.describe "saboteur run: diff mode, ignore list, exit codes", :e2e do
         end
       RUBY
       run = saboteur(dir, "--since", "HEAD", "--all")
-      expect(run.out).to include("1 subjects")
+      expect(run.out).to include("2/2 mutants killed")
       expect(run.json.fetch("files").keys).to eq(["lib/fresh.rb"])
       expect(mutants(run).map { |m| m["status"] }).to include("Killed")
     end
@@ -361,7 +361,9 @@ RSpec.describe "saboteur run: diff mode, ignore list, exit codes", :e2e do
 
       run = saboteur(dir, "--all", "--subject", "People::Person#adult?")
       expect(run.status).to eq(0)
-      expect(run.out).to include("Accepted (#{digests.size}, not scored):", %(- "boundary covered elsewhere"))
+      total = mutants(run).size
+      expect(run.out).to include("#{total - digests.size}/#{total} mutants killed",
+                                 "Accepted (#{digests.size}, not scored):", %(- "boundary covered elsewhere"))
       expect(mutants(run).select { |m| m["status"] == "Survived" }.map { |m| m["statusReason"] }.uniq)
         .to eq(["ignored: boundary covered elsewhere"])
     end
