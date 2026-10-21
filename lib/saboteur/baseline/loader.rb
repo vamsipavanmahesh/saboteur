@@ -24,10 +24,22 @@ module Saboteur
         bytes = File.read(path)
         digest = Digest::SHA256.hexdigest(bytes)
         manifest = Manifest.new(JSON.parse(Text.utf8_strict(bytes)))
+        Evidence.new(restored_evidence(manifest))
+        [manifest, digest]
+      rescue Errno::ENOENT
+        raise ConfigError, "baseline file #{path} does not exist; " \
+                           "create it with saboteur baseline propose --baseline #{path}"
+      rescue SystemCallError, JSON::ParserError, ArgumentError => e
+        raise ConfigError, "baseline file: #{e.message}"
+      end
+
+      # The evidence snapshot a manifest stands for: its metadata, candidates
+      # and plan, with no generation events (nothing was generated).
+      def restored_evidence(manifest)
         metadata = manifest.to_h.fetch("metadata")
         candidates = manifest.candidates.values
         issues = metadata.fetch("issues")
-        restored = metadata.slice("snapshot", "subjects", "complete", "issues").merge(
+        metadata.slice("snapshot", "subjects", "complete", "issues").merge(
           "proposable" => metadata.fetch("proposable", metadata["complete"]),
           "blockers" => issues.reject { |issue| Completeness.soft_gap?(issue) },
           "gaps" => issues.select { |issue| Completeness.soft_gap?(issue) }
@@ -36,10 +48,6 @@ module Saboteur
           "planned" => candidates.map { |entry| entry.slice(*Evidence::PLAN_FIELDS) },
           "generation_events" => [], "omissions" => [], "discovery_failures" => [], "inline_suppressions" => []
         )
-        Evidence.new(restored)
-        [manifest, digest]
-      rescue SystemCallError, JSON::ParserError, ArgumentError => e
-        raise ConfigError, "baseline file: #{e.message}"
       end
     end
   end

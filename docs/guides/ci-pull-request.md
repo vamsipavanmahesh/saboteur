@@ -141,8 +141,8 @@ settings baked in:
 
 ```sh
 bundle exec saboteur run --id 0f5efe2878b091c3 --since origin/master \
-  --test spec/models/authors_sidebar_spec.rb --operators '' --exclude-operators '' \
-  --baseline-passes 1 --max-duration 600.0 --max-duration-ok --seed 1
+  --test spec/models/authors_sidebar_spec.rb \
+  --baseline-passes 1 --max-duration 600.0 --seed 1
 ```
 
 Add the missing boundary test, push, and the next CI run goes green. The

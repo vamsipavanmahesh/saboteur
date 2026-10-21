@@ -55,6 +55,12 @@ RSpec.describe Saboteur::Reporter::Html do
                             "the table adds notes,\ncovering tests and triage reasons.</p>")
   end
 
+  it "prints the table instead of the viewer: paper cannot scroll sideways" do
+    style = html[%r{<style>(.*?)</style>}m, 1]
+    expect(style).to include("@media print", "mutation-test-report-app{display:none}",
+                             ".scroll{overflow-x:visible}", "table{min-width:0}")
+  end
+
   it "shows the viewer in dark mode by default" do
     expect(html).to include('<mutation-test-report-app theme="dark"')
   end
@@ -232,7 +238,7 @@ RSpec.describe Saboteur::Reporter::Html do
   end
 
   it "opens files that have survivors and shows the tests that killed a mutant" do
-    expect(html).to include("<details open>")
+    expect(html).to include('<details class="file" open>')
     expect(html).to include("./spec/person_spec.rb[1:1]")
   end
 
@@ -401,9 +407,120 @@ RSpec.describe Saboteur::Reporter::Html do
     expect(page).not_to include("seed", "<h2>Warnings</h2>", "<h2>Skipped subjects</h2>")
   end
 
+  describe "collapsing survivor files beyond the open budget" do
+    def write_subject(dir, name)
+      path = File.join(dir, name)
+      File.write(path, ReportHelpers::PERSON)
+      Saboteur::SubjectFinder.new.call(path).subjects.first
+    end
+
+    def result_on(subject, status, replacement)
+      at = subject.file_source.index(">=")
+      edit = Saboteur::MutationSource::Edit.new(file: subject.file, start_byte: at, end_byte: at + 2,
+                                                replacement:)
+      mutation = Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: "comparison",
+                                                        edits: [edit], coarse: false)
+      Saboteur::MutantResult.new(subject:, mutation:, status:, mutated_source: subject.apply(mutation.edits))
+    end
+
+    def page_for(dir, results)
+      report = Saboteur::Report.new(results:, subjects: results.map(&:subject).uniq, wall_time: 1.0, root: dir,
+                                    operator_policy: Saboteur::Config.new({}).operator_policy)
+      described_class.build(report)
+    end
+
+    it "stops opening files once the open rows reach the budget, keeping the survivor count visible" do
+      Dir.mktmpdir do |dir|
+        a = write_subject(dir, "a.rb")
+        b = write_subject(dir, "b.rb")
+        results = [result_on(a, :survived, ">")] + (1..39).map { |i| result_on(a, :killed, "<#{i}") }
+        results += [result_on(b, :survived, ">"), result_on(b, :killed, "<"), result_on(b, :killed, "!=")]
+        page = page_for(dir, results)
+        expect(page).to include('<details class="file" open><summary>a.rb (40 mutants)</summary>')
+        expect(page).to include('<details class="file"><summary>b.rb (3 mutants, 1 survivor)</summary>')
+        expect(page).to include(">1 file with survivors collapsed - ", ">expand all</a>")
+        expect(page).to include("<a href=\"#files\" onclick=\"document.querySelectorAll('details.file')" \
+                                ".forEach(function(d){d.open=true});return false\">expand all</a></p>\n")
+      end
+    end
+
+    it "opens only the top survivor-bearing files, ranked by survivor count" do
+      Dir.mktmpdir do |dir|
+        results = (0..11).map { |i| result_on(write_subject(dir, format("f%02d.rb", i)), :survived, ">") }
+        page = page_for(dir, results)
+        expect(page).to include('<details class="file" open><summary>f00.rb (1 mutants)</summary>')
+        expect(page).to include('<details class="file" open><summary>f09.rb (1 mutants)</summary>')
+        expect(page).to include('<details class="file"><summary>f10.rb (1 mutants, 1 survivor)</summary>')
+        expect(page).to include('<details class="file"><summary>f11.rb (1 mutants, 1 survivor)</summary>')
+        expect(page).to include(">2 files with survivors collapsed - ")
+      end
+    end
+
+    it "ranks by survivor count first, names plural survivors, and leaves survivor-free files out of the count" do
+      Dir.mktmpdir do |dir|
+        pair = lambda do |name|
+          subject = write_subject(dir, name)
+          [result_on(subject, :survived, ">"), result_on(subject, :survived, "<")]
+        end
+        one = write_subject(dir, "a_one.rb")
+        quiet = write_subject(dir, "k_quiet.rb")
+        results = [result_on(one, :survived, ">"), result_on(quiet, :killed, ">")]
+        results += (0..9).flat_map { |i| pair.call(format("g%02d.rb", i)) } + pair.call("h.rb")
+        page = page_for(dir, results)
+        expect(page).to include('<details class="file" open><summary>g00.rb (2 mutants)</summary>')
+        expect(page).to include('<details class="file"><summary>h.rb (2 mutants, 2 survivors)</summary>')
+        expect(page).to include('<details class="file"><summary>a_one.rb (1 mutants, 1 survivor)</summary>')
+        expect(page).to include(">2 files with survivors collapsed - ")
+        expect(page).to include('<details class="file"><summary>k_quiet.rb (1 mutants)</summary>')
+      end
+    end
+
+    it "ranks ties by file name, whatever order the files were added in" do
+      Dir.mktmpdir do |dir|
+        results = (0..10).reverse_each.map { |i| result_on(write_subject(dir, format("f%02d.rb", i)), :survived, ">") }
+        page = page_for(dir, results)
+        expect(page).to include('<details class="file" open><summary>f00.rb (1 mutants)</summary>')
+        expect(page).to include('<details class="file"><summary>f10.rb (1 mutants, 1 survivor)</summary>')
+      end
+    end
+
+    it "never opens or counts a file without survivors" do
+      Dir.mktmpdir do |dir|
+        a = write_subject(dir, "a.rb")
+        quiet = write_subject(dir, "k.rb")
+        page = page_for(dir, [result_on(a, :survived, ">"), result_on(quiet, :killed, ">")])
+        expect(page).to include('<details class="file"><summary>k.rb (1 mutants)</summary>')
+        expect(page).not_to include("collapsed")
+      end
+    end
+
+    it "opens the next file while the open rows are under the budget and stops exactly at it" do
+      Dir.mktmpdir do |dir|
+        budget = Saboteur::Reporter::Html::OPEN_ROW_BUDGET
+        [[budget - 1, true], [budget, false]].each do |rows, next_opens|
+          a = write_subject(dir, "a#{rows}.rb")
+          b = write_subject(dir, "b#{rows}.rb")
+          results = [result_on(a, :survived, ">")] + (1...rows).map { |i| result_on(a, :killed, "<#{i}") }
+          page = page_for(dir, results + [result_on(b, :survived, ">")])
+          expect(page.include?(%(<details class="file" open><summary>b#{rows}.rb))).to eq(next_opens)
+        end
+      end
+    end
+
+    it "keeps every survivor file open and shows no control on a small run" do
+      Dir.mktmpdir do |dir|
+        a = write_subject(dir, "a.rb")
+        b = write_subject(dir, "b.rb")
+        page = page_for(dir, [result_on(a, :survived, ">"), result_on(b, :survived, ">")])
+        expect(page.scan('<details class="file" open>').size).to eq(2)
+        expect(page).not_to include("collapsed", "survivor)</summary>")
+      end
+    end
+  end
+
   it "opens only the files that have survivors" do
     expect(described_class.build(report_of(result_for(:killed)))).to include("<details><summary>")
-    expect(described_class.build(report_of(result_for(:survived)))).to include("<details open><summary>")
+    expect(described_class.build(report_of(result_for(:survived)))).to include('<details class="file" open><summary>')
   end
 
   it "lists mutants in source order, then by column" do

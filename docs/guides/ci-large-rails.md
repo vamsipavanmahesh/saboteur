@@ -47,10 +47,11 @@ git fetch origin main
 bundle exec saboteur pr
 ```
 
-The `pr` preset is `--since main --baseline-passes 1 --max-duration 10m
---max-duration-ok`: changed lines since `main`, one unchanged-suite check
-instead of two, and a ten-minute wall-clock budget whose exhaustion does not
-fail the step on its own. Explicit flags after the preset win.
+The `pr` preset is `--since main --baseline-passes 1 --max-duration 10m`:
+changed lines since `main`, one unchanged-suite check instead of two, and a
+ten-minute wall-clock budget whose exhaustion fails the run with exit 4 -
+pass `--max-duration-ok` explicitly to accept the partial verdict. Explicit
+flags after the preset win.
 
 ### Keeping PR runs fast on a large app
 

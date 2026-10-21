@@ -39,8 +39,14 @@ RSpec.describe Saboteur::CLI::ExplicitSources do
     end
 
     it "does not take an empty selector for one" do
-      expect { check("a_spec.rb:") }.to raise_error(Saboteur::CLI::UsageError, "test file not found: a_spec.rb:")
-      expect { check("a_spec.rb[]") }.to raise_error(Saboteur::CLI::UsageError, "test file not found: a_spec.rb[]")
+      expect do
+        check("a_spec.rb:")
+      end.to raise_error(Saboteur::CLI::UsageError,
+                         "test file not found: a_spec.rb:; check the path or drop --test")
+      expect do
+        check("a_spec.rb[]")
+      end.to raise_error(Saboteur::CLI::UsageError,
+                         "test file not found: a_spec.rb[]; check the path or drop --test")
     end
   end
 
@@ -123,7 +129,10 @@ RSpec.describe Saboteur::CLI::ExplicitSources do
         run = cli("lib/a.rb")
         run.send(:options).merge!(tests: ["a_spec.rb", "gone_spec.rb:3"])
 
-        expect { run.send(:use_explicit_sources) }.to raise_error(usage, "test file not found: gone_spec.rb:3")
+        expect do
+          run.send(:use_explicit_sources)
+        end.to raise_error(usage,
+                           "test file not found: gone_spec.rb:3; check the path or drop --test")
         expect(run.send(:options)).not_to have_key(:include)
       end
 

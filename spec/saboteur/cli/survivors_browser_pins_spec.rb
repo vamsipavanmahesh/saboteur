@@ -21,7 +21,7 @@ RSpec.describe Saboteur::CLI::SurvivorsBrowser, "output pins (#520)" do
   end
 
   let(:report) do
-    { "schemaVersion" => "2", "projectRoot" => "/tmp/x",
+    { "schemaVersion" => "2", "projectRoot" => "/tmp/x", "config" => { "seed" => 7 },
       "files" => {
         "lib/order.rb" => { "language" => "ruby",
                             "source" => "#{(1..8).map { |i| "line#{i}_of_order" }.join("\n")}\n",
@@ -111,7 +111,8 @@ RSpec.describe Saboteur::CLI::SurvivorsBrowser, "output pins (#520)" do
     expect(bare.list.first).to eq("7 survivors")
     expect(bare.list(ranked: true).first).to eq("7 survivors")
     expect(bare.show("bbbb")).to include(
-      "subject: \"Klass#meth\" # TODO: capped findings omit this digest - fill it in,"
+      "subject: \"Klass#meth\", reason: \"why it is equivalent\" " \
+      "# TODO: capped findings omit this digest - fill in the subject"
     )
   end
 
@@ -144,13 +145,12 @@ RSpec.describe Saboteur::CLI::SurvivorsBrowser, "output pins (#520)" do
       "- items.sum(&:price)\n" \
       "+ items.map(&:price).sum\n" \
       "\n" \
-      "Replay exactly this mutant:\n  " \
-      "bundle exec saboteur run --id aaaaaaaaaaaaaaaa\n" \
+      "replay one survivor: saboteur run --id aaaaaaaaaaaaaaaa --seed 7\n  " \
+      "(add this run's own --config, --since, --subject, --test and source options)\n" \
       "\n" \
-      "Ignore-file entry (config/saboteur_ignore.rb):\n  " \
-      "i.mutation \"aaaaaaaaaaaaaaaa\",\n      " \
-      "subject: \"Order#total\",\n      " \
-      "reason: \"...\""
+      "accept an equivalent one: add to your ignore file (c.ignore_file, default config/saboteur_ignore.rb):\n  " \
+      "" \
+      "i.mutation \"aaaaaaaaaaaaaaaa\", subject: \"Order#total\", reason: \"why it is equivalent\""
     )
   end
 
@@ -161,13 +161,13 @@ RSpec.describe Saboteur::CLI::SurvivorsBrowser, "output pins (#520)" do
       "- line3_of_order\n" \
       "+ REPL_and_to_or\n" \
       "\n" \
-      "Replay exactly this mutant:\n  " \
-      "bundle exec saboteur run --id bbbbbbbbbbbbbbbb\n" \
+      "replay one survivor: saboteur run --id bbbbbbbbbbbbbbbb --seed 7\n  " \
+      "(add this run's own --config, --since, --subject, --test and source options)\n" \
       "\n" \
-      "Ignore-file entry (config/saboteur_ignore.rb):\n  " \
-      "i.mutation \"bbbbbbbbbbbbbbbb\",\n      " \
-      "subject: \"Klass#meth\" # TODO: capped findings omit this digest - fill it in,\n      " \
-      "reason: \"...\""
+      "accept an equivalent one: add to your ignore file (c.ignore_file, default config/saboteur_ignore.rb):\n  " \
+      "" \
+      "i.mutation \"bbbbbbbbbbbbbbbb\", subject: \"Klass#meth\", reason: \"why it is equivalent\" " \
+      "# TODO: capped findings omit this digest - fill in the subject"
     )
   end
 
@@ -178,13 +178,12 @@ RSpec.describe Saboteur::CLI::SurvivorsBrowser, "output pins (#520)" do
       "- \"z\"\n" \
       "+ \"Z\"\n" \
       "\n" \
-      "Replay exactly this mutant:\n  " \
-      "bundle exec saboteur run --id dddddddddddddddd\n" \
+      "replay one survivor: saboteur run --id dddddddddddddddd --seed 7\n  " \
+      "(add this run's own --config, --since, --subject, --test and source options)\n" \
       "\n" \
-      "Ignore-file entry (config/saboteur_ignore.rb):\n  " \
-      "i.mutation \"dddddddddddddddd\",\n      " \
-      "subject: \"Zeta#one\",\n      " \
-      "reason: \"...\""
+      "accept an equivalent one: add to your ignore file (c.ignore_file, default config/saboteur_ignore.rb):\n  " \
+      "" \
+      "i.mutation \"dddddddddddddddd\", subject: \"Zeta#one\", reason: \"why it is equivalent\""
     )
   end
 

@@ -57,8 +57,9 @@ names the missing pattern and the matched count.
 The run first executes the unchanged tests (two passes by default) - a kill
 only counts when the same tests pass on the code without the change - then builds a per-test
 coverage map (cached for later runs), then mutates. You get counts per
-status, a score, and a unified diff for every survivor. The JSON report lands
-in `.saboteur/report.json`.
+status, a score, and one numbered source block per surviving statement, with
+the changed line as a -/+ pair. The JSON report lands in
+`.saboteur/report.json`.
 
 ## 4. Read what it tells you
 
@@ -71,7 +72,8 @@ in `.saboteur/report.json`.
   it is not evidence. These count as errors, not kills
   ([Rejected kills](../rejected-kills.md)).
 - **Exit code**: 0 clean, 1 survivors, 2 usage or configuration, 3 tool
-  failure, 4 time budget spent. The contract is in the
+  failure, 4 time budget spent, 5 the unchanged suite failed its baseline
+  check, 70 an internal crash. The contract is in the
   [stability policy](../stability.md).
 
 ## 5. Deal with each survivor

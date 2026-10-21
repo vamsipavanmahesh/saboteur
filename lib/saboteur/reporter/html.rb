@@ -34,9 +34,24 @@ module Saboteur
         .warning{background:#fff8e1;border-left:4px solid #f9a825;margin:.3rem 0;padding:.3rem .6rem;overflow-wrap:anywhere}
         code,pre{font-family:ui-monospace,monospace;font-size:13px}
         pre{display:inline-block;vertical-align:top;margin:0;white-space:pre-wrap;overflow-wrap:anywhere}summary{cursor:pointer;font-weight:600;overflow-wrap:anywhere}
+        /* Paper cannot scroll sideways, and the dark viewer is screen-only
+           ink: print the table, not the widget, and let wide tables wrap. */
+        @media print{
+          mutation-test-report-app{display:none}
+          body{max-width:none}
+          table{min-width:0}
+          .scroll{overflow-x:visible}
+        }
       CSS
 
       SCORE_FORMULA = "(killed + timeout) / (killed + survived + timeout)"
+
+      # A survivor-bearing file section opens on load - but only the first
+      # OPEN_FILE_LIMIT of them, and only while the open rows stay under
+      # OPEN_ROW_BUDGET, so a big run does not land as a wall of expanded
+      # rows. The rest stay collapsed with their survivor count in the header.
+      OPEN_FILE_LIMIT = 10
+      OPEN_ROW_BUDGET = 30
 
       # The vendored viewer bundle, embedded verbatim into every report.
       BUNDLE_PATH = File.expand_path("assets/mutation_report.js", __dir__)
@@ -66,6 +81,7 @@ module Saboteur
         results = report.results.to_h do |result|
           [[Stryker.relative(result.subject.file, report.root), result.digest], result]
         end
+        sections, collapsed = file_sections(data, names, results, report)
         <<~HTML
           <!DOCTYPE html>
           <html lang="en"><head><meta charset="utf-8">
@@ -86,7 +102,7 @@ module Saboteur
           <h2>Files</h2>
           <p class="note">The viewer above and this table list the same mutants; the table adds notes,
           covering tests and triage reasons.</p>
-          #{data[:files].map { |file, entry| file_section(file, entry, names, results, report) }.join("\n")}
+          #{collapse_note(collapsed)}#{sections.join("\n")}
           </body></html>
         HTML
       end
@@ -201,13 +217,62 @@ module Saboteur
         data[:testFiles].values.flat_map { |group| group[:tests] }.to_h { |test| [test[:id], test[:name]] }
       end
 
-      def file_section(file, entry, names, results, report)
-        open = entry[:mutants].any? { |mutant| mutant[:status] == "Survived" } ? " open" : ""
+      # The sections in page order; the open set is the top survivor-bearing
+      # files by survivor count, within the row budget. Returns the rendered
+      # sections and the count of survivor-bearing files left collapsed.
+      def file_sections(data, names, results, report)
+        survivors = data[:files].to_h do |file, entry|
+          [file, entry[:mutants].count { |mutant| mutant[:status] == "Survived" }]
+        end
+        open_set = open_files(data, survivors)
+        collapsed = data[:files].keys.count { |file| survivors[file].positive? && !open_set[file] }
+        sections = data[:files].map do |file, entry|
+          file_section(file, entry, names, results, report, survivor_count: survivors[file], open_file: open_set[file])
+        end
+        [sections, collapsed]
+      end
+
+      # The open set: the top survivor-bearing files by survivor count, while
+      # the open rows stay under the budget.
+      def open_files(data, survivors)
+        ranked = data[:files].keys.select { |file| survivors[file].positive? }
+                             .sort_by { |file| [-survivors[file], file] }
+        open_set = {}
+        rows = 0
+        ranked.first(OPEN_FILE_LIMIT).each do |file|
+          break if rows >= OPEN_ROW_BUDGET
+
+          open_set[file] = true
+          rows += data[:files].fetch(file)[:mutants].size
+        end
+        open_set
+      end
+
+      def collapse_note(collapsed)
+        noun = collapsed == 1 ? "file" : "files"
+        if collapsed.zero?
+          ""
+        else
+          "<p class=\"note\" id=\"files\">#{collapsed} #{noun} with survivors collapsed - " \
+            "<a href=\"#files\" onclick=\"document.querySelectorAll('details.file').forEach" \
+            "(function(d){d.open=true});return false\">expand all</a></p>\n"
+        end
+      end
+
+      def file_section(file, entry, names, results, report, survivor_count:, open_file:)
+        open = open_file ? " open" : ""
         ordered = entry[:mutants].sort_by { |mutant| position_key(mutant) }
         rows = ordered.map { |mutant| mutant_row(mutant, names, results[[file, mutant[:id]]], report) }
-        "<details#{open}><summary>#{escape(file)} (#{entry[:mutants].size} mutants)</summary>\n" \
+        "<details class=\"file\"#{open}><summary>#{escape(file)} " \
+          "(#{entry[:mutants].size} mutants#{survivors_note(survivor_count, open_file)})</summary>\n" \
           "<div class=\"scroll\"><table><thead><tr><th>Location</th><th>Status</th><th>Operator</th><th>Change</th>" \
           "<th>Id</th><th>Notes</th></tr></thead>\n#{rows.join("\n")}</table></div></details>"
+      end
+
+      # A collapsed survivor file names its survivors in the header, so the
+      # count is visible without expanding it.
+      def survivors_note(survivor_count, open_file)
+        open_file || survivor_count.zero? ? "" : ", #{survivor_count} survivor#{'s' unless survivor_count == 1}"
       end
 
       def position_key(mutant)
