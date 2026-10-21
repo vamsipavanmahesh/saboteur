@@ -28,7 +28,8 @@ module Saboteur
                   "exclude: #{config['exclude'].join(', ')} removes every included file"
                 end
         "#{cause} - the run would pass with 0 subjects. Point include at your code " \
-          "(Rails apps: bundle exec rails generate saboteur:install writes the config) or fix the patterns"
+          "(Rails apps: bundle exec rails generate saboteur:install writes the config; other projects: " \
+          "saboteur init) or fix the patterns"
       end
     end
   end

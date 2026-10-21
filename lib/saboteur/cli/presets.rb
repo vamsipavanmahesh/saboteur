@@ -21,7 +21,20 @@ module Saboteur
       private
 
       def preset_or_usage_error(command)
-        PRESETS.key?(command) ? preset(command) : usage_error
+        return preset(command) if PRESETS.key?(command)
+
+        @err.puts(first_run_hint(command))
+        usage_error
+      end
+
+      # The usage line alone never says what to do next (first-run friction).
+      def first_run_hint(command)
+        unless command
+          return "saboteur: no command given. New here? saboteur init writes a starter config; " \
+                 "saboteur doctor checks the setup"
+        end
+
+        "saboteur: unknown command #{command.inspect}; saboteur help lists the commands"
       end
 
       def preset(name)

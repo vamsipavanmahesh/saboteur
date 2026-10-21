@@ -1668,9 +1668,10 @@ RSpec.describe Saboteur::CLI, "details" do
     described_class.new(argv, out:, err:)
   end
 
-  it "prints only the usage line for an unknown command" do
+  it "names an unknown command, then prints the usage line" do
     cli("explode").call
-    expect(err.string).to eq("#{described_class::USAGE}\n")
+    expect(err.string).to eq("saboteur: unknown command \"explode\"; saboteur help lists the commands\n" \
+                             "#{described_class::USAGE}\n")
   end
 
   it "parses --allow-focus into the allow_focus config key" do
@@ -2284,7 +2285,7 @@ RSpec.describe Saboteur::CLI, "empty source set (issue #447)" do
     expect(err.string).to include(
       "include: lib/**/*, app/**/* selects no Ruby file - the run would pass with 0 subjects. " \
       "Point include at your code (Rails apps: bundle exec rails generate saboteur:install " \
-      "writes the config) or fix the patterns"
+      "writes the config; other projects: saboteur init) or fix the patterns"
     )
   end
 
@@ -2297,7 +2298,7 @@ RSpec.describe Saboteur::CLI, "empty source set (issue #447)" do
     expect(err.string).to include(
       "exclude: lib/**/*.rb, app/**/*.rb removes every included file - the run would pass with " \
       "0 subjects. Point include at your code (Rails apps: bundle exec rails generate " \
-      "saboteur:install writes the config) or fix the patterns"
+      "saboteur:install writes the config; other projects: saboteur init) or fix the patterns"
     )
   end
 
