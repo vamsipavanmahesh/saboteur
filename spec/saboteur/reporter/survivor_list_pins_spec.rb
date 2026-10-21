@@ -30,13 +30,13 @@ RSpec.describe Saboteur::Reporter::SurvivorList, "survivor blocks" do
     Saboteur::SubjectFinder.new.call(path).subjects
   end
 
-  def edited(source, from, to, operator:, dir:, name: "calculator.rb", **attributes)
+  def edited(source, from, to, operator:, dir:, name: "calculator.rb", coarse: false, **attributes)
     subject = subjects_in(source, name:, dir:).first
     at = subject.file_source.index(from, subject.start_byte)
     edit = Saboteur::MutationSource::Edit.new(file: subject.file, start_byte: at, end_byte: at + from.size,
                                               replacement: to)
     mutation = Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator:, edits: [edit],
-                                                      coarse: false)
+                                                      coarse:)
     Saboteur::MutantResult.new(subject:, mutation:, status: :survived,
                                mutated_source: subject.apply(mutation.edits), **attributes)
   end
@@ -271,6 +271,14 @@ RSpec.describe Saboteur::Reporter::SurvivorList, "survivor blocks" do
                    operator: "arithmetic", dir:, name: "k.rb")
     text = render([operand, other])
     expect(text).to include("1. calculator.rb:3 Calculator#compound", "2. k.rb:3 K#a")
+  end
+
+  it "marks a coarse whole-method survivor so the block does not read as pinpoint" do
+    allow(Saboteur::Reporter::SurvivorClassification).to receive(:label).and_return(nil)
+    whole = edited(PINS_CALCULATOR, "principal * (1 + rate)**years", "nil", operator: "body_nil", dir:,
+                                                                            coarse: true)
+    expect(render([whole])).to include("1. calculator.rb:3 Calculator#compound [coarse · #1 of 1]
+")
   end
 
   it "pins the bare rank suffix when the survivor has no label" do

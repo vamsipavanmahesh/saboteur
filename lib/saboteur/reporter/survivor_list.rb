@@ -74,7 +74,7 @@ module Saboteur
 
       def label_suffix(result, rank, total)
         label = @classifier.label(result)
-        parts = [label, "##{rank} of #{total}"].compact
+        parts = [("coarse" if result.mutation.coarse), label, "##{rank} of #{total}"].compact
         reason = SurvivorHints.label_reason(label)
         "[#{parts.join(" \u00B7 ")}#{": #{reason}" if reason}]"
       end
