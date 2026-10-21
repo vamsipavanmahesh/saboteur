@@ -67,6 +67,95 @@ RSpec.describe Saboteur::Doctor, "summary (#333)" do
     expect(out.string).not_to include("exit 1")
   end
 
+  it "paints ASCII glyphs when the palette falls back" do
+    ascii = described_class.new(config, out: out, palette: Saboteur::Reporter::Palette.new(enabled: false, ascii: true))
+    ascii.send(:render_summary, golden_checks)
+    expect(out.string).to include("v Ruby", "x SimpleCov", "exit 1 - fix the x above")
+  end
+
+  describe "runtime check" do
+    before { allow(Saboteur::EnvironmentHints).to receive(:all).and_return([]) }
+
+    it "passes with the Ruby and RSpec versions and the bundler note" do
+      allow(doctor).to receive(:rspec_version).and_return("3.13.1")
+      result = doctor.send(:runtime_check)
+      expect(result.status).to eq(:pass)
+      expect(result.detail).to eq("Ruby #{RUBY_VERSION} · RSpec 3.13.1 · bundler ok")
+    end
+
+    it "fails with the install fix when RSpec cannot load" do
+      allow(doctor).to receive(:rspec_version).and_return(nil)
+      result = doctor.send(:runtime_check)
+      expect(result.status).to eq(:fail)
+      expect(result.fix).to eq("bundle install, or add rspec to your Gemfile")
+    end
+
+    it "drops the bundler note when environment hints exist" do
+      allow(Saboteur::EnvironmentHints).to receive(:all).and_return(["hint"])
+      allow(doctor).to receive(:rspec_version).and_return("3.13.1")
+      expect(doctor.send(:runtime_check).detail).not_to include("bundler ok")
+    end
+  end
+
+  it "warns with the environment hints and the re-run fix" do
+    allow(Saboteur::EnvironmentHints).to receive(:all).and_return(["hint one", "hint two"])
+    result = doctor.send(:environment_check)
+    expect(result.status).to eq(:warn)
+    expect(result.detail).to eq("environment: hint one; hint two")
+    expect(result.fix).to eq("address the environment hints, then re-run saboteur doctor")
+  end
+
+  describe "sandbox check" do
+    it "passes on Landlock ABI 3+" do
+      allow(doctor).to receive(:sandbox_abi).and_return(3)
+      expect(doctor.send(:sandbox_check).detail).to eq("sandbox: Landlock ABI 3")
+    end
+
+    it "warns with the kernel fix when the ABI is older" do
+      allow(doctor).to receive(:sandbox_abi).and_return(2)
+      result = doctor.send(:sandbox_check)
+      expect(result.status).to eq(:warn)
+      expect(result.detail).to eq("sandbox: Landlock ABI 2 < 3 - children run with the hazard guard only")
+      expect(result.fix).to eq("kernel 6.2+ for full isolation, or accept reduced isolation")
+    end
+
+    it "fails when c.sandbox = \"strict\" refuses the degraded run" do
+      strict = described_class.new(Saboteur::Config.new({ "sandbox" => "strict" }), out: out, palette: palette)
+      allow(strict).to receive(:sandbox_abi).and_return(2)
+      result = strict.send(:sandbox_check)
+      expect(result.status).to eq(:fail)
+      expect(result.detail).to eq('sandbox: Landlock ABI 2 < 3 - c.sandbox = "strict" refuses to run')
+      expect(result.fix).to eq("kernel 6.2+ for full isolation, or set c.sandbox = true to run degraded")
+    end
+
+    it "warns with the Seatbelt opt-in on macOS" do
+      allow(doctor).to receive(:sandbox_abi).and_return(0)
+      allow(Saboteur::Execution::Seatbelt).to receive(:darwin?).and_return(true)
+      result = doctor.send(:sandbox_check)
+      expect(result.status).to eq(:warn)
+      expect(result.detail).to eq("sandbox: macOS has no Landlock - mutants run unsandboxed")
+      expect(result.fix).to eq('opt in with c.sandbox = "seatbelt", or run inside a container')
+    end
+
+    it "is silent when the sandbox is off" do
+      off = described_class.new(Saboteur::Config.new({ "sandbox" => false }), out: out, palette: palette)
+      expect(off.send(:sandbox_check)).to be_nil
+    end
+  end
+
+  it "reports the unchanged suite with its example count and cost" do
+    health = instance_double(Saboteur::BaselineHealth, call: %w[a b c d e f])
+    allow(Saboteur::BaselineHealth).to receive(:new).and_return(health)
+    result = doctor.send(:suite_check)
+    expect(result.status).to eq(:pass)
+    expect(result.detail).to match(/\Aunchanged suite green \(6 examples, [\d.]+s\)\z/)
+  end
+
+  it "formats seconds without a trailing .0" do
+    expect(doctor.send(:format_seconds, 0.31)).to eq("0.3s")
+    expect(doctor.send(:format_seconds, 14.0)).to eq("14s")
+  end
+
   describe "SimpleCov guard check (#312)" do
     def with_helper(contents, name = "spec_helper.rb")
       Dir.mktmpdir do |dir|
