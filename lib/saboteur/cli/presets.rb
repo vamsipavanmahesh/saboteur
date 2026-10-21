@@ -14,6 +14,11 @@ module Saboteur
                       --html .saboteur/audit-report.html]
       }.freeze
 
+      # What a new user types first; there is no such command, the Rails
+      # generator writes the starter files.
+      SETUP_WORDS = %w[init install setup].freeze
+      SETUP_HINT = "To set up a Rails app, run: bin/rails generate saboteur:install"
+
       # Preset flags that take a separate value token: the pairs a user
       # flag can override in the banner (#666).
       VALUE_FLAGS = %w[--baseline-passes --max-duration --since --operators --json --html].freeze
@@ -25,6 +30,7 @@ module Saboteur
 
         # A typo'd command is not a run: say so before the usage line.
         @err.puts("unknown command: #{command}. Run 'saboteur help' for the commands.") if command
+        @err.puts(SETUP_HINT) if SETUP_WORDS.include?(command)
         usage_error
       end
 

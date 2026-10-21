@@ -60,11 +60,11 @@ RSpec.describe "survivor confirmation (#1063)", :e2e do
     expect(run.err).to include("survivor confirmation: 1 unconfirmed(no covering tests)")
   end
 
-  it "says on the run tail when inferred specs skip the confirmation" do
+  it "says on the run tail when inferred specs skip the confirmation under partial_coverage use" do
     run = saboteur(dir, "--no-color")
 
     expect(run.status).to eq(1)
-    expect(run.err).to include("survivor confirmation skipped: inferred specs")
+    expect(run.err).to include("survivor confirmation skipped: partial_coverage = use applies only to a cached")
   end
 
   it "stays silent when the skipped run has no live survivor" do

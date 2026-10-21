@@ -32,6 +32,9 @@ module Saboteur
       end
     RUBY
 
+    BASE_CLASSES = %w[app/models/application_record.rb app/controllers/application_controller.rb
+                      app/jobs/application_job.rb app/mailers/application_mailer.rb].freeze
+
     BIN = <<~RUBY
       #!/usr/bin/env ruby
       # frozen_string_literal: true
@@ -64,7 +67,7 @@ module Saboteur
 
     # Returns the list of Results (:created, :overwritten, :skipped, :appended, :unchanged).
     def call
-      [write("config/saboteur.rb", CONFIG), write("bin/saboteur", BIN, mode: 0o755), gitignore]
+      [write("config/saboteur.rb", config_text), write("bin/saboteur", BIN, mode: 0o755), gitignore]
     end
 
     RUN_HINT = "Next: bin/saboteur doctor, then bin/saboteur run --since origin/main " \
@@ -80,6 +83,14 @@ module Saboteur
     end
 
     private
+
+    # CONFIG without the base-class excludes this app does not have: a
+    # minimal Rails app has no ApplicationJob or ApplicationMailer, and an
+    # exclude that matches no file makes doctor and every run warn.
+    def config_text
+      BASE_CLASSES.reject { |path| File.exist?(File.join(@root, path)) }
+                  .reduce(CONFIG) { |text, path| text.sub(%(    "#{path}",\n), "") }
+    end
 
     # Never writes or chmods through a symlink: not the file itself, and not a
     # symlinked directory above it (bin -> elsewhere). Without force the file is

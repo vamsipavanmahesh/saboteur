@@ -209,6 +209,14 @@ module Saboteur
       @matrix
     end
 
+    # The skipped subjects the live selection notice did not already name.
+    def unannounced_skips
+      skipped_subjects.reject do |subject, reason|
+        prefix = Text.display_safe_lines("#{subject.id} (#{subject.location(root)}): skipped (#{reason})")
+        live_announced.any? { |line| line.start_with?(prefix) }
+      end
+    end
+
     # True when the run was scoped to a diff (--since): the expand command
     # echoes that scope.
     def diff?

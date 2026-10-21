@@ -20,6 +20,8 @@ RSpec.describe Saboteur::CLI::ExitStatus do
 
       def code(report) = exit_code(report)
 
+      attr_writer :format
+
       def cause(report, code) = exit_cause(report, code)
 
       def surv_cause(report) = survivors_cause(report)
@@ -253,6 +255,55 @@ RSpec.describe Saboteur::CLI::ExitStatus do
       harness.code(report)
       expect(harness.err.string).to include("saboteur: Person#adult? (person.rb:2) was skipped (refinements), " \
                                             "so the change under test was not verified")
+    end
+
+    describe "when the run already announced the skip (#1227)" do
+      let(:announced) { "Person#adult? (person.rb:2): skipped (refinements); its change is not verified by this run" }
+
+      def announced_report(lines)
+        Saboteur::Report.new(results: [], subjects: [person_subject], wall_time: 1.0,
+                             root: File.dirname(person_subject.file), review: true, seed: 1,
+                             skipped_subjects: { person_subject => "refinements" }, live_announced: lines,
+                             operator_policy: Saboteur::Config.new({}).operator_policy)
+      end
+
+      it "still exits 3 but does not repeat the subject in the gate sentence" do
+        expect(harness.code(announced_report([announced]))).to eq(Saboteur::CLI::EXIT_TOOL)
+        expect(harness.err.string).to eq("")
+      end
+
+      %w[json agent].each do |format|
+        it "keeps the gate sentence for --format #{format}" do
+          harness.format = format
+          expect(harness.code(announced_report([announced]))).to eq(Saboteur::CLI::EXIT_TOOL)
+          expect(harness.err.string).to include("Person#adult? (person.rb:2) was skipped (refinements)")
+        end
+      end
+
+      it "keeps the sentence when the announcement named another reason or another subject" do
+        other = announced.sub("(refinements)", "(no coverage)")
+        harness.code(announced_report([other, "Other#x (person.rb:2): skipped (refinements); not verified"]))
+        expect(harness.err.string).to include("was skipped (refinements)")
+      end
+
+      it "does not take a longer reason that starts the same way for the announced one" do
+        longer = announced.sub("(refinements)", "(refinements and more)")
+        harness.code(announced_report([longer]))
+        expect(harness.err.string).to include("was skipped (refinements)")
+      end
+
+      it "repeats only the subjects the announcement did not name" do
+        refined = subjects_in("class Refined\n  def x\n    1\n  end\nend\n", name: "refined.rb").first
+        report = Saboteur::Report.new(results: [], subjects: [person_subject, refined], wall_time: 1.0,
+                                      root: File.dirname(person_subject.file), review: true, seed: 1,
+                                      skipped_subjects: { person_subject => "refinements",
+                                                          refined => "refinements" },
+                                      live_announced: [announced],
+                                      operator_policy: Saboteur::Config.new({}).operator_policy)
+        harness.code(report)
+        expect(harness.err.string).to include("Refined#x")
+        expect(harness.err.string).not_to include("Person#adult?")
+      end
     end
 
     it "judges the run by its results when other subjects ran" do
