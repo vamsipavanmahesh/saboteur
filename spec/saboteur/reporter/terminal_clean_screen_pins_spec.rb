@@ -136,8 +136,15 @@ RSpec.describe Saboteur::Reporter::Terminal, "clean screen pins" do
     phases = { baseline: { examples: 6, seconds: 0.3 }, mutant_phase: { seconds: 1.8 } }
     built = render(report, **options, **phases, coverage: { tests: 6, seconds: 14, cached: false })
     cached = render(report, **options, **phases, coverage: { tests: 6, seconds: 0.2, cached: true })
-    expect(built).to include("✓ coverage map: built 6 tests (14s) - cached next run\n")
+    expect(built).to include("✓ coverage map: built 6 tests (14s) - reused next run when the tree is unchanged\n")
     expect(cached).to include("✓ coverage map: 6 tests (cached)\n")
+  end
+
+  it "words the engine's pass count and singular test counts, rounding measured seconds" do
+    text = render(report, **options, baseline: { passes: 2, seconds: 0.2503 }, mutant_phase: { seconds: 1.84 },
+                                     coverage: { tests: 1, seconds: 14.04, cached: false })
+    expect(text).to include("✓ baseline green (2 passes, 0.3s)  ✓ coverage map: built 1 test (14s) - " \
+                            "reused next run when the tree is unchanged\n", "..  (2/2 · 1.8s)")
   end
 
   it "skips the phase lines when only some phase data is present" do

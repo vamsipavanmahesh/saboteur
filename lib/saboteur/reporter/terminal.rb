@@ -7,6 +7,7 @@ require_relative "next_steps"
 require_relative "kill_causes"
 require_relative "survivor_ranking"
 require_relative "palette"
+require_relative "phase_lines"
 require_relative "score_table"
 require_relative "survivor_list"
 require_relative "survivor_classification"
@@ -18,6 +19,8 @@ module Saboteur
     # then errors and notes, then a short summary last so it stays on screen.
     # Debug statistics (score split, timings, kill causes) need verbose.
     class Terminal
+      include PhaseLines
+
       MAX_ERRORS = 10
       MAX_NOT_SCORED = 10
       MAX_PASSING_TESTS = 5
@@ -194,24 +197,11 @@ module Saboteur
         return unless @baseline && @coverage && @mutant_phase
 
         check = @palette.paint(:pass, @palette.glyph(:check))
-        @out.puts "#{check} baseline green (#{@baseline[:examples]} examples, #{@baseline[:seconds]}s)  " \
-                  "#{check} #{coverage_map_text}"
+        @out.puts "#{check} #{baseline_text}  #{check} #{coverage_map_text}"
         total = report.executed.size
         dots = "." * total
-        suffix = @palette.paint(:dim, "(#{total}/#{total} #{middot} #{@mutant_phase[:seconds]}s)")
+        suffix = @palette.paint(:dim, "(#{total}/#{total} #{middot} #{phase_seconds(@mutant_phase[:seconds])})")
         @out.puts "#{dots}  #{suffix}"
-      end
-
-      # #312: a built map says what it cost and that it is cached next run; a
-      # cached one says so. Without :cached (no caller sets it yet - the
-      # engine's diagnostics line owns the live wording) the cost form stays.
-      def coverage_map_text
-        tests = @coverage[:tests]
-        case @coverage[:cached]
-        when true then "coverage map: #{tests} tests (cached)"
-        when false then "coverage map: built #{tests} tests (#{@coverage[:seconds]}s) - cached next run"
-        else "coverage map: #{tests} tests (#{@coverage[:seconds]}s)"
-        end
       end
 
       def win_tally(report)

@@ -22,7 +22,7 @@ module Saboteur
                                      overrides: config["palette"], threshold: config["threshold"],
                                      replay_command: survivor_replay_command(report, engine),
                                      all_mutants: options[:all_mutants] || false,
-                                     exit_code: code, previous_score: previous_score,
+                                     exit_code: code, previous_score: previous_score, **report.phase_stats,
                                      baseline_gate: (baseline_gate(report) if config["baseline"])).call(report)
         Reporter::Replay.new(@out).call(report) if options[:id]
         # The JSON carries the exit cause an outer harness trusts, so it is

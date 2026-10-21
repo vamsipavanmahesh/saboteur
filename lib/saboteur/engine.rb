@@ -175,7 +175,8 @@ module Saboteur
                  matrix: config["matrix"], inline_suppressions: @diagnostics.inline_suppressions,
                  operator_policy: config.operator_policy, discovery_failures: @diagnostics.discovery_failures,
                  test_command: config["test_command"],
-                 shard: @shard, memory: @memory_report, referenced: @guessed_referenced || {})
+                 shard: @shard, memory: @memory_report, referenced: @guessed_referenced || {},
+                 phase_stats: @phase_stats || {})
     end
 
     def complete_evidence(results, subjects)
@@ -209,7 +210,7 @@ module Saboteur
       refuse_unaffordable_coverage_build(store, files)
       return [] if abandon_for_budget?(subjects)
 
-      map = store.fetch(files)
+      map = timed_map(store, files)
       inform_about_run(subjects, map)
       cache = result_cache(map, files)
       scheduler = scheduler_for(map, integration, cache)
@@ -237,6 +238,7 @@ module Saboteur
     # marks the remaining survivors unconfirmed instead.
     def run_and_confirm(subjects, lists, scheduler, cache, ignore_list)
       confirm_survivors(run_candidates(subjects, lists, scheduler, cache, ignore_list), scheduler, cache, ignore_list)
+        .tap { record_phase_stats }
     end
 
     def confirm_survivors(results, scheduler, cache, ignore_list)
@@ -301,7 +303,27 @@ module Saboteur
                                       seed: config["seed"], operators: config.operator_policy["effective"].size)
     end
 
+    def timed_map(store, files)
+      started = monotonic
+      map = store.fetch(files)
+      @map_seconds = monotonic - started
+      @mutants_started = monotonic
+      map
+    end
+
+    # The clean screen's phase costs, once the map is known; the mutation
+    # phase's own seconds are added when it ends.
+    def start_phase_stats(map)
+      @phase_stats = { baseline: { passes: @completed_baseline_passes, seconds: @baseline_elapsed },
+                       coverage: { tests: map.tests.size, seconds: @map_seconds, cached: @map_cached } }
+    end
+
+    def record_phase_stats
+      @phase_stats&.store(:mutant_phase, { seconds: monotonic - @mutants_started })
+    end
+
     def inform_about_run(subjects, map)
+      start_phase_stats(map)
       if @diagnostics.quiet_start && !@diagnostics.verbose
         @diagnostics.quiet_baseline(passes: @completed_baseline_passes, elapsed: @baseline_elapsed,
                                     tests: map.tests.size, cached: @map_cached)
