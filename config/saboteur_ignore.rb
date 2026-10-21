@@ -2675,9 +2675,8 @@ i.mutation "fdc4600f4e8e8625",
              subject: "Saboteur::Engine::SurvivorConfirmation#checked_kill",
              reason: "equivalent: .first and .last pick the same element of the one-element " \
                      "[kill] array the check is called with, so the returned result is identical"
-  # Score-honesty PR (head 048103f671d065c28765ab31ec5751cce8f64026) dogfood
-  # survivors; each per-id replay diff was inspected and proven unobservable.
-  # Until that PR lands these digests match nothing and read as stale.
+  # Score-honesty dogfood survivors (#1104, merged); each per-id replay diff
+  # was inspected and proven unobservable.
   i.mutation "66e3a0cfce46abb7",
              subject: "Saboteur::Reporter::ScoreTable#untested_subjects",
              reason: "equivalent: dropping subject.file from the sort key is unobservable - the " \
