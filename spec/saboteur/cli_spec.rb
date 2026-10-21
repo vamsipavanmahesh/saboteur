@@ -900,9 +900,13 @@ RSpec.describe Saboteur::CLI do
       end
 
       def gate_double(failed:, incomplete: false, incompatible: false)
+        comparison = instance_double(Saboteur::Baseline::Comparison,
+                                     issues: ["scope differs"], score: nil,
+                                     categories: Saboteur::Baseline::Comparison::CATEGORY_NAMES
+                                                 .to_h { |name| [name, []] })
         instance_double(Saboteur::Baseline::RunGate,
                         failed?: failed, incomplete?: incomplete, incompatible?: incompatible,
-                        comparison: instance_double(Saboteur::Baseline::Comparison, issues: ["scope differs"]))
+                        new_survivor_ids: [], score_exceeded?: false, comparison:)
       end
 
       def stub_run(gate)
@@ -1054,6 +1058,20 @@ RSpec.describe Saboteur::CLI do
                                       "propose one with: saboteur baseline propose",
                                       "With --baseline: allowed score drop in percentage points",
                                       "(default 0: any drop fails)")
+      end
+
+      it "defaults --epsilon to 0, so any score drop fails" do
+        path = baseline_file
+        stub_baseline_load(path)
+        allow(Saboteur::Engine).to receive(:new)
+          .and_return(instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of))
+        received = nil
+        allow(Saboteur::Baseline::RunGate).to receive(:build) do |epsilon:, **|
+          received = epsilon
+          gate_double(failed: false)
+        end
+        expect(cli("run", "--baseline", path, "--json", File.join(Dir.mktmpdir, "r.json")).call).to eq(0)
+        expect(received).to eq(0.0)
       end
 
       it "parses --epsilon as a float handed to the gate" do

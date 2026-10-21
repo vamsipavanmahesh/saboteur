@@ -34,7 +34,7 @@ module Saboteur
             raise ConfigError, "baseline changed during the run"
           end
 
-          Baseline::RunGate.build(manifest: baseline_manifest, report: report, epsilon: config["epsilon"])
+          Baseline::RunGate.build(manifest: baseline_manifest, report: report, epsilon: config["epsilon"] || 0.0)
         end
       end
 

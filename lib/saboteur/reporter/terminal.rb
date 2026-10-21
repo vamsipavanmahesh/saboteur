@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require_relative "safe_out"
+require_relative "baseline_tail"
 require_relative "next_steps"
 require_relative "kill_causes"
 require_relative "survivor_ranking"
@@ -21,7 +22,7 @@ module Saboteur
       MAX_PASSING_TESTS = SurvivorList::MAX_PASSING_TESTS
 
       def initialize(out, verbose: false, color: :auto, overrides: nil, replay_command: nil, all_mutants: false,
-                     exit_code: nil, threshold: nil, previous_score: nil)
+                     exit_code: nil, threshold: nil, previous_score: nil, baseline_gate: nil)
         @out = SafeOut.new(out)
         @all_mutants = all_mutants
         @verbose = verbose
@@ -34,6 +35,9 @@ module Saboteur
         @threshold = threshold
         # Last recorded score from the score history, for the headline delta.
         @previous_score = previous_score
+        # The --baseline run gate, when the run was gated: its comparison
+        # replaces the canonical tally and owns the exit-1 verdict.
+        @baseline_gate = baseline_gate
       end
 
       def call(report)
@@ -120,7 +124,7 @@ module Saboteur
         details(report)
         @score_table.call(report)
         not_scored(report)
-        canonical_line(report)
+        @baseline_gate ? BaselineTail.new(@out, @palette).call(@baseline_gate, @exit_code) : canonical_line(report)
         verdict_line(report)
         @next_steps.call(report)
       end
@@ -267,6 +271,7 @@ module Saboteur
       # the CLI requires this file, not the other way round.
       def verdict_line(report)
         return if @exit_code.nil? || @exit_code.zero?
+        return if @baseline_gate && @exit_code == 1 # BaselineTail renders the gate's verdict
 
         case @exit_code
         when 1 then @out.puts @palette.paint(:fail, failure_verdict(report))

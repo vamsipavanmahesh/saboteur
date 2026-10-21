@@ -25,28 +25,32 @@ RSpec.describe Saboteur::CLI, "terminal options" do
     run_with
     expect(Saboteur::Reporter::Terminal).to have_received(:new)
       .with(out, verbose: false, color: :auto, overrides: {}, replay_command: kind_of(Proc),
-                 all_mutants: false, exit_code: 0, threshold: nil, previous_score: nil)
+                 all_mutants: false, exit_code: 0, threshold: nil, previous_score: nil, baseline_gate: nil)
   end
 
   it "passes --verbose to the reporter" do
     run_with("--verbose")
     expect(Saboteur::Reporter::Terminal).to have_received(:new)
       .with(out, verbose: true, color: :auto, overrides: {}, replay_command: kind_of(Proc),
-                 all_mutants: false, exit_code: 0, threshold: nil, previous_score: nil)
+                 all_mutants: false, exit_code: 0, threshold: nil, previous_score: nil, baseline_gate: nil)
   end
 
   it "passes --color and --no-color to the reporter" do
     run_with("--color")
     expect(Saboteur::Reporter::Terminal).to have_received(:new)
       .with(out, verbose: false, color: :always, overrides: {}, replay_command: kind_of(Proc),
-                 all_mutants: false, exit_code: 0, threshold: nil, previous_score: nil)
+                 all_mutants: false, exit_code: 0, threshold: nil, previous_score: nil, baseline_gate: nil)
+    run_with("--no-color")
+    expect(Saboteur::Reporter::Terminal).to have_received(:new)
+      .with(out, verbose: false, color: :never, overrides: {}, replay_command: kind_of(Proc),
+                 all_mutants: false, exit_code: 0, threshold: nil, previous_score: nil, baseline_gate: nil)
   end
 
   it "passes --all-mutants to the reporter, defaulting to collapsed findings" do
     run_with("--all-mutants")
     expect(Saboteur::Reporter::Terminal).to have_received(:new)
       .with(out, verbose: false, color: :auto, overrides: {}, replay_command: kind_of(Proc),
-                 all_mutants: true, exit_code: 0, threshold: nil, previous_score: nil)
+                 all_mutants: true, exit_code: 0, threshold: nil, previous_score: nil, baseline_gate: nil)
   end
 
   describe "--fail-fast" do
