@@ -26,9 +26,10 @@ module Saboteur
     #     covering list is only the PLANNED coverage: whole-body (coarse)
     #     mutants carry method-level guesses, so they never get this
     #     label, and neither does anything without real coverage.
-    #   tool_limit   - reserved for survivors saboteur could not observe
-    #     faithfully (re-eval refusal, external runner without coverage). No
-    #     result records that signal yet, so the label is never emitted.
+    #   tool_limit   - survivors saboteur could not observe faithfully: an
+    #     external-runner run records only the pseudo-test id, never real
+    #     coverage (#1071). A re-eval refusal records no signal on the
+    #     result yet, so that half of the reservation is still unemitted.
     #
     # A survivor with no matching signal stays unlabeled.
     module SurvivorClassification
@@ -39,6 +40,7 @@ module Saboteur
           return nil unless result.status == :survived
           return "likely_equivalent" if equivalent?(result)
           return "arid" if arid?(result, arid)
+          return "tool_limit" if tool_limited?(result)
           return "missing_test" if possible_test_gap?(result)
 
           nil
@@ -60,6 +62,13 @@ module Saboteur
           end
           Engine::BytecodeEquivalence.new.equivalent?(original, mutated,
                                                       frozen_string_literal: subject.frozen_literals)
+        end
+
+        # An external runner reports one pseudo id for every mutant and no
+        # coverage map, so a survivor there was never observed against real
+        # tests. Pseudo id next to a real id keeps missing_test (#305).
+        def tool_limited?(result)
+          result.covered_by.any? && result.covered_by.all? { |id| id == Execution::ExternalRunner::PSEUDO_TEST }
         end
 
         # covered_by is a PLANNED covering list, not a verdict about what
