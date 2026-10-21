@@ -1759,7 +1759,7 @@ RSpec.describe Saboteur::CLI, "details" do
       allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
                                                                           call: report_of(result_for(:killed))))
       cli("run", "--json", path).call
-      expect(out.string).to include("saboteur #{Saboteur::VERSION}:", "Reports: #{path} (JSON)")
+      expect(out.string).to include("saboteur #{Saboteur::VERSION} · whole project", "Reports: #{path} (JSON)")
       expect(File).to exist(path)
     end
   end

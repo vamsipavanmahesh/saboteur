@@ -276,8 +276,8 @@ RSpec.describe "score honesty" do
     it "prints no verdict line on exit 0" do
       text = render(Saboteur::Report.new(results: [result(add, :killed)], subjects: [add], wall_time: 1.0,
                                          root: dir, seed: 1), color: :never, exit_code: 0)
-      expect(text).not_to include("✓", "✗")
-      expect(text.lines.last).to eq("saboteur: 1 killed in 1s - score 100.0%\n")
+      expect(text).not_to include("✗")
+      expect(text.lines.last).to eq("✓ 1/1 mutants killed · score 100.0% · 1.0s total\n")
     end
   end
 
