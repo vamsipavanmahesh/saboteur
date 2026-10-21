@@ -8,7 +8,7 @@ RSpec.describe Saboteur::Doctor do
   let(:config) { Saboteur::Config.new }
   let(:out) { StringIO.new }
   let(:suite) { true }
-  let(:doctor) { described_class.new(config, out: out, suite: suite) }
+  let(:doctor) { described_class.new(config, out: out, suite: suite, verbose: true) }
 
   before do
     allow(Saboteur::Engine::Boot).to receive(:refuse_recursion!)
@@ -18,7 +18,7 @@ RSpec.describe Saboteur::Doctor do
   end
 
   it "names bundler and appraisal problems on the Environment line (#598, #609)" do
-    doctor = described_class.new(config, out: out)
+    doctor = described_class.new(config, out: out, verbose: true)
     Dir.mktmpdir do |dir|
       File.write(File.join(dir, "Appraisals"), "appraise \"a\" do\nend\n")
       allow(config).to receive(:root).and_return(dir)
@@ -30,14 +30,14 @@ RSpec.describe Saboteur::Doctor do
   end
 
   it "joins several hints with a separator" do
-    doctor = described_class.new(config, out: out)
+    doctor = described_class.new(config, out: out, verbose: true)
     allow(Saboteur::EnvironmentHints).to receive(:all).and_return(["hint one", "hint two"])
     doctor.send(:check_environment)
     expect(out.string).to include("Environment: hint one; hint two")
   end
 
   it "reports a clean Environment line when nothing is detected" do
-    doctor = described_class.new(config, out: out)
+    doctor = described_class.new(config, out: out, verbose: true)
     Dir.mktmpdir do |dir|
       allow(config).to receive(:root).and_return(dir)
       doctor.send(:check_environment)
@@ -120,7 +120,7 @@ RSpec.describe Saboteur::Doctor do
       stub_const("RUBY_PLATFORM", "arm64-darwin23")
       allow(Saboteur::Execution::Seatbelt).to receive(:probe).and_return(:ok)
       configured = Saboteur::Config.new({ "sandbox" => "seatbelt" })
-      described_class.new(configured, out: out).call
+      described_class.new(configured, out: out, verbose: true).call
       expect(out.string).to include(
         "Seatbelt (opt-in, #436): probe ok - capability probe only, not verified isolation"
       )
@@ -130,7 +130,7 @@ RSpec.describe Saboteur::Doctor do
       allow(Saboteur::Execution::Sandbox).to receive(:abi_version).and_return(0)
       stub_const("RUBY_PLATFORM", "x86_64-linux")
       configured = Saboteur::Config.new({ "sandbox" => "seatbelt" })
-      described_class.new(configured, out: out).call
+      described_class.new(configured, out: out, verbose: true).call
       expect(out.string).not_to include("Seatbelt (opt-in, #436)")
     end
 
@@ -148,7 +148,7 @@ RSpec.describe Saboteur::Doctor do
       allow(Saboteur::Execution::Seatbelt).to receive(:probe).and_return(:unsupported_platform)
       stub_const("RUBY_PLATFORM", "arm64-darwin23")
       configured = Saboteur::Config.new({ "sandbox" => "seatbelt" })
-      described_class.new(configured, out: out).call
+      described_class.new(configured, out: out, verbose: true).call
       expect(out.string).to include("Seatbelt (opt-in, #436): probe unsupported_platform - capability probe only, " \
                                     "not verified isolation")
     end
@@ -157,20 +157,20 @@ RSpec.describe Saboteur::Doctor do
       allow(Saboteur::Execution::Sandbox).to receive(:abi_version).and_return(0)
       stub_const("RUBY_PLATFORM", "x86_64-linux")
       configured = Saboteur::Config.new({ "sandbox" => "seatbelt" })
-      described_class.new(configured, out: out).call
+      described_class.new(configured, out: out, verbose: true).call
       expect(out.string).not_to include("Seatbelt (opt-in")
     end
 
     it "reports the sandbox as off when configured off" do
       configured = Saboteur::Config.new({ "sandbox" => false })
-      described_class.new(configured, out: out).call
+      described_class.new(configured, out: out, verbose: true).call
       expect(out.string).to include("Sandbox: off")
     end
 
     it "prints no further sandbox verdict when configured off" do
       allow(Saboteur::Execution::Sandbox).to receive(:abi_version).and_return(4)
       configured = Saboteur::Config.new({ "sandbox" => false })
-      described_class.new(configured, out: out).call
+      described_class.new(configured, out: out, verbose: true).call
       expect(out.string).not_to include("Landlock ABI")
     end
 
@@ -189,7 +189,7 @@ RSpec.describe Saboteur::Doctor do
     it "distinguishes a strict refusal from permitted degradation" do
       allow(Saboteur::Execution::Sandbox).to receive(:abi_version).and_return(2)
       configured = Saboteur::Config.new({ "sandbox" => "strict" })
-      described_class.new(configured, out: out).call
+      described_class.new(configured, out: out, verbose: true).call
       expect(out.string).to include("this kernel's Landlock ABI is 2 but ABI 3",
                                     'c.sandbox = "strict" refuses to run')
       expect(out.string).not_to include("hazard guard")
@@ -219,7 +219,7 @@ RSpec.describe Saboteur::Doctor do
   end
 
   it "defaults to environment checks only" do
-    expect(described_class.new(config, out: out).instance_variable_get(:@suite)).to be(false)
+    expect(described_class.new(config, out: out, verbose: true).instance_variable_get(:@suite)).to be(false)
   end
 
   it "reports the loaded map and warns about duplicate keys" do
@@ -240,7 +240,7 @@ RSpec.describe Saboteur::Doctor do
         }.freeze
       RUBY
       config = Saboteur::Config.new({}, root: File.realpath(root))
-      doctor = described_class.new(config, out: out)
+      doctor = described_class.new(config, out: out, verbose: true)
       allow(Saboteur::Engine::Boot).to receive(:new).and_return(instance_double(Saboteur::Engine::Boot,
                                                                                 load_target: nil))
       allow(Saboteur::BaselineHealth).to receive(:new).and_return(instance_double(Saboteur::BaselineHealth,
@@ -262,7 +262,7 @@ RSpec.describe Saboteur::Doctor do
                  "SABOTEUR_CUSTOM_MAP = { \"app/models/gone.rb\" => [\"spec/models/gone_spec.rb\"], " \
                  "\"app/models/gone_b.rb\" => [\"spec/models/gone_spec.rb\"] }.freeze\n")
       config = Saboteur::Config.new({}, root: File.realpath(root))
-      doctor = described_class.new(config, out: out)
+      doctor = described_class.new(config, out: out, verbose: true)
       allow(Saboteur::Engine::Boot).to receive(:new).and_return(instance_double(Saboteur::Engine::Boot,
                                                                                 load_target: nil))
       allow(Saboteur::BaselineHealth).to receive(:new).and_return(instance_double(Saboteur::BaselineHealth,
@@ -283,7 +283,7 @@ RSpec.describe Saboteur::Doctor do
       File.write(File.join(root, "config", "saboteur_custom_map.rb"),
                  "SABOTEUR_CUSTOM_MAP = { \"app/models/user.rb\" => [\"spec/models/user_spec.rb\"] }.freeze\n")
       config = Saboteur::Config.new({}, root: File.realpath(root))
-      doctor = described_class.new(config, out: out)
+      doctor = described_class.new(config, out: out, verbose: true)
       allow(Saboteur::Engine::Boot).to receive(:new).and_return(instance_double(Saboteur::Engine::Boot,
                                                                                 load_target: nil))
       allow(Saboteur::BaselineHealth).to receive(:new).and_return(instance_double(Saboteur::BaselineHealth,
@@ -303,7 +303,7 @@ RSpec.describe Saboteur::Doctor do
                                                                           mutation: "a", reason: "accepted")])
       allow(Saboteur::IgnoreList).to receive(:load).with(config.path("ignore_file")).and_return(ignores)
 
-      described_class.new(config, out: out).send(:check_ignore_subjects)
+      described_class.new(config, out: out, verbose: true).send(:check_ignore_subjects)
 
       expect(out.string).to be_empty
     end
@@ -318,7 +318,7 @@ RSpec.describe Saboteur::Doctor do
                                                                           mutation: "a", reason: "accepted")])
       allow(Saboteur::IgnoreList).to receive(:load).with(config.path("ignore_file")).and_return(ignores)
 
-      described_class.new(config, out: out).send(:check_ignore_subjects)
+      described_class.new(config, out: out, verbose: true).send(:check_ignore_subjects)
 
       expect(out.string).to include("ignore subject check incomplete")
       expect(out.string).not_to include("matches no discovered subject")
@@ -340,7 +340,7 @@ RSpec.describe Saboteur::Doctor do
       allow(Saboteur::BaselineHealth).to receive(:new).and_return(instance_double(Saboteur::BaselineHealth,
                                                                                   call: ["a"]))
 
-      expect(described_class.new(config, out: out).call).to be(true)
+      expect(described_class.new(config, out: out, verbose: true).call).to be(true)
 
       warnings = out.string.lines.grep(/Warning: ignore subject/)
       expect(warnings).to eq(["Warning: ignore subject Gone#method matches no discovered subject in included files; " \
@@ -366,7 +366,8 @@ RSpec.describe Saboteur::Doctor do
       config = Saboteur::Config.new({}, root: root)
       expect(Saboteur::Engine::Boot).not_to receive(:new)
 
-      expect { described_class.new(config, out: out).call }.to raise_error(Saboteur::ConfigError, /missing reason/)
+      expect { described_class.new(config, out: out, verbose: true).call }
+        .to raise_error(Saboteur::ConfigError, /missing reason/)
       expect(File.read(path)).to include('subject: "Gone#method"')
     end
   end
@@ -416,7 +417,7 @@ RSpec.describe Saboteur::Doctor do
       config = Saboteur::Config.new(
         { "require" => ["boot.rb"], "hooks" => ["missing.rb"], "include" => ["none/*.rb"] }, root: root
       )
-      doctor = described_class.new(config, out: out)
+      doctor = described_class.new(config, out: out, verbose: true)
       expect { doctor.send(:check_boot_files) }.to raise_error(Saboteur::ConfigError, /hooks file missing: missing.rb/)
       File.write(File.join(root, "missing.rb"), "")
       doctor.send(:check_boot_files)
@@ -433,7 +434,7 @@ RSpec.describe Saboteur::Doctor do
       File.write(File.join(root, "config", "environment.rb"), "")
       config = Saboteur::Config.new({ "require" => ["./config/environment"], "hooks" => ["./config/environment"] },
                                     root: root)
-      doctor = described_class.new(config, out: out)
+      doctor = described_class.new(config, out: out, verbose: true)
       doctor.send(:check_boot_files)
       expect(out.string).to include("require: ./config/environment (found)", "hooks: ./config/environment (found)")
       File.unlink(File.join(root, "config", "environment.rb"))
@@ -451,7 +452,7 @@ RSpec.describe Saboteur::Doctor do
     expect(configurations).to receive(:configs_for).with(env_name: "test").and_return([primary, animals, cache])
     stub_const("ActiveRecord::Base", base)
     config = Saboteur::Config.new({ "rails" => true })
-    doctor = described_class.new(config, out: out)
+    doctor = described_class.new(config, out: out, verbose: true)
     expect { doctor.send(:check_database_hosts) }
       .to raise_error(Saboteur::ConfigError,
                       /animals \(host db\.internal\), cache \(host db2\.internal\).*c\.allow_db_hosts/m)
@@ -465,13 +466,13 @@ RSpec.describe Saboteur::Doctor do
     allow(base).to receive(:configurations).and_return(double("configurations", configs_for: [animals]))
     stub_const("ActiveRecord::Base", base)
     config = Saboteur::Config.new({ "rails" => true, "allow_db_hosts" => ["db.internal"] })
-    doctor = described_class.new(config, out: out)
+    doctor = described_class.new(config, out: out, verbose: true)
     doctor.send(:check_database_hosts)
     expect(out.string).to include("Database: animals (host db.internal)")
   end
 
   it "skips the database host check unless rails is enabled" do
-    doctor = described_class.new(Saboteur::Config.new, out: out)
+    doctor = described_class.new(Saboteur::Config.new, out: out, verbose: true)
     doctor.send(:check_database_hosts)
     expect(out.string).to be_empty
   end
@@ -479,7 +480,7 @@ RSpec.describe Saboteur::Doctor do
   it "says so when rails is enabled but ActiveRecord did not load" do
     hide_const("ActiveRecord")
     config = Saboteur::Config.new({ "rails" => true })
-    doctor = described_class.new(config, out: out)
+    doctor = described_class.new(config, out: out, verbose: true)
     doctor.send(:check_database_hosts)
     expect(out.string).to include("Databases: ActiveRecord did not load; host check skipped")
   end
@@ -490,7 +491,7 @@ RSpec.describe Saboteur::Doctor do
     allow(base).to receive(:configurations).and_return(double("configurations", configs_for: [primary]))
     stub_const("ActiveRecord::Base", base)
     config = Saboteur::Config.new({ "rails" => true })
-    doctor = described_class.new(config, out: out)
+    doctor = described_class.new(config, out: out, verbose: true)
     doctor.send(:check_database_hosts)
     expect(out.string).to include("Database: primary (host local socket)")
   end
@@ -518,7 +519,8 @@ RSpec.describe Saboteur::CLI, "doctor command" do
     expect(Saboteur::Config).to receive(:load).with(root: Dir.pwd, path: "health.yml",
                                                     overrides: { seed: 42 }).and_return(config)
     expect(Saboteur::Doctor).to receive(:new).with(config,
-                                                   hash_including(out: out, suite: false))
+                                                   out: out, suite: false, verbose: true,
+                                                   palette: kind_of(Saboteur::Reporter::Palette))
                                              .and_return(instance_double(Saboteur::Doctor, call: true))
     expect(Saboteur::Engine).not_to receive(:new)
     expect(described_class.new(%w[doctor --config health.yml --seed 42], out: out, err: err).call).to eq(0)
@@ -527,7 +529,8 @@ RSpec.describe Saboteur::CLI, "doctor command" do
   it "describes doctor options in its own parser banner" do
     command = described_class.new(["doctor"], out: out, err: err)
     expect(command.send(:doctor_parser).to_s)
-      .to include("Usage: saboteur doctor [--config PATH] [--seed N] [--suite] [--test PATH]")
+      .to include("Usage: saboteur doctor [--config PATH] [--seed N] [--suite] [--test PATH] [-v] " \
+                  "[--color [MODE]]")
   end
 
   it "returns usage for stray or invalid arguments, and reports config and tool failures" do

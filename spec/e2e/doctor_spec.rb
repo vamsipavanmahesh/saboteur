@@ -3,9 +3,11 @@
 
 RSpec.describe "doctor", :e2e do
   def doctor(dir, *arguments)
-    Open3.capture3({ "BUNDLE_GEMFILE" => File.join(E2EHelpers::ROOT, "Gemfile") },
-                   RbConfig.ruby, "-I", File.join(E2EHelpers::ROOT, "lib"), E2EHelpers::EXE,
-                   "doctor", *arguments, chdir: dir)
+    out, err, status = Open3.capture3({ "BUNDLE_GEMFILE" => File.join(E2EHelpers::ROOT, "Gemfile") },
+                                      RbConfig.ruby, "-I", File.join(E2EHelpers::ROOT, "lib"), E2EHelpers::EXE,
+                                      "doctor", *arguments, chdir: dir)
+    # The subprocess writes UTF-8; the pipe inherits the spec run's locale.
+    [out.force_encoding(Encoding::UTF_8), err.force_encoding(Encoding::UTF_8), status]
   end
 
   it "checks the environment only by default, without running the suite or writing anything" do
@@ -17,13 +19,24 @@ RSpec.describe "doctor", :e2e do
     expect(out).to include("Ruby:", "Coverage: suspended", "Integration: rspec", "Baseline: not run", "--suite")
     expect(out).not_to include("passed twice")
     expect(out.scan(/^Coverage:/).size).to eq(1)
+  end
+
+  it "keeps the full environment detail under -v, without running the suite or writing anything" do
+    dir = copy_fixture("people")
+    File.write(File.join(dir, "spec", "failure_spec.rb"),
+               'RSpec.describe("red") { it("fails") { expect(true).to eq(false) } }')
+    out, err, status = doctor(dir, "--verbose")
+    expect(status.exitstatus).to eq(0), err
+    expect(out).to include("Ruby:", "Coverage: suspended", "Integration: rspec", "Baseline: not run", "--suite")
+    expect(out).not_to include("passed twice")
+    expect(File).not_to exist(File.join(dir, ".saboteur"))
     expect(out.scan(/^Sandbox:/).size).to eq(1)
     expect(File).not_to exist(File.join(dir, ".saboteur"))
   end
 
   it "checks two seeded baselines with --suite without writing caches or reports" do
     dir = copy_fixture("people")
-    out, err, status = doctor(dir, "--suite", "--seed", "42")
+    out, err, status = doctor(dir, "--suite", "--seed", "42", "--verbose")
     expect(status.exitstatus).to eq(0), err
     expect(out).to include("Ruby:", "Coverage: suspended", "Integration: rspec", "passed twice", "seed 42")
     expect(File).not_to exist(File.join(dir, ".saboteur"))
@@ -53,7 +66,7 @@ RSpec.describe "doctor", :e2e do
     RUBY
     File.write(path, contents)
 
-    out, err, status = doctor(dir)
+    out, err, status = doctor(dir, "--verbose")
 
     expect(status.exitstatus).to eq(0), err
     expect(out).to include("Warning: ignore subject IgnoreProbe.helper matches no discovered subject",
