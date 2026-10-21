@@ -3,6 +3,7 @@
 
 require_relative "acceptance"
 require_relative "comparison"
+require_relative "identity"
 require_relative "loader"
 require_relative "../engine"
 require_relative "../text"
@@ -41,15 +42,35 @@ module Saboteur
         payload
       end
 
+      # Blockers carry only a digest and a status. Name the subject, operator
+      # and the engine's recorded reason, and say how to unblock the proposal.
+      def refuse_proposal(evidence, report)
+        blockers = evidence.fetch("blockers")
+        by_id = report.results.to_h do |result|
+          [Identity.new(subject: result.subject, mutation: result.mutation, root: @root).entry.fetch("id"), result]
+        end
+        blockers.each { |issue| @err.puts("saboteur: baseline proposal blocker: #{describe_blocker(issue, by_id)}") }
+        if blockers.any? { |issue| issue.start_with?("unexecuted:") }
+          @err.puts("saboteur: cover the skipped code with specs or narrow include, then propose again")
+        end
+        raise Error, "baseline proposal needs a proposable run"
+      end
+
+      def describe_blocker(issue, by_id)
+        match = /\Aunexecuted:([0-9a-f]{64}):(\w+)\z/.match(issue)
+        result = match && by_id[match[1]]
+        return issue unless result
+
+        detail = "#{result.subject.id} #{result.mutation.operator}"
+        detail += " - #{result.reason}" if result.reason
+        "#{issue} (#{detail})"
+      end
+
       def propose(proposal:, destination:, previous: nil)
         guard_artifacts(proposal, destination)
         report = Engine.new(@config, err: @err, capture_evidence: true).call
         evidence = report.run_evidence
-        unless evidence["proposable"] == true
-          evidence.fetch("blockers").each { |issue| @err.puts("saboteur: baseline proposal blocker: #{issue}") }
-          raise Error,
-                "baseline proposal needs a proposable run"
-        end
+        refuse_proposal(evidence, report) unless evidence["proposable"] == true
 
         captured = Evidence.new(evidence)
         store(captured.document.fetch("snapshot")).propose(document: captured.manifest,

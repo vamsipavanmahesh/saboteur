@@ -33,7 +33,9 @@ module Saboteur
           @out.puts "    #{SurvivorGuidance::REPLAY_CAVEAT}"
         end
         @out.puts "  #{SurvivorGuidance::IGNORE_INTRO}"
-        @out.puts "    #{SurvivorGuidance.ignore_entry(survivor.digest, survivor.subject.id)}"
+        @out.puts "    Saboteur.ignore do |i|"
+        @out.puts "      #{SurvivorGuidance.ignore_entry(survivor.digest, survivor.subject.id)}"
+        @out.puts "    end"
         @out.puts "  let an agent close the gaps: saboteur run --agent, with the same options"
       end
     end

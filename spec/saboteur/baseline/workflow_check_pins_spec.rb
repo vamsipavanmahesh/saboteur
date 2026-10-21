@@ -26,7 +26,7 @@ RSpec.describe Saboteur::Baseline::Workflow do
   end
 
   def run_returning(evidence)
-    report = instance_double(Saboteur::Report, run_evidence: evidence)
+    report = instance_double(Saboteur::Report, run_evidence: evidence, results: [])
     allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, call: report))
   end
 

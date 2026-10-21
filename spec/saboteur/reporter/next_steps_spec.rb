@@ -61,7 +61,8 @@ RSpec.describe Saboteur::Reporter::NextSteps do
   it "indents each line of the footer exactly, with and without a wired replay builder" do
     survivor = result_for(:survived)
     guidance = Saboteur::SurvivorGuidance
-    ignore = ["  #{guidance::IGNORE_INTRO}\n", "    #{guidance.ignore_entry(survivor.digest, survivor.subject.id)}\n",
+    ignore = ["  #{guidance::IGNORE_INTRO}\n", "    Saboteur.ignore do |i|\n",
+              "      #{guidance.ignore_entry(survivor.digest, survivor.subject.id)}\n", "    end\n",
               "  let an agent close the gaps: saboteur run --agent, with the same options\n"]
     fallback = guidance.replay_command(survivor.digest, seed: 1)
 
