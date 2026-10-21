@@ -24,7 +24,38 @@ RSpec.describe Saboteur::Engine, "ignore list warnings" do
       allow(Saboteur::IgnoreList).to receive(:load).and_return(ignore_list)
       report = described_class.new(Saboteur::Config.new({}, root: root), err: StringIO.new).call
       expect(report.warnings).to include("ignored survivor abc is gone")
-      expect(ignore_list).to have_received(:apply).with([], unscoped_digests: nil)
+      expect(ignore_list).to have_received(:apply)
+        .with([], subjects: [], unscoped_digests: nil, full_run: true)
+    end
+  end
+
+  # --subject, explicit file arguments, and --since all narrow what the run
+  # examines without setting a diff scope; none may flip the
+  # missing-subject check on, or every entry for other subjects warns.
+  {
+    "a --subject filter" => { "subjects" => ["K#m"] },
+    "explicit file arguments" => { "include" => ["lib/models/**/*.rb"] },
+    "a --since diff" => { "since" => "HEAD" }
+  }.each do |label, scoped_config|
+    it "passes full_run: false for #{label}" do
+      Dir.mktmpdir do |root|
+        # --since validates a git repo and resolves the ref
+        system("git", "init", "-q", chdir: root)
+        system("git", "-C", root, "-c", "user.email=t@t.t", "-c", "user.name=t",
+               "commit", "-q", "--allow-empty", "-m", "x")
+        allow(Saboteur::Engine::Boot).to receive(:refuse_recursion!)
+        integration = instance_double(Saboteur::Integration::RSpec, test_files: [])
+        boot = instance_double(Saboteur::Engine::Boot, load_target: integration, rails: nil)
+        allow(Saboteur::Engine::Boot).to receive(:new).and_return(boot)
+        selection = instance_double(Saboteur::Engine::SubjectSelection, select: [], behavior_lines: nil)
+        allow(Saboteur::Engine::SubjectSelection).to receive(:new).and_return(selection)
+        ignore_list = instance_double(Saboteur::IgnoreList, apply: [])
+        allow(Saboteur::IgnoreList).to receive(:load).and_return(ignore_list)
+        config = Saboteur::Config.new(scoped_config, root: root)
+        described_class.new(config, err: StringIO.new).call
+        expect(ignore_list).to have_received(:apply)
+          .with([], subjects: [], unscoped_digests: nil, full_run: false)
+      end
     end
   end
 

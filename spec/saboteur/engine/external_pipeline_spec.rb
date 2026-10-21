@@ -50,6 +50,21 @@ RSpec.describe "Engine external test-command pipeline" do
   # External mode has no coverage map, so the boot-once signature (#575)
   # is unknowable: candidate selection must not ask for it (Pod 1 review:
   # boot_once? on the real map crashed this pipeline with NoMethodError).
+  # The external pipeline hands the same wiring to the ignore list as the
+  # in-process one: drop a kwarg here and entries silently lose the
+  # missing-subject check or the subjects list (#1206 dogfood).
+  it "hands subjects and full_run to the ignore list (#1206)" do
+    with_fixture do |root|
+      config = Saboteur::Config.new({ "test_command" => "true" }, root: root)
+      ignore_list = instance_double(Saboteur::IgnoreList, apply: [], accepts?: false)
+      allow(Saboteur::IgnoreList).to receive(:load).and_return(ignore_list)
+      Saboteur::Engine.new(config).call
+      expect(ignore_list).to have_received(:apply)
+        .with(an_instance_of(Array), subjects: an_instance_of(Array),
+                                     unscoped_digests: anything, full_run: true)
+    end
+  end
+
   it "selects candidates without a coverage map and never guesses at boot-once (#575)" do
     with_fixture do |root|
       config = Saboteur::Config.new({ "test_command" => "true" }, root: root)

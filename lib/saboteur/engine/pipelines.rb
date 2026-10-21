@@ -24,7 +24,9 @@ module Saboteur
                       mutate(subjects, files, integration, scope, ignore_list,
                              load_lines:, load_methods:)
                     end
-          @diagnostics.add_warnings(ignore_list.apply(results, unscoped_digests: @unscoped_digests))
+          warnings = ignore_list.apply(results, subjects: subjects,
+                                                unscoped_digests: @unscoped_digests, full_run: unscoped_full_run?)
+          @diagnostics.add_warnings(warnings)
           build_report(results, subjects, scope, started)
         ensure
           # Cleanup runs however the call ends - a partway boot failure, no
@@ -54,7 +56,9 @@ module Saboteur
         files = config.included_files
         subjects, scope = select_subjects(files)
         results = subjects.empty? ? [] : mutate_external(subjects, scope, ignore_list)
-        @diagnostics.add_warnings(ignore_list.apply(results, unscoped_digests: @unscoped_digests))
+        warnings = ignore_list.apply(results, subjects: subjects,
+                                              unscoped_digests: @unscoped_digests, full_run: unscoped_full_run?)
+        @diagnostics.add_warnings(warnings)
         build_report(results, subjects, scope, started)
       end
 
@@ -95,6 +99,14 @@ module Saboteur
         warning = runner.visibility_check(subject: subject, deadline: preflight_deadline,
                                           budget_deadline: budget_deadline)
         @diagnostics.warn(warning) if warning
+      end
+
+      # "Full run" for ignore staleness (#1206): no --since diff, no --subject
+      # filter, and no narrowed include (explicit file arguments replace the
+      # configured include) - only then was every in-scope subject examined, so
+      # an entry whose subject never appears really points at gone code.
+      def unscoped_full_run?
+        !config["since"] && config["subjects"].empty? && config["include"] == Config::DEFAULTS["include"]
       end
 
       def external_command? = !config["test_command"].to_s.empty?
