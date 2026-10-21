@@ -75,9 +75,9 @@ RSpec.describe Saboteur::CLI::SurvivorsBrowser, "output pins (#520)" do
     )
   end
 
-  it "prints the singular header and triage note when a filter selects exactly one" do
-    expect(browser.list(triage: "missing_test")).to eq(
-      ["1 survivor (triage=missing_test) (the report's ranked findings name only the first 10)",
+  it "prints the singular header and label note when a filter selects exactly one" do
+    expect(browser.list(label: "missing_test")).to eq(
+      ["1 survivor (label=missing_test) (the report's ranked findings name only the first 10)",
        "  1. lib/order.rb:5  sum_to_map_sum               aaaaaaaaaaaaaaaa  missing_test"]
     )
   end

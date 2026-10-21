@@ -139,8 +139,8 @@ module Saboteur
         name: "survivors",
         summary: "Browse a report's survivors in the terminal, read-only",
         description: "Reads the Stryker JSON report without booting the project or rerunning tests. " \
-                     "Lists every survivor with rank, file, line, operator, digest and triage label; " \
-                     "filters with --file, --operator and --triage; --ranked uses the report's ranked " \
+                     "Lists every survivor with rank, file, line, operator, digest and classification " \
+                     "label; filters with --file, --operator and --label; --ranked uses the report's ranked " \
                      "findings order. --show DIGEST prints the diff, the exact replay command and an " \
                      "ignore-file entry template for that mutant. It never edits the ignore file.",
         takes_options: false,

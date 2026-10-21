@@ -25,11 +25,13 @@ module Saboteur
           opts.on("--ranked", "Review-priority order: the report's ranked findings first")
           opts.on("--file SUBSTR", "Only survivors whose path contains SUBSTR")
           opts.on("--operator NAME", "Only survivors of operator NAME")
-          opts.on("--triage LABEL", "Only survivors classified LABEL (for example missing_test)")
+          opts.on("--label LABEL", "Only survivors classified LABEL (for example missing_test)")
+          opts.on("--triage LABEL", "Alias for --label under its old name")
           opts.on("--show DIGEST", "Diff, replay command and ignore template for one survivor")
         end
         options = {}
         args = parser.parse!(@argv, into: options)
+        options[:label] ||= options.delete(:triage)
         path = args.shift or raise UsageError,
                                    "survivors expects a report path: saboteur survivors .saboteur/report.json"
         raise UsageError, "unexpected arguments: #{args.join(' ')}" if args.any?
@@ -39,7 +41,7 @@ module Saboteur
         if options[:show]
           @out.puts(browser.show(options[:show]))
         else
-          @out.puts(browser.list(**options.slice(:ranked, :file, :operator, :triage)))
+          @out.puts(browser.list(**options.slice(:ranked, :file, :operator, :label)))
         end
         EXIT_OK
       end
@@ -61,12 +63,12 @@ module Saboteur
         @findings = report.dig("saboteur", "findings") || {}
       end
 
-      def list(ranked: false, file: nil, operator: nil, triage: nil)
-        survivors = filtered(file, operator, triage)
+      def list(ranked: false, file: nil, operator: nil, label: nil)
+        survivors = filtered(file, operator, label)
         survivors = ranked_order(survivors) if ranked
-        return "no survivors#{filters_note(file, operator, triage)}" if survivors.empty?
+        return "no survivors#{filters_note(file, operator, label)}" if survivors.empty?
 
-        [header(survivors.size, file, operator, triage), *rows(survivors)]
+        [header(survivors.size, file, operator, label), *rows(survivors)]
       end
 
       def show(digest)
@@ -90,15 +92,15 @@ module Saboteur
 
       private
 
-      def filtered(file, operator, triage)
+      def filtered(file, operator, label)
         survivors = all_survivors
         survivors = survivors.select { |s| s[:path].include?(file) } if file
         survivors = survivors.select { |s| s[:operator] == operator } if operator
-        triage ? survivors.select { |s| s[:classification] == triage } : survivors
+        label ? survivors.select { |s| s[:classification] == label } : survivors
       end
 
-      def header(size, file, operator, triage)
-        text = "#{size} survivor#{'s' unless size == 1}#{filters_note(file, operator, triage)}"
+      def header(size, file, operator, label)
+        text = "#{size} survivor#{'s' unless size == 1}#{filters_note(file, operator, label)}"
         truncated = @findings["survivorsTruncated"].to_i
         return text unless truncated.positive?
 
@@ -145,11 +147,11 @@ module Saboteur
         survivor[:source].to_s.lines[survivor[:line] - 1].to_s.strip
       end
 
-      def filters_note(file, operator, triage)
+      def filters_note(file, operator, label)
         parts = []
         parts << "file~#{file}" if file
         parts << "operator=#{operator}" if operator
-        parts << "triage=#{triage}" if triage
+        parts << "label=#{label}" if label
         parts.empty? ? "" : " (#{parts.join(', ')})"
       end
     end

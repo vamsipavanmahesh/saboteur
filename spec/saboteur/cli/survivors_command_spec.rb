@@ -145,7 +145,16 @@ RSpec.describe Saboteur::CLI, "survivors (#475)" do
       end
     end
 
-    it "filters survivors by classification with --triage" do
+    it "filters survivors by classification with --label" do
+      Dir.mktmpdir do |dir|
+        path = write_report(dir, survivors: [])
+        expect(cli("survivors", path, "--label", "missing_test").call).to eq(0)
+        expect(out.string).to include("a" * 16)
+        expect(out.string).not_to include("b" * 16)
+      end
+    end
+
+    it "keeps --triage working as an alias for --label" do
       Dir.mktmpdir do |dir|
         path = write_report(dir, survivors: [])
         expect(cli("survivors", path, "--triage", "missing_test").call).to eq(0)
