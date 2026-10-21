@@ -49,7 +49,7 @@ RSpec.describe Saboteur::Baseline::Workflow do
     ["true", 1, nil, false].each do |claim|
       run_returning(document.merge("proposable" => claim))
       expect { workflow.propose(proposal: File.join(@root, "p.json"), destination: File.join(@root, "b.json")) }
-        .to raise_error(Saboteur::Error, "baseline proposal requires complete execution evidence"), claim.inspect
+        .to raise_error(Saboteur::Error, "baseline proposal needs a proposable run"), claim.inspect
     end
   end
 
@@ -60,7 +60,7 @@ RSpec.describe Saboteur::Baseline::Workflow do
                              "blockers" => %w[inputs_unverified empty_candidates])
     run_returning(blocked)
     expect { flow.propose(proposal: File.join(@root, "p.json"), destination: File.join(@root, "b.json")) }
-      .to raise_error(Saboteur::Error, "baseline proposal requires complete execution evidence")
+      .to raise_error(Saboteur::Error, "baseline proposal needs a proposable run")
     expect(err.string).to eq("saboteur: baseline proposal blocker: inputs_unverified\n" \
                              "saboteur: baseline proposal blocker: empty_candidates\n")
   end

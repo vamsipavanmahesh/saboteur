@@ -224,7 +224,7 @@ RSpec.describe Saboteur::Baseline::Workflow do
     report = instance_double(Saboteur::Report, run_evidence: document.merge("proposable" => false, "candidates" => []))
     allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, call: report))
     expect { workflow.propose(proposal: File.join(@root, "p.json"), destination: File.join(@root, "b.json")) }
-      .to raise_error(Saboteur::Error, /complete execution/)
+      .to raise_error(Saboteur::Error, /needs a proposable run/)
     expect(File.exist?(File.join(@root, "p.json"))).to be(false)
   end
 

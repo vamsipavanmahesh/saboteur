@@ -48,7 +48,7 @@ module Saboteur
         unless evidence["proposable"] == true
           evidence.fetch("blockers").each { |issue| @err.puts("saboteur: baseline proposal blocker: #{issue}") }
           raise Error,
-                "baseline proposal requires complete execution evidence"
+                "baseline proposal needs a proposable run"
         end
 
         captured = Evidence.new(evidence)

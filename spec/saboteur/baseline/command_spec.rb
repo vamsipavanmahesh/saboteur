@@ -189,8 +189,8 @@ RSpec.describe "baseline CLI validation" do
     workflow = instance_double(Saboteur::Baseline::Workflow)
     allow(Saboteur::Baseline::Workflow).to receive(:new).and_return(workflow)
     allow(workflow).to receive(:propose)
-      .and_raise(Saboteur::Error, "baseline proposal requires complete execution evidence")
+      .and_raise(Saboteur::Error, "baseline proposal needs a proposable run")
     expect(command("propose", "--baseline", "b.json", "--proposal", "p.json")).to eq(3)
-    expect(@err.string).to include("saboteur: baseline proposal requires complete execution evidence")
+    expect(@err.string).to include("saboteur: baseline proposal needs a proposable run")
   end
 end
