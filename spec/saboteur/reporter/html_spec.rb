@@ -439,6 +439,8 @@ RSpec.describe Saboteur::Reporter::Html do
         expect(page).to include('<details class="file" open><summary>a.rb (40 mutants)</summary>')
         expect(page).to include('<details class="file"><summary>b.rb (3 mutants, 1 survivor)</summary>')
         expect(page).to include(">1 file with survivors collapsed - ", ">expand all</a>")
+        expect(page).to include("<a href=\"#files\" onclick=\"document.querySelectorAll('details.file')" \
+                                ".forEach(function(d){d.open=true});return false\">expand all</a></p>\n")
       end
     end
 
@@ -451,6 +453,57 @@ RSpec.describe Saboteur::Reporter::Html do
         expect(page).to include('<details class="file"><summary>f10.rb (1 mutants, 1 survivor)</summary>')
         expect(page).to include('<details class="file"><summary>f11.rb (1 mutants, 1 survivor)</summary>')
         expect(page).to include(">2 files with survivors collapsed - ")
+      end
+    end
+
+    it "ranks by survivor count first, names plural survivors, and leaves survivor-free files out of the count" do
+      Dir.mktmpdir do |dir|
+        pair = lambda do |name|
+          subject = write_subject(dir, name)
+          [result_on(subject, :survived, ">"), result_on(subject, :survived, "<")]
+        end
+        one = write_subject(dir, "a_one.rb")
+        quiet = write_subject(dir, "k_quiet.rb")
+        results = [result_on(one, :survived, ">"), result_on(quiet, :killed, ">")]
+        results += (0..9).flat_map { |i| pair.call(format("g%02d.rb", i)) } + pair.call("h.rb")
+        page = page_for(dir, results)
+        expect(page).to include('<details class="file" open><summary>g00.rb (2 mutants)</summary>')
+        expect(page).to include('<details class="file"><summary>h.rb (2 mutants, 2 survivors)</summary>')
+        expect(page).to include('<details class="file"><summary>a_one.rb (1 mutants, 1 survivor)</summary>')
+        expect(page).to include(">2 files with survivors collapsed - ")
+        expect(page).to include('<details class="file"><summary>k_quiet.rb (1 mutants)</summary>')
+      end
+    end
+
+    it "ranks ties by file name, whatever order the files were added in" do
+      Dir.mktmpdir do |dir|
+        results = (0..10).reverse_each.map { |i| result_on(write_subject(dir, format("f%02d.rb", i)), :survived, ">") }
+        page = page_for(dir, results)
+        expect(page).to include('<details class="file" open><summary>f00.rb (1 mutants)</summary>')
+        expect(page).to include('<details class="file"><summary>f10.rb (1 mutants, 1 survivor)</summary>')
+      end
+    end
+
+    it "never opens or counts a file without survivors" do
+      Dir.mktmpdir do |dir|
+        a = write_subject(dir, "a.rb")
+        quiet = write_subject(dir, "k.rb")
+        page = page_for(dir, [result_on(a, :survived, ">"), result_on(quiet, :killed, ">")])
+        expect(page).to include('<details class="file"><summary>k.rb (1 mutants)</summary>')
+        expect(page).not_to include("collapsed")
+      end
+    end
+
+    it "opens the next file while the open rows are under the budget and stops exactly at it" do
+      Dir.mktmpdir do |dir|
+        budget = Saboteur::Reporter::Html::OPEN_ROW_BUDGET
+        [[budget - 1, true], [budget, false]].each do |rows, next_opens|
+          a = write_subject(dir, "a#{rows}.rb")
+          b = write_subject(dir, "b#{rows}.rb")
+          results = [result_on(a, :survived, ">")] + (1...rows).map { |i| result_on(a, :killed, "<#{i}") }
+          page = page_for(dir, results + [result_on(b, :survived, ">")])
+          expect(page.include?(%(<details class="file" open><summary>b#{rows}.rb))).to eq(next_opens)
+        end
       end
     end
 

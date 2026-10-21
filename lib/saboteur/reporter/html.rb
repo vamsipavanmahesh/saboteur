@@ -249,12 +249,14 @@ module Saboteur
       end
 
       def collapse_note(collapsed)
-        return "" if collapsed.zero?
-
         noun = collapsed == 1 ? "file" : "files"
-        "<p class=\"note\" id=\"files\">#{collapsed} #{noun} with survivors collapsed - " \
-          "<a href=\"#files\" onclick=\"document.querySelectorAll('details.file').forEach" \
-          "(function(d){d.open=true});return false\">expand all</a></p>\n"
+        if collapsed.zero?
+          ""
+        else
+          "<p class=\"note\" id=\"files\">#{collapsed} #{noun} with survivors collapsed - " \
+            "<a href=\"#files\" onclick=\"document.querySelectorAll('details.file').forEach" \
+            "(function(d){d.open=true});return false\">expand all</a></p>\n"
+        end
       end
 
       def file_section(file, entry, names, results, report, survivor_count:, open_file:)
@@ -270,9 +272,7 @@ module Saboteur
       # A collapsed survivor file names its survivors in the header, so the
       # count is visible without expanding it.
       def survivors_note(survivor_count, open_file)
-        return "" if open_file || survivor_count.zero?
-
-        ", #{survivor_count} survivor#{'s' unless survivor_count == 1}"
+        open_file || survivor_count.zero? ? "" : ", #{survivor_count} survivor#{'s' unless survivor_count == 1}"
       end
 
       def position_key(mutant)

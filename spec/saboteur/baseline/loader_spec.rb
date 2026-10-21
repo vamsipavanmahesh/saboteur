@@ -57,4 +57,26 @@ RSpec.describe Saboteur::Baseline::Loader do
     expect { Saboteur::Baseline::Evidence.new(tampered) }
       .to raise_error(Saboteur::ConfigError, /completeness tiers disagree/)
   end
+
+  it "validates the restored evidence: a manifest whose runtime no longer matches its snapshot is refused" do
+    manifest = JSON.parse(JSON.generate(Saboteur::Baseline::Evidence.new(document).manifest(reasons: "known")))
+    manifest.fetch("metadata").fetch("runtime")["version"] = "0.0.0-tampered"
+    expect { described_class.call(write(manifest)) }
+      .to raise_error(Saboteur::ConfigError, /baseline snapshot settings mismatch/)
+  end
+
+  it "names a missing baseline file and how to create it" do
+    path = File.join(@root, "absent.json")
+    expect { described_class.call(path) }.to raise_error(
+      Saboteur::ConfigError,
+      "baseline file #{path} does not exist; create it with saboteur baseline propose --baseline #{path}"
+    )
+  end
+
+  it "wraps unreadable or malformed files as a baseline file error" do
+    bad = File.join(@root, "bad.json")
+    File.write(bad, "{not json")
+    expect { described_class.call(bad) }.to raise_error(Saboteur::ConfigError, /\Abaseline file: /)
+    expect { described_class.call(@root) }.to raise_error(Saboteur::ConfigError, /\Abaseline file: .*directory/i)
+  end
 end

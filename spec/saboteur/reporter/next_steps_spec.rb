@@ -58,6 +58,23 @@ RSpec.describe Saboteur::Reporter::NextSteps do
     expect(render(report_of(ignored, live))).to include("--id #{live.digest}")
   end
 
+  it "indents each line of the footer exactly, with and without a wired replay builder" do
+    survivor = result_for(:survived)
+    guidance = Saboteur::SurvivorGuidance
+    ignore = ["  #{guidance::IGNORE_INTRO}\n", "    #{guidance.ignore_entry(survivor.digest, survivor.subject.id)}\n",
+              "  let an agent close the gaps: saboteur run --agent, with the same options\n"]
+    fallback = guidance.replay_command(survivor.digest, seed: 1)
+
+    expect(render(report_of(survivor))).to eq(
+      ["\nNext steps:\n", "  replay one survivor: #{fallback}\n", "    #{guidance::REPLAY_CAVEAT}\n", *ignore].join
+    )
+
+    out.truncate(0)
+    out.rewind
+    described_class.new(out, palette, replay_command: ->(digest) { "replay #{digest}" }).call(report_of(survivor))
+    expect(out.string).to eq(["\nNext steps:\n", "  replay one survivor: replay #{survivor.digest}\n", *ignore].join)
+  end
+
   it "paints the heading with the palette it was given" do
     colored = Saboteur::Reporter::Palette.for(StringIO.new, mode: :always)
 
