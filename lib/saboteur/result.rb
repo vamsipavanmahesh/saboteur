@@ -159,7 +159,7 @@ module Saboteur
     MAX_ERROR_FRACTION = 0.5
 
     attr_reader :results, :subjects, :wall_time, :invalid_mutations, :warnings, :live_announced, :root, :seed,
-                :skipped_subjects,
+                :skipped_subjects, :since,
                 :generation_events, :omissions, :run_evidence, :hazard_suppressions, :early_stop, :inline_suppressions,
                 :operator_policy, :discovery_failures, :memory, :shard, :test_command, :referenced, :reuse_label
 
@@ -170,7 +170,7 @@ module Saboteur
                    seed: nil, skipped_subjects: {}, diff_scope: nil, generation_events: [], omissions: [],
                    run_evidence: nil, hazard_suppressions: 0, early_stop: nil, matrix: false, inline_suppressions: [],
                    operator_policy: nil, discovery_failures: [], memory: nil, shard: nil,
-                   test_command: nil, referenced: {}, reuse_label: nil)
+                   test_command: nil, referenced: {}, reuse_label: nil, since: nil)
       @results = results
       @subjects = subjects
       @wall_time = wall_time
@@ -198,6 +198,10 @@ module Saboteur
       # The external command of a --test-command run, nil for in-process
       # runs. Its presence means survivors carry no coverage map (#641).
       @test_command = test_command
+      # The --since ref of a diff run, nil for a whole-project run. The
+      # expand hint and the HTML report echo it, so the scope survives the
+      # run that produced them.
+      @since = since
       # file => specs, for files whose specs were chosen by constant reference
       # or require instead of by name (zero-setup selection).
       @referenced = referenced
@@ -218,7 +222,7 @@ module Saboteur
     end
 
     # True when the run was scoped to a diff (--since): the expand command
-    # echoes that scope.
+    # echoes that scope's ref.
     def diff?
       !@diff_scope.nil?
     end

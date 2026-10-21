@@ -120,6 +120,7 @@ module Saboteur
           <script>#{bundle}</script></head><body>
           <h1>saboteur report</h1>
           #{headline(report)}
+          #{scope_note(report)}
           <mutation-test-report-app theme="dark" title-postfix="saboteur"></mutation-test-report-app>
           <script type="application/json" id="saboteur-report-json">#{embed_json(data)}</script>
           <script>document.querySelector("mutation-test-report-app").report =
@@ -170,6 +171,15 @@ module Saboteur
             "#{escape(entry[:operator])} <code>#{escape(entry[:digest])}</code>: #{escape(entry[:reason])}</li>"
         end
         "<h2>Inline suppressions (#{items.size}, outside the score)</h2><ul>#{items.join}</ul>"
+      end
+
+      # A diff run's score covers only the changed lines; the shareable
+      # page says so, or a reader takes it for the whole project.
+      def scope_note(report)
+        return "" unless report.diff? && report.since
+
+        "<p class=\"note\">Diff run: only lines changed since #{escape(report.since)} are mutated - " \
+          "the score covers those changes, not the whole project.</p>"
       end
 
       def summary(report, data)
