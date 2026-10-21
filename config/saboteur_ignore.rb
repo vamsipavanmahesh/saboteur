@@ -2538,4 +2538,36 @@ i.mutation "fdc4600f4e8e8625",
       reason: "The sort key only needs coarse mutations before the rest, and the key 0 or -1 both " \
               "sort ahead of 1, so the order is the same."
 
+
+  # integration/rspec.rb LoadErrorReport. Replayed by id with the rspec integration specs
+  # (survived) and hand-applied with the load error and listener specs green.
+  i.mutation "27b27bfb3709cdca",
+      subject: "Saboteur::Integration::RSpec::LoadErrorReport.saboteur_frame?",
+      reason: "The line already starts with a hash and a space, so one-or-more and " \
+              "zero-or-more whitespace strip the same prefix before the path check."
+  i.mutation "4225860140870760",
+      subject: "Saboteur::Integration::RSpec::LoadErrorReport.saboteur_frame?",
+      reason: "Only the start of the path is read, so one-or-more and zero-or-more " \
+              "digits before the in marker leave the same prefix."
+  i.mutation "609658fd29032dac",
+      subject: "Saboteur::Integration::RSpec::LoadErrorReport.saboteur_frame?",
+      reason: "Only the start of the path is read, so a star and a plus after the " \
+              "in marker drop the same tail."
+  i.mutation "a754bab757b852e2",
+      subject: "Saboteur::Integration::RSpec::LoadErrorReport.saboteur_frame?",
+      reason: "The pattern ends in a greedy any-run that already reaches the end " \
+              "of the line, so the end anchor changes nothing."
+  i.mutation "bb8c680d186f9ec2",
+      subject: "Saboteur::Integration::RSpec::LoadErrorReport.saboteur_frame?",
+      reason: "The line already starts with a hash and a space, so the prefix pattern " \
+              "can only match at the start, with or without the start anchor."
+  i.mutation "8854885f87106e1a",
+      subject: "Saboteur::Integration::RSpec::LoadErrorReport.filter",
+      reason: "kept always holds at least the first header line, so kept.last is " \
+              "never nil and the safe navigation is never needed."
+  i.mutation "1367729198528185",
+      subject: "Saboteur::Integration::RSpec::LoadErrorReport.filter",
+      reason: "omitted is at least 1 here, so omitted > 1 and omitted != 1 pick " \
+              "the same plural suffix."
+
 end
