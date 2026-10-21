@@ -39,6 +39,8 @@ differently:
 | 2 | Usage or configuration error | Verdict `invalid_invocation` |
 | 3 | Incomplete run or tool failure: a stopped run that tested nothing, most mutants errored, an under-threshold incomplete run, or an internal error | Verdict `incomplete` or `not_applicable`, or a `tool_failure` |
 | 4 | The `--max-duration` budget stopped the run (unless `--max-duration-ok`) | Never exit 4: exit 1 if unignored survivors are present, otherwise 3 |
+| 5 | The unchanged suite failed its baseline check before any mutant was judged (a red or flaky suite) - fix the tests first | Verdict `tool_failure`, `exitCode` 5 |
+| 70 | Internal crash, a saboteur bug; the details land in the crash log next to the run state | Verdict `tool_failure`, `exitCode` 70 (a crash before the reporter loads still emits a minimal payload) |
 
 Agent mode has no exit 4: budget exhaustion is reported as partial evidence
 (the `max_duration` entries in `incomplete[]`), never as its own exit code -
