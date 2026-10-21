@@ -33,8 +33,9 @@ RSpec.describe Saboteur::Reporter::Findings do
 
   it "labels findings with their classification, only when there is a signal (#192)" do
     findings = build(report_of(result_for(:survived, covered_by: %w[t1]),
-                               result_for(:survived, replacement: "==")))
-    expect(findings["survivors"].map { |f| f["classification"] }).to contain_exactly("boundary", nil)
+                               result_for(:survived, replacement: "=="),
+                               result_for(:survived, replacement: "<", coarse: true)))
+    expect(findings["survivors"].map { |f| f["classification"] }).to contain_exactly("boundary", "input_gap", nil)
   end
 
   it "declares its version, the bound and the published ordering" do
@@ -58,7 +59,7 @@ RSpec.describe Saboteur::Reporter::Findings do
       "subject" => "Person#adult?", "operator" => "comparison", "original" => ">=",
       "replacement" => ">", "edits" => [{ "line" => 2, "endLine" => 2, "original" => ">=",
                                           "replacement" => ">" }],
-      "coarse" => false
+      "coarse" => false, "classification" => "input_gap"
     )
   end
 

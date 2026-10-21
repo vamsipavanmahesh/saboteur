@@ -182,7 +182,7 @@ RSpec.describe Saboteur::Reporter::Terminal, "quiet pins" do
   end
 
   it "prints no label bracket for a survivor the classifier leaves unlabeled" do
-    unlabeled = result(:survived, "**years", "**months", covered_by: [])
+    unlabeled = result(:survived, "**years", "**months", covered_by: [], coarse: true)
     report = Saboteur::Report.new(results: [killed, unlabeled], subjects:, wall_time: 62,
                                   root: File.dirname(calculator.file), seed: 1)
     text = render(report, exit_code: 1, quiet: true)
@@ -191,8 +191,8 @@ RSpec.describe Saboteur::Reporter::Terminal, "quiet pins" do
 
   it "takes the label from the group's first survivor in ranked order" do
     labeled = result(:survived, "*", "/", covered_by: ["spec/calculator_spec.rb:7"])
-    # coarse (whole-body) mutants never get a gap-kind label, so this one
-    # stays unlabeled while its thicker coverage ranks it after `labeled` (C2).
+    # coarse (whole-body) mutants never get a label, so this one stays
+    # unlabeled while its thicker coverage ranks it after `labeled` (C2).
     unlabeled = result(:survived, "+", "-", covered_by: ["spec/calculator_spec.rb:7",
                                                          "spec/calculator_spec.rb:9"], coarse: true)
     report = Saboteur::Report.new(results: [killed, labeled, unlabeled], subjects:, wall_time: 62,
@@ -202,6 +202,14 @@ RSpec.describe Saboteur::Reporter::Terminal, "quiet pins" do
       .to eq(["boundary", nil])
     text = render(report, exit_code: 1, quiet: true)
     expect(text).to include("[boundary] - #{ranked.first.digest} (+1 more)\n")
+  end
+
+  it "prints the input_gap bracket for a survivor no test reached" do
+    unreached = result(:survived, "+", "-", covered_by: [])
+    report = Saboteur::Report.new(results: [killed, unreached], subjects:, wall_time: 62,
+                                  root: File.dirname(calculator.file), seed: 1)
+    text = render(report, exit_code: 1, quiet: true)
+    expect(text).to include("calculator.rb:3 Calculator#compound [input_gap] - #{unreached.digest}\n")
   end
 
   it "keeps the exit-0 shape: findings and summary, no verdict line" do

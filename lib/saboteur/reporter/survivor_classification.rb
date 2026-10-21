@@ -28,8 +28,12 @@ module Saboteur
     #     behaviour; the kind names WHAT sort of check is missing, from the
     #     operator and the edit shape only. The covering list is only the
     #     PLANNED coverage: whole-body (coarse) mutants carry method-level
-    #     guesses, so they never get a gap kind, and neither does anything
-    #     without real coverage.
+    #     guesses, so they never get a gap kind.
+    #   input_gap    - no real test covered the mutant at all, so the input
+    #     never varied (D6). Coarse mutants stay unlabeled: their planned
+    #     coverage is a method-level guess, not an observation. The
+    #     deterministic version (the runner records the mutated value
+    #     actually differing) is #1064 follow-up.
     #   tool_limit   - survivors saboteur could not observe faithfully: an
     #     external-runner run records only the pseudo-test id, never real
     #     coverage (#1071). A re-eval refusal records no signal on the
@@ -37,7 +41,7 @@ module Saboteur
     #
     # A survivor with no matching signal stays unlabeled.
     module SurvivorClassification
-      LABELS = %w[likely_equivalent arid tool_limit].concat(GapKinds::KINDS).freeze
+      LABELS = %w[likely_equivalent arid tool_limit input_gap].concat(GapKinds::KINDS).freeze
 
       class << self
         def label(result, arid: MutationSource::Builtin::DEFAULT_ARID)
@@ -46,6 +50,7 @@ module Saboteur
           return "arid" if arid?(result, arid)
           return "tool_limit" if tool_limited?(result)
           return gap_kind(result) if possible_test_gap?(result)
+          return "input_gap" unless result.mutation.coarse
 
           nil
         end
