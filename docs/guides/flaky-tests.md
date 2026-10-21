@@ -22,11 +22,11 @@ with a deliberately flaky spec added.
 ## What a flake looks like
 
 A spec that passes on odd invocations and fails on even ones, added to an
-otherwise green suite:
+otherwise green suite. Progress lines such as `saboteur: checking the
+unchanged suite twice (seed 1)` and the first-pass cost estimate print under
+`--verbose`; the refusal itself always prints:
 
 ```
-saboteur: checking the unchanged suite twice (seed 1)
-saboteur: baseline check 1 took 1 s; about 2 s left for the remaining 2 full passes at that rate
 saboteur: baseline check 2 failed at seed 1: the suite failed: ./spec/models/flaky_demo_spec.rb[1:1]. The log says:
   Failures:
     1) Flaky demo fails every second run
@@ -44,7 +44,7 @@ unchanged suite failed while building coverage` - one baseline pass cannot
 catch an every-second-run flake before the map build runs the suite again.
 
 After deleting the flake, the same command with the same seed goes back to
-green (`killed 18  survived 0 ... score 100.0 %`, exit 0). Rerunning with
+green (`✓ 18/18 mutants killed · score 100.0%`, exit 0). Rerunning with
 the printed seed reproduces the run exactly; it does not freeze the flake.
 
 ## Fixing the suite, in the order that works
