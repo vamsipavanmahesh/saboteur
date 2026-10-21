@@ -150,6 +150,28 @@ RSpec.describe Saboteur::InlineSuppression do
     end
   end
 
+  it "leaves directives on lines outside the subject out of its signature" do
+    subject = target('# saboteur:disable-line reason="inside"', prefix: "# saboteur:disable-line reason=\"above\"\n")
+    parser = described_class.new(subject.file, subject.file_source)
+    expect(parser.signature(subject)).to eq([[1, [], "inside"]])
+  end
+
+  it "reads a directive written without a space after the hash" do
+    subject = target('#saboteur:disable-line reason="tight"')
+    expect(described_class.new(subject.file, subject.file_source).signature(subject)).to eq([[1, [], "tight"]])
+  end
+
+  it "reports the exact invalid suppression message for an unterminated quote" do
+    subject = target('# saboteur:disable-line reason="')
+    shell_message = begin
+      Shellwords.split('saboteur:disable-line reason="')
+    rescue ArgumentError => e
+      e.message
+    end
+    expect { described_class.new(subject.file, subject.file_source) }
+      .to raise_error(Saboteur::ConfigError, "#{subject.file}:3: invalid suppression: #{shell_message}")
+  end
+
   it "rejects absent blank and multiple reasons with the required diagnostic" do
     ["# saboteur:disable-line", '# saboteur:disable-line reason=" "',
      "# saboteur:disable-line reason=one reason=two"].each do |comment|
