@@ -34,6 +34,14 @@ module Saboteur
         .warning{background:#fff8e1;border-left:4px solid #f9a825;margin:.3rem 0;padding:.3rem .6rem;overflow-wrap:anywhere}
         code,pre{font-family:ui-monospace,monospace;font-size:13px}
         pre{display:inline-block;vertical-align:top;margin:0;white-space:pre-wrap;overflow-wrap:anywhere}summary{cursor:pointer;font-weight:600;overflow-wrap:anywhere}
+        /* Paper cannot scroll sideways, and the dark viewer is screen-only
+           ink: print the table, not the widget, and let wide tables wrap. */
+        @media print{
+          mutation-test-report-app{display:none}
+          body{max-width:none}
+          table{min-width:0}
+          .scroll{overflow-x:visible}
+        }
       CSS
 
       SCORE_FORMULA = "(killed + timeout) / (killed + survived + timeout)"
