@@ -72,6 +72,12 @@ module Saboteur
       list
     end
 
+    # The kill split the reports print: assertion, crash and unclassified
+    # counts, with the to_h key names.
+    def kill_causes_h
+      to_h.slice(:assertionKills, :crashKills, :unclassifiedKills)
+    end
+
     def to_h
       {
         score: value, tested: tested, assertionKills: assertion_kills, crashKills: crash_kills,

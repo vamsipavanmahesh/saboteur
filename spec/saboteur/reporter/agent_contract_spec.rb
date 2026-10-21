@@ -56,7 +56,7 @@ RSpec.describe "agent output contract (docs/stability.md)" do
   it "pins the run payload's top-level keys by presence, not position" do
     expect(payload_for(empty_report).keys)
       .to contain_exactly("version", "status", "verdict", "exitCode", "provenance", "counts", "score",
-                          "scoreDefinition", "incomplete", "timeoutCountedAsDetected", "findings",
+                          "scoreDefinition", "killCauses", "incomplete", "timeoutCountedAsDetected", "findings",
                           "warnings", "next")
   end
 

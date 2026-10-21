@@ -3,6 +3,7 @@
 
 require_relative "safe_out"
 require_relative "next_steps"
+require_relative "kill_causes"
 require_relative "survivor_ranking"
 require_relative "palette"
 require_relative "score_table"
@@ -325,7 +326,7 @@ module Saboteur
         mean = report.mean_runtime
         @out.puts "mean time per executed mutant #{format('%.3f', mean)} s" if mean
         @out.puts "kills rejected by unchanged-method check: #{report.rejected_kills}"
-        kill_causes(report)
+        KillCauses.new(@out).print(report)
       end
 
       # " (assertion 50.0 %, crash 50.0 %)": how much of the score is a failed
@@ -351,33 +352,6 @@ module Saboteur
 
       def percent(share)
         share ? format("%.1f %%", share * 100) : "n/a"
-      end
-
-      # How many kills came from a failed check and how many from a crash, and
-      # which operators mostly kill by crashing (their score says less).
-      def kill_causes(report)
-        killed = report.results.select { |result| result.status == :killed && result.kill_cause }
-        return if killed.empty?
-
-        crashes = killed.select(&:crash_kill?)
-        @out.puts "kills: #{killed.size - crashes.size} by a failed assertion, #{crashes.size} by a crash" \
-                  "#{crash_classes(crashes)}"
-        @out.puts "crash kills by operator: #{crashes_by_operator(killed)}" if crashes.any?
-      end
-
-      def crash_classes(crashes)
-        return "" if crashes.empty?
-
-        counts = crashes.map(&:kill_cause).tally.sort_by { |_, count| -count }
-        " (#{counts.map { |name, count| "#{name} #{count}" }.join(', ')})"
-      end
-
-      def crashes_by_operator(killed)
-        parts = killed.group_by { |result| result.mutation.operator }.filter_map do |operator, results|
-          count = results.count(&:crash_kill?)
-          "#{operator} #{count} of #{results.size}" if count.positive?
-        end
-        parts.join(", ")
       end
 
       # #641: a --test-command run has no coverage map, so a subject the
