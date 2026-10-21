@@ -41,10 +41,12 @@ an environment variable; key it so saboteur runs skip it.
 | Exit | Meaning |
 | --- | --- |
 | 0 | Clean: no unignored survivors (or `--threshold` met) |
-| 1 | Survivors to review, or the score is below `--threshold` |
+| 1 | Survivors to review, the score is below `--threshold`, or more timeouts/errors than `--max-timeouts`/`--max-errors` allow |
 | 2 | Usage or configuration error, including a mutated file with no conventional spec |
 | 3 | Tool failure or an incomplete run, such as most mutants erroring, or a `--since` run that skipped every subject of the change (refinements, no coverage), so the change is unverified |
 | 4 | The `--max-duration` budget stopped the run (never with `--max-duration-ok`) |
+| 5 | The unchanged suite already fails its baseline check - fix the tests first; no mutant was judged |
+| 70 | Internal crash: a saboteur bug, never the project's code; the run names a crash log with the full backtrace |
 
 Agent mode (`--agent`) has no exit 4 and reports budget exhaustion as partial
 evidence instead. The full contract, including how these change between
