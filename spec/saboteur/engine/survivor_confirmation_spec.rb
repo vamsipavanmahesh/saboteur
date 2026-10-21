@@ -20,6 +20,9 @@ RSpec.describe Saboteur::Engine::SurvivorConfirmation, "#1063" do
       "confirmation_budget" => 300.0 }
   end
   let(:runner) { double("runner") }
+  # These doubles stand in for the real scheduler and runner; the wiring
+  # itself - the pass driving the real objects without a crash - is pinned
+  # end-to-end in spec/e2e/survivor_confirmation_spec.rb.
   let(:scheduler) { double("scheduler", runner: runner, confirmation_prefix: nil) }
   let(:diagnostics) { double("diagnostics", inform: nil, warn: nil) }
   let(:ignore_list) { double("ignore_list", accepts?: false) }
@@ -162,11 +165,12 @@ RSpec.describe Saboteur::Engine::SurvivorConfirmation, "#1063" do
       .to eq([tids[1], tids[5], tids[3], tids[7], tids[8], tids[4], tids[6], tids[2]])
   end
 
-  it "leaves a survivor untouched when no covering spec remains unrun" do
+  it "marks a survivor unconfirmed when no covering spec remains unrun" do
     allow(runner).to receive(:run)
     result = survivor(executed: tids)
 
-    expect(confirmation.call([result], ignore_list: ignore_list).first).to equal(result)
+    confirmed = confirmation.call([result], ignore_list: ignore_list).first
+    expect(confirmed.confirmation).to eq("unconfirmed(no covering tests)")
     expect(runner).not_to have_received(:run)
   end
 
@@ -537,12 +541,12 @@ RSpec.describe Saboteur::Engine::SurvivorConfirmation, "#1063" do
                                                  "unconfirmed(the confirmation budget is spent)"])
   end
 
-  it "stays silent when no survivor could be marked" do
+  it "names the skip when no covering spec remains unrun" do
     allow(runner).to receive(:run)
 
     confirmation.call([survivor(executed: tids)], ignore_list: ignore_list)
 
-    expect(diagnostics).not_to have_received(:inform)
+    expect(diagnostics).to have_received(:inform).with("survivor confirmation: 1 unconfirmed(no covering tests)")
   end
 
   it "joins the summary marks with commas" do
@@ -577,13 +581,47 @@ RSpec.describe Saboteur::Engine::SurvivorConfirmation, "#1063" do
       Dir.mktmpdir { |dir| @root = File.realpath(dir) and example.run }
     end
 
-    it "returns results untouched when partial_coverage is off" do
-      eng = described_class.new(Saboteur::Config.new({ "partial_coverage" => "off" }, root: @root),
-                                err: StringIO.new)
-      results = [double("result")]
+    it "returns results untouched and stays silent when partial_coverage is off" do
+      err = StringIO.new
+      eng = described_class.new(Saboteur::Config.new({ "partial_coverage" => "off" }, root: @root), err:)
+      results = [double("result", survived?: false)]
 
       expect(Saboteur::Engine::SurvivorConfirmation).not_to receive(:new)
       expect(eng.send(:confirm_survivors, results, double("scheduler", map: nil), nil, nil)).to equal(results)
+      expect(err.string).not_to include("survivor confirmation skipped")
+    end
+
+    it "stays silent when every survivor is ignored" do
+      err = StringIO.new
+      eng = described_class.new(Saboteur::Config.new({ "partial_coverage" => "off" }, root: @root), err:)
+      results = [double("result", survived?: true)]
+
+      eng.send(:confirm_survivors, results, double("scheduler", map: nil), nil,
+               double("ignore_list", accepts?: true))
+      expect(err.string).not_to include("survivor confirmation skipped")
+    end
+
+    it "names the skip when any result is a live unignored survivor, not only when all are" do
+      err = StringIO.new
+      eng = described_class.new(Saboteur::Config.new({ "partial_coverage" => "off" }, root: @root), err:)
+      results = [double("ignored", survived?: true), double("killed", survived?: false),
+                 double("live", survived?: true)]
+      ignore_list = double("ignore_list")
+      allow(ignore_list).to receive(:accepts?) { |result| result == results.first }
+
+      eng.send(:confirm_survivors, results, double("scheduler", map: nil), nil, ignore_list)
+      expect(err.string).to include("survivor confirmation skipped: inferred specs")
+    end
+
+    it "says on the run tail when inferred specs skip the confirmation of a live survivor" do
+      err = StringIO.new
+      eng = described_class.new(Saboteur::Config.new({ "partial_coverage" => "off" }, root: @root), err:)
+      results = [double("result", survived?: true)]
+
+      expect(Saboteur::Engine::SurvivorConfirmation).not_to receive(:new)
+      eng.send(:confirm_survivors, results, double("scheduler", map: nil), nil,
+               double("ignore_list", accepts?: false))
+      expect(err.string).to include("survivor confirmation skipped: inferred specs")
     end
 
     it "runs the confirmation pass when CoveragePartial.use? holds" do

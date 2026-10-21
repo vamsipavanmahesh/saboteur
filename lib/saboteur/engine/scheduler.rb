@@ -77,6 +77,28 @@ module Saboteur
         deadline(recorded * slowdown)
       end
 
+      # Survivor confirmation (#1063) drives the runner and the coverage map
+      # from outside after the run.
+      attr_reader :runner, :map
+
+      # The eval prefix a post-run confirmation run needs for this subject
+      # (#1063): the same wrapper detection load_problem applies, reduced to
+      # the sorbet sig prefix a survivor could have run with.
+      def confirmation_prefix(subject)
+        return nil unless @verify_loaded
+        return nil if @reevaluator.whole_file?(subject)
+
+        owner = @reevaluator.resolve_owner(subject)
+        target = subject.singleton ? owner.singleton_class : owner
+        method = own_method(target, subject.name)
+        return nil unless method
+
+        file, = method.source_location
+        Execution::Wrapper.around(method, file) == :sorbet ? subject.sig_source : nil
+      rescue Error
+        nil
+      end
+
       private
 
       # Verdicts that did not hold up are warned about once per subject;
@@ -230,26 +252,6 @@ module Saboteur
         note_leftovers(plan.subject, "#{mutation.operator} #{result.digest}", outcome)
         @diagnostics.progress(result)
         result
-      end
-
-      attr_reader :runner, :map
-
-      # The eval prefix a post-run confirmation run needs for this subject
-      # (#1063): the same wrapper detection load_problem applies, reduced to
-      # the sorbet sig prefix a survivor could have run with.
-      def confirmation_prefix(subject)
-        return nil unless @verify_loaded
-        return nil if @reevaluator.whole_file?(subject)
-
-        owner = @reevaluator.resolve_owner(subject)
-        target = subject.singleton ? owner.singleton_class : owner
-        method = own_method(target, subject.name)
-        return nil unless method
-
-        file, = method.source_location
-        Execution::Wrapper.around(method, file) == :sorbet ? subject.sig_source : nil
-      rescue Error
-        nil
       end
 
       # The tests that ran the edited code (a coarse edit spans the whole

@@ -240,7 +240,11 @@ module Saboteur
     end
 
     def confirm_survivors(results, scheduler, cache, ignore_list)
-      return results unless CoveragePartial.use?(config, config["coverage_parts"])
+      unless CoveragePartial.use?(config, config["coverage_parts"])
+        live = results.any? { |result| result.survived? && !ignore_list.accepts?(result) }
+        @diagnostics.inform("survivor confirmation skipped: inferred specs") if live
+        return results
+      end
 
       SurvivorConfirmation.new(config: config, map: scheduler.map, scheduler: scheduler, diagnostics: @diagnostics,
                                budget_exceeded: method(:budget_exceeded?), cache: cache)
