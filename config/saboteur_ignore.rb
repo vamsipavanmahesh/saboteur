@@ -1335,11 +1335,50 @@ i.mutation "fdc4600f4e8e8625",
                      "hand-applied mutant leaves all 24 run_option_modules " \
                      "examples green"
 
-  # output_options.rb:21 - --[no-]color / description swap: OptionParser::Switch classifies string
+  # output_options.rb - --score-history PATH / description swap: same OptionParser::Switch
+  # shape classification as the --no-color swap below. Hand-applied mutant: all 37
+  # run_option_modules and cli_terminal_options examples green.
+  i.mutation "5e7e6416f8caf78e",
+             subject: "Saboteur::CLI::OutputOptions#define_report_destination_options",
+             reason: "equivalent: OptionParser::Switch classifies string arguments by " \
+                     "content, not position - swapping the --score-history option name and " \
+                     "description strings builds the identical switch - " \
+                     "hand-applied mutant leaves all 37 run_option_modules and " \
+                     "cli_terminal_options examples green"
+
+  # output_options.rb - --json PATH / description swap: same shape classification.
+  i.mutation "175ff45bb9922649",
+             subject: "Saboteur::CLI::OutputOptions#define_report_destination_options",
+             reason: "equivalent: OptionParser::Switch classifies string arguments by " \
+                     "content, not position - swapping the --json option name and " \
+                     "description strings builds the identical switch - " \
+                     "hand-applied mutant leaves all 37 run_option_modules and " \
+                     "cli_terminal_options examples green"
+
+  # output_options.rb - --html PATH / description swap: same shape classification.
+  i.mutation "3ccbf8fd05a7c82f",
+             subject: "Saboteur::CLI::OutputOptions#define_report_destination_options",
+             reason: "equivalent: OptionParser::Switch classifies string arguments by " \
+                     "content, not position - swapping the --html option name and " \
+                     "description strings builds the identical switch - " \
+                     "hand-applied mutant leaves all 37 run_option_modules and " \
+                     "cli_terminal_options examples green"
+
+  # output_options.rb - --agent / description swap: same shape classification.
+  i.mutation "a626070a2aa42a4b",
+             subject: "Saboteur::CLI::OutputOptions#define_report_destination_options",
+             reason: "equivalent: OptionParser::Switch classifies string arguments by " \
+                     "content, not position - swapping the --agent option name and " \
+                     "description strings builds the identical switch - " \
+                     "hand-applied mutant leaves all 37 run_option_modules and " \
+                     "cli_terminal_options examples green"
+
+  # output_options.rb - --no-color / description swap: OptionParser::Switch classifies string
   # arguments by content, not position, so the swapped call builds the identical
-  # switch. Hand-applied mutant: all 24 run_option_modules examples green.
-  i.mutation "78908cef774c6a4f",
-             subject: "Saboteur::CLI::OutputOptions#define_output_options",
+  # switch. Hand-applied mutant: all 37 run_option_modules and cli_terminal_options
+  # examples green.
+  i.mutation "168af4997d68752b",
+             subject: "Saboteur::CLI::OutputOptions#define_text_report_options",
              reason: "equivalent: OptionParser::Switch classifies string arguments by " \
                      "content, not position - swapping the --no-color option name and " \
                      "description strings builds the identical switch - " \

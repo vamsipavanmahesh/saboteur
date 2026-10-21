@@ -18,7 +18,7 @@ module Saboteur
         # gate and skip notes exit_code writes to @err now precede the
         # report instead of following it.
         code = exit_code(report)
-        Reporter::Terminal.new(@out, verbose: @verbose || false, color: @color || :auto,
+        Reporter::Terminal.new(@out, verbose: @verbose || false, quiet: @quiet || false, color: @color || :auto,
                                      overrides: config["palette"], threshold: config["threshold"],
                                      replay_command: survivor_replay_command(report, engine),
                                      all_mutants: options[:all_mutants] || false,

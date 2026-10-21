@@ -51,12 +51,14 @@ RSpec.describe "run option modules (#334)" do
       "--verbose" => "Text report: also print score split, timings and kill causes",
       "--color [MODE]" => "Colour the text report: always, never or auto (default: auto)",
       "--no-color" => "Deprecated alias for --color=never",
-      "--all-mutants" => "Text report: list every survived mutant;"
+      "--all-mutants" => "Text report: list every survived mutant;",
+      "--quiet" => "Text report: print only the findings and the verdict"
     }.each do |flag, help|
       expect(text).to match(/#{Regexp.escape(flag)}\s+#{Regexp.escape(help)}/), "no help text after #{flag}"
     end
 
     expect(text).to include("default: one finding per statement, with the label mix")
+    expect(text).to include("no effect with --format json/agent; ignores --all-mutants")
   end
 
   it "keeps the run --help flag order stable across the extraction" do
@@ -153,6 +155,12 @@ RSpec.describe "run option modules parsing (#334)" do
     cli = parse_run("--verbose")
     expect(cli.instance_variable_get(:@verbose)).to be(true)
     expect(cli.options).to eq(verbose: true)
+  end
+
+  it "parses --quiet into both the ivar and the option" do
+    cli = parse_run("--quiet")
+    expect(cli.instance_variable_get(:@quiet)).to be(true)
+    expect(cli.options).to eq(quiet: true)
   end
 
   it "parses --color modes and keeps --color/--no-color as deprecated aliases" do
