@@ -227,7 +227,7 @@ RSpec.describe Saboteur::Engine::TestGuess do
       "Specs the diff adds or changes: spec/a_spec.rb, spec/deep/b_spec.rb. " \
       "Re-run the same command with one --test per existing spec path, or append --all to use " \
       "the whole suite without changing the source scope. If the layout defeats the naming " \
-      "convention, map lib/c.rb by hand in config/saboteur_custom_map.rb: no entry covers it."
+      "convention, map lib/c.rb by hand in config/saboteur_custom_map.rb (no entry covers it yet)."
     )
   end
 
@@ -242,7 +242,7 @@ RSpec.describe Saboteur::Engine::TestGuess do
       "no spec found for lib/c.rb (expected spec/c_spec.rb), lib/rules.rb (expected spec/rules_spec.rb), " \
       "so nothing ran. Re-run the same command with one --test per existing spec path, or append --all " \
       "to use the whole suite without changing the source scope. If the layout defeats the naming " \
-      "convention, map lib/c.rb, lib/rules.rb by hand in config/saboteur_custom_map.rb: no entry covers it."
+      "convention, map lib/c.rb, lib/rules.rb by hand in config/saboteur_custom_map.rb (no entry covers it yet)."
     )
   end
 
@@ -253,7 +253,7 @@ RSpec.describe Saboteur::Engine::TestGuess do
       "no spec found for lib/c.rb (expected spec/c_spec.rb), so nothing ran. " \
       "Re-run the same command with one --test per existing spec path, or append --all to use " \
       "the whole suite without changing the source scope. If the layout defeats the naming " \
-      "convention, map lib/c.rb by hand in config/saboteur_custom_map.rb: no entry covers it."
+      "convention, map lib/c.rb by hand in config/saboteur_custom_map.rb (no entry covers it yet)."
     )
   end
 
@@ -372,7 +372,7 @@ RSpec.describe Saboteur::Engine::TestGuess do
     write("lib/gizmo.rb", changed_source)
     result = guess
     expect(result.unmatched).to eq(["lib/gizmo.rb"])
-    expect(result.unmatched_message).to include("config/saboteur_custom_map.rb: no entry covers it")
+    expect(result.unmatched_message).to include("config/saboteur_custom_map.rb (no entry covers it yet).")
   end
 
   it "maps one file to several specs" do

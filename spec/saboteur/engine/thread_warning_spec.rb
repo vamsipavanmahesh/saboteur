@@ -24,6 +24,42 @@ RSpec.describe Saboteur::Engine, "threads alive at fork time" do
     expect(warnings.last).not_to include("left behind")
   end
 
+  it "says nothing about the pool reaper in rails mode (#1229)" do
+    reaper = instance_double(Thread, name: "AR Pool Reaper", backtrace: ["pool.rb:1"])
+    allow(Thread).to receive(:list).and_return([Thread.current, reaper])
+    Saboteur::Engine::ThreadWarnings.warn(engine.instance_variable_get(:@diagnostics), rails: true)
+    expect(warnings).to be_empty
+  end
+
+  it "passes the rails setting from the run's config to the thread warning (#1229)" do
+    reaper = instance_double(Thread, name: "AR Pool Reaper", backtrace: ["pool.rb:1"])
+    allow(Thread).to receive(:list).and_return([Thread.current, reaper])
+    map = instance_double(Saboteur::Selection::CoverageMap, tests: [])
+    rails_engine = described_class.new(Saboteur::Config.new({ "rails" => true }), err: err)
+    rails_engine.send(:inform_about_run, [], map)
+    expect(rails_engine.instance_variable_get(:@diagnostics).warnings).to be_empty
+
+    plain = described_class.new(Saboteur::Config.new, err: err)
+    plain.send(:inform_about_run, [], map)
+    expect(plain.instance_variable_get(:@diagnostics).warnings.last).to include("AR Pool Reaper")
+  end
+
+  it "still warns about every other thread in rails mode" do
+    reaper = instance_double(Thread, name: "AR Pool Reaper", backtrace: ["pool.rb:1"])
+    other = instance_double(Thread, name: "flusher", backtrace: ["flush.rb:2"])
+    allow(Thread).to receive(:list).and_return([Thread.current, reaper, other])
+    Saboteur::Engine::ThreadWarnings.warn(engine.instance_variable_get(:@diagnostics), rails: true)
+    expect(warnings.last).to start_with("1 other thread(s) alive at fork time; they do not run in children: flusher")
+    expect(warnings.last).not_to include("AR Pool Reaper")
+  end
+
+  it "keeps the reaper warning outside rails mode" do
+    reaper = instance_double(Thread, name: "AR Pool Reaper", backtrace: ["pool.rb:1"])
+    allow(Thread).to receive(:list).and_return([Thread.current, reaper])
+    Saboteur::Engine::ThreadWarnings.warn(engine.instance_variable_get(:@diagnostics), rails: false)
+    expect(warnings.last).to include("AR Pool Reaper")
+  end
+
   it "words the whole warning: count, each thread with its explanation, and the left-behind caveat" do
     reaper = instance_double(Thread, name: "AR Pool Reaper", backtrace: ["pool.rb:1"])
     other = instance_double(Thread, name: "flusher", backtrace: ["flush.rb:2"])

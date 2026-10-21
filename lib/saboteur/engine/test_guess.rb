@@ -81,7 +81,7 @@ module Saboteur
           # a file whose own entry broke heard that in the warning (#640).
           mapped = without_map_entry.any? &&
                    " If the layout defeats the naming convention, map #{names(without_map_entry)} by hand in " \
-                   "config/saboteur_custom_map.rb: no entry covers it."
+                   "config/saboteur_custom_map.rb (no entry covers it yet)."
           "no spec found for #{pairs.join(', ')}, so nothing ran.#{changed} Re-run the same command with " \
             "one --test per existing spec path, or append --all to use the whole suite without " \
             "changing the source scope.#{mapped}"

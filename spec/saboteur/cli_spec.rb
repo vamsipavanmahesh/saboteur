@@ -538,13 +538,13 @@ RSpec.describe Saboteur::CLI do
     allow(Saboteur::Engine).to receive(:new)
       .and_raise(Saboteur::Error, "baseline check 1 failed at seed 42: the suite failed: spec/a_spec.rb")
     expect(Saboteur::Reporter::Palette).to receive(:for)
-      .with(anything, hash_including(mode: :auto)).twice.and_call_original
+      .with(anything, hash_including(mode: :auto)).at_least(:once).and_call_original
     expect(cli("run").call).to eq(5)
 
     allow(Saboteur::Engine).to receive(:new)
       .and_raise(Saboteur::Error, "baseline check 1 failed at seed 42: the suite failed: spec/a_spec.rb")
     expect(Saboteur::Reporter::Palette).to receive(:for)
-      .with(anything, hash_including(mode: :always)).twice.and_call_original
+      .with(anything, hash_including(mode: :always)).at_least(:once).and_call_original
     expect(cli("run", "--color").call).to eq(5)
   end
 

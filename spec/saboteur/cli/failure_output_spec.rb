@@ -26,6 +26,14 @@ RSpec.describe Saboteur::CLI::FailureOutput do
     expect(out.string).to be_empty
   end
 
+  it "falls back to auto colour detection for usage errors when no colour mode is set" do
+    allow(Saboteur::Reporter::Palette).to receive(:for).and_call_original
+
+    cli.send(:usage_error, "invalid option: --bogus")
+
+    expect(Saboteur::Reporter::Palette).to have_received(:for).with(err, mode: :auto)
+  end
+
   it "prints only the usage when no message is given" do
     expect(cli.send(:usage_error)).to eq(2)
     expect(err.string).to eq("#{Saboteur::CLI::USAGE}\n")
@@ -55,5 +63,19 @@ RSpec.describe Saboteur::CLI::FailureOutput do
     expect(code).to eq(3)
     expect(err.string).to eq("saboteur: bad x\n\\x3a:error::y\n")
     expect(JSON.parse(out.string)).to include("message" => "bad x\n\\x3a:error::y", "exitCode" => 3)
+  end
+
+  it "paints the usage error message with the fail token when colour is on" do
+    run = cli("run")
+    run.instance_variable_set(:@color, :always)
+    run.send(:usage_error, "invalid option: --bogus")
+    expect(err.string).to include("\e[31;1minvalid option: --bogus\e[0m")
+  end
+
+  it "paints the failure message with the fail token when colour is on" do
+    run = cli("run")
+    run.instance_variable_set(:@color, :always)
+    run.send(:report_failure, Saboteur::Error.new("broken config"), 3)
+    expect(err.string).to include("\e[31;1msaboteur: broken config\e[0m")
   end
 end

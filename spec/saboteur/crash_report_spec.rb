@@ -300,4 +300,15 @@ RSpec.describe Saboteur::CrashReport do
       expect(File.read(log_path)).to include("first line\nsecond line")
     end
   end
+
+  it "paints the one-line diagnostic red only when colour is forced on" do
+    report(error, color: :always)
+    expect(err.string).to include("\e[31;1msaboteur: internal error (RuntimeError: boom)")
+
+    err.truncate(0)
+    err.rewind
+    report(error)
+    expect(err.string).to include("saboteur: internal error (RuntimeError: boom)")
+    expect(err.string).not_to include("\e[")
+  end
 end

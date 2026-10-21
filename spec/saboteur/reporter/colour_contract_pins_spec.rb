@@ -111,4 +111,31 @@ RSpec.describe "the colour contract (DX wave 1, PR1)" do
     diagnostics.progress(result_for(:survived))
     expect(err.string.bytes).not_to include(0x1b)
   end
+
+  it "paints run warnings with the warn token when colour is on" do
+    warned = report_of(result_for(:killed, runtime: 0.5, killed_by: ["./spec/p_spec.rb[1:1]"]),
+                       warnings: ["the tree is dirty"])
+    expect(render(warned, color: :always)).to include("\e[33mwarning: the tree is dirty\e[0m")
+  end
+
+  it "keeps run warnings monochrome when piped" do
+    warned = report_of(result_for(:killed, runtime: 0.5, killed_by: ["./spec/p_spec.rb[1:1]"]),
+                       warnings: ["the tree is dirty"])
+    piped = render(warned)
+    expect(piped).to include("warning: the tree is dirty")
+    expect(piped.bytes).not_to include(0x1b)
+  end
+
+  describe "warning notices" do
+    it "paints the fact lines :warn and a Fix: line :dim (the two-line shape)" do
+      palette = Saboteur::Reporter::Palette.new(enabled: true)
+      expect(Saboteur::Reporter::Notice.paint(palette, "saboteur: warning: tree dirty\nFix: commit first"))
+        .to eq("\e[33msaboteur: warning: tree dirty\e[0m\n\e[2mFix: commit first\e[0m")
+    end
+
+    it "passes the text through byte-identical when colour is off" do
+      text = "saboteur: warning: tree dirty\nFix: commit first"
+      expect(Saboteur::Reporter::Notice.paint(Saboteur::Reporter::Palette.new(enabled: false), text)).to eq(text)
+    end
+  end
 end
