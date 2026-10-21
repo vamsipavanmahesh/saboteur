@@ -33,13 +33,13 @@ RSpec.describe Saboteur::Engine::Diagnostics, "progress pins" do
     on_tty.finish_progress
   end
 
-  it "chunks the glyph stream to the terminal width minus the suffix room, floored at 40" do
+  it "chunks the glyph stream to the terminal width minus the summary room, floored at 40" do
     allow(err).to receive(:winsize).and_return([24, 200])
     text = run_marks(Array.new(400, killed), total: 400)
     chunk_lines = text.lines.select { |line| line.start_with?(".") && line.include?("(") }
     expect(chunk_lines.size).to eq(3)
-    expect(chunk_lines.first).to start_with("." * 190)
-    expect(chunk_lines.last).to start_with("." * 20)
+    expect(chunk_lines.first).to start_with("." * 168)
+    expect(chunk_lines.last).to start_with("." * 64)
     chunk_lines.each { |line| expect(line).to match(%r{  \d+/400 \(\d+%\)}) }
   end
 
@@ -52,7 +52,7 @@ RSpec.describe Saboteur::Engine::Diagnostics, "progress pins" do
 
   it "redraws exactly one status line on a TTY and commits chunks with a newline" do
     allow(err).to receive(:tty?).and_return(true)
-    allow(err).to receive(:winsize).and_return([24, 60])
+    allow(err).to receive(:winsize).and_return([24, 82])
     quiet = described_class.new(err, palette: Saboteur::Reporter::Palette.new(enabled: false))
     text = run_marks(Array.new(5, killed), total: 5, diag: quiet)
     expect(text.scan("\r\e[K").size).to be >= 5
@@ -86,10 +86,10 @@ RSpec.describe Saboteur::Engine::Diagnostics, "progress pins" do
     expect(run_marks([killed, survived], diag: plain)).not_to include("\e")
   end
 
-  it "chunks to 70 glyphs when the output has no winsize" do
+  it "chunks to 48 glyphs when the output has no winsize" do
     text = run_marks(Array.new(80, killed), total: 80)
     chunk_lines = text.lines.grep(%r{\A\.+  \d+/})
-    expect(chunk_lines.first).to start_with("." * 70)
+    expect(chunk_lines.first).to start_with("." * 48)
   end
 
   it "ends a partial chunk with a newline and unlinks the progress file" do
@@ -105,7 +105,7 @@ RSpec.describe Saboteur::Engine::Diagnostics, "progress pins" do
   end
 
   it "adds nothing after an exact full chunk" do
-    allow(err).to receive(:winsize).and_return([24, 60])
+    allow(err).to receive(:winsize).and_return([24, 82])
     diagnostics.start_progress(50)
     50.times { diagnostics.progress(killed) }
     before = err.string.dup
@@ -177,8 +177,8 @@ RSpec.describe Saboteur::Engine::Diagnostics, "progress pins" do
     diagnostics.finish_progress
     expect(err.string).to eq(<<~TEXT)
       .:killed S:survived T:timeout E:error s:skipped L:resource limit
-      #{'.' * 70}  70/75 (93%) eta 0m00s
-      .....  75/75 (100%)
+      #{'.' * 48}  48/75 (64%) eta 0m00s
+      #{'.' * 27}  75/75 (100%)
     TEXT
   end
 
@@ -198,13 +198,13 @@ RSpec.describe Saboteur::Engine::Diagnostics, "progress pins" do
 
   it "commits when a shrinking terminal leaves the open line wider than the new chunk width" do
     allow(err).to receive(:tty?).and_return(true)
-    size = [24, 60]
+    size = [24, 82]
     allow(err).to receive(:winsize) { size }
     allow(Process).to receive(:clock_gettime).and_return(0.0)
     diag = described_class.new(err, palette: Saboteur::Reporter::Palette.new(enabled: false))
     diag.start_progress(46)
     45.times { diag.progress(killed) }
-    size.replace([24, 50])
+    size.replace([24, 72])
     diag.progress(killed)
     diag.finish_progress
     expect(err.string).to include("#{'.' * 46}  46/46 (100%)\n")
@@ -214,14 +214,14 @@ RSpec.describe Saboteur::Engine::Diagnostics, "progress pins" do
     allow(err).to receive(:winsize).and_raise(Errno::ENOTTY)
     text = run_marks(Array.new(75, killed), total: 75)
     chunk_lines = text.lines.grep(%r{\A\.+ {2}\d+/})
-    expect(chunk_lines.first).to start_with("." * 70)
+    expect(chunk_lines.first).to start_with("." * 48)
   end
 
   it "reads a later chunk's glyphs from the progress file, not from its head" do
     marks = Array.new(70, killed) + Array.new(5, survived)
     text = run_marks(marks, total: 75)
     expect(text).to include("SSSSS  75/75")
-    expect(text).to include("#{'.' * 70}  70/75")
+    expect(text).to include("#{'.' * 48}  48/75")
   end
 
   it "never prints bytes a mutant child wrote to the inherited progress fd" do
