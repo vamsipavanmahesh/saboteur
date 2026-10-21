@@ -152,7 +152,7 @@ RSpec.describe "score honesty" do
       \e[31;1m✗ exit 1 - 1 survivor\e[0m
 
       \e[1mNext steps:\e[0m
-        replay one survivor: saboteur run --id #{digest} --seed 7
+        replay one survivor: \e[36msaboteur run --id #{digest} --seed 7\e[0m
           (add this run's own --config, --since, --subject, --test and source options)
         accept an equivalent one: add to your ignore file (c.ignore_file, default config/saboteur_ignore.rb):
           i.mutation "#{digest}", subject: "Calculator#add", reason: "why it is equivalent"

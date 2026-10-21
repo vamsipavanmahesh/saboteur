@@ -21,13 +21,14 @@ module Saboteur
         survivor = report.unignored_survivors.first
         return unless survivor
 
-        @out.puts "\n#{@palette.paint(:bold, 'Next steps:')}"
+        @out.puts "\n#{@palette.paint(:head, 'Next steps:')}"
         command = @replay_command&.call(survivor.digest)
         if command
-          @out.puts "  replay one survivor: #{command}"
+          @out.puts "  replay one survivor: #{@palette.paint(:info, command)}"
         else
           seed = " --seed #{report.seed}" if report.seed
-          @out.puts "  replay one survivor: saboteur run --id #{survivor.digest}#{seed}"
+          @out.puts "  replay one survivor: " \
+                    "#{@palette.paint(:info, "saboteur run --id #{survivor.digest}#{seed}")}"
           @out.puts "    (add this run's own --config, --since, --subject, --test and source options)"
         end
         @out.puts "  accept an equivalent one: add to your ignore file (c.ignore_file, default #{Config::IGNORE_FILE}):"
