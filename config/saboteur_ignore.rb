@@ -2652,4 +2652,21 @@ i.mutation "fdc4600f4e8e8625",
              reason: "equivalent: results are stored by item index, so without the index tiebreak " \
                      "only the dispatch order of equal-weight items can change, and sort_by does " \
                      "not guarantee that order on every platform, so no spec can hold it"
+  # survivor_confirmation.rb:120 - the runtime literal on the :unverified Outcome built when the
+  # confirmation budget is spent. VerdictCheck never reads outcome.runtime for an unverified
+  # outcome, so the value is write-only and 0.0 -> 1.0 / -1.0 change nothing observable.
+  i.mutation "78b7712d6a95a847",
+             subject: "Saboteur::Engine::SurvivorConfirmation#unchanged_runner",
+             reason: "equivalent: write-only value - the :unverified Outcome's runtime is never " \
+                     "read, so changing the literal leaves behavior unchanged"
+  i.mutation "bf4d60fb4a8fe2d9",
+             subject: "Saboteur::Engine::SurvivorConfirmation#unchanged_runner",
+             reason: "equivalent: write-only value - the :unverified Outcome's runtime is never " \
+                     "read, so changing the literal leaves behavior unchanged"
+  # survivor_confirmation.rb:95 - VerdictCheck is called with the guaranteed one-element array
+  # [kill], so .first and .last pick the same result.
+  i.mutation "2d056fcf11e5c9c4",
+             subject: "Saboteur::Engine::SurvivorConfirmation#checked_kill",
+             reason: "equivalent: .first and .last pick the same element of the one-element " \
+                     "[kill] array the check is called with, so the returned result is identical"
 end
