@@ -803,7 +803,13 @@ RSpec.describe Saboteur::CLI do
 
         err.truncate(0)
         err.rewind
-        cli("run", "--config", "config/other.rb").call
+        Dir.mktmpdir do |dir|
+          Dir.chdir(dir) do
+            FileUtils.mkdir_p("config")
+            File.write("config/other.rb", "")
+            cli("run", "--config", "config/other.rb").call
+          end
+        end
         expect(err.string).to include("none inside the mutation scope, 2 outside it (0 tracked, 2 untracked), " \
                                       "1 saboteur setup file(s)")
         expect(err.string).to include("setup files: config/other.rb")

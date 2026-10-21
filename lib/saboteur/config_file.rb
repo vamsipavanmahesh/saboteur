@@ -76,6 +76,10 @@ module Saboteur
     # top-level Saboteur.configure, which must reach the load in progress.
     # Loads are therefore serialized - never load two config files at once.
     def load(path)
+      # Kernel.load reports an unreadable file as "cannot load such file",
+      # which reads like a typo'd path; say what actually happened.
+      raise ConfigError, "cannot read the file - check its permissions" unless File.readable?(path)
+
       @settings = Settings.new
       Kernel.load(path)
       @settings.values

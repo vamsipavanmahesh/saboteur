@@ -182,7 +182,8 @@ RSpec.describe "Engine external test-command pipeline" do
         seen = kwargs
         method.call(**kwargs)
       end
-      config = Saboteur::Config.new({ "test_command" => "true", "whole_file" => true, "max_duration" => 60 },
+      config = Saboteur::Config.new({ "test_command" => "true", "whole_file" => ["vendor/**"],
+                                      "max_duration" => 60 },
                                     root: root)
       Saboteur::Engine.new(config).call
       expect(seen[:map]).to be_a(Saboteur::Selection::ExternalTestMap)

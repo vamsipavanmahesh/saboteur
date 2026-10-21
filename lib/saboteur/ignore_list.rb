@@ -68,6 +68,10 @@ module Saboteur
     def self.load(path)
       return new([]) unless path && File.file?(path)
 
+      # Kernel.load reports an unreadable file as "cannot load such file",
+      # which reads like a typo'd path; say what actually happened.
+      raise ConfigError, "cannot read the file - check its permissions" unless File.readable?(path)
+
       @collector = Collector.new
       Kernel.load(path)
       new(@collector.entries)

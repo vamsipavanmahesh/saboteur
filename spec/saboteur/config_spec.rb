@@ -429,6 +429,22 @@ RSpec.describe Saboteur::Config, "details" do
     expect([config["timeout_factor"], config["include"], config["jobs"]]).to eq([2.5, ["lib/x.rb"], 4])
   end
 
+  it "rejects a non-string scalar in a list key instead of silently stringifying it" do
+    expect { described_class.new({ "include" => 5 }, root: @root) }
+      .to raise_error(Saboteur::ConfigError, "include must be a String or an Array of strings, got 5")
+  end
+
+  it "fails loudly when an explicit config path does not exist" do
+    missing = File.join(@root, "nope.rb")
+    expect { described_class.load(root: @root, path: missing) }
+      .to raise_error(Saboteur::ConfigError,
+                      "config file #{missing} does not exist; check the path or drop --config")
+  end
+
+  it "stays silent when the default config path does not exist" do
+    expect(described_class.load(root: @root)["jobs"]).to eq(1)
+  end
+
   it "accepts more than one job and rejects zero or negative limits, each with its own message" do
     expect(described_class.new({ "jobs" => 2 })["jobs"]).to eq(2)
     { "max_memory_mb" => 0, "max_processes" => 0, "timeout_factor" => 0, "timeout_min" => -1 }.each do |key, value|
