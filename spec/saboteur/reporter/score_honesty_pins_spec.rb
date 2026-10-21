@@ -130,6 +130,7 @@ RSpec.describe "score honesty" do
         accept an equivalent one: add to your ignore file (c.ignore_file, default config/saboteur_ignore.rb):
           i.mutation "#{digest}", subject: "Calculator#add", reason: "why it is equivalent"
         let an agent close the gaps: saboteur run --agent, with the same options
+        narrow the run: saboteur survivors .saboteur/report.json (--file, --operator, --triage), or re-run with --since or --subject
     TEXT
     text = render(report, color: :never, exit_code: 1)
     expect(closing(text)).to eq(expected)
@@ -157,6 +158,7 @@ RSpec.describe "score honesty" do
         accept an equivalent one: add to your ignore file (c.ignore_file, default config/saboteur_ignore.rb):
           i.mutation "#{digest}", subject: "Calculator#add", reason: "why it is equivalent"
         let an agent close the gaps: saboteur run --agent, with the same options
+        narrow the run: saboteur survivors .saboteur/report.json (--file, --operator, --triage), or re-run with --since or --subject
     TEXT
     expect(closing(render(report, color: :always, exit_code: 1))).to eq(expected)
   end

@@ -39,6 +39,12 @@ RSpec.describe Saboteur::Reporter::NextSteps do
     )
   end
 
+  it "points at the survivors browser and the narrowing options" do
+    text = render(report_of(result_for(:survived)))
+    expect(text).to include("narrow the run: saboteur survivors .saboteur/report.json " \
+                            "(--file, --operator, --triage), or re-run with --since or --subject")
+  end
+
   it "adds the run's seed to the replay command, and leaves it out when there is none" do
     survivor = result_for(:survived)
     [[42, " --seed 42"], [nil, ""]].each do |seed, suffix|

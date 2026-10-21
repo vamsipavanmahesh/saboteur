@@ -35,6 +35,8 @@ module Saboteur
         entry = %(i.mutation "#{survivor.digest}", subject: "#{survivor.subject.id}", reason: "why it is equivalent")
         @out.puts "    #{entry}"
         @out.puts "  let an agent close the gaps: saboteur run --agent, with the same options"
+        @out.puts "  narrow the run: saboteur survivors #{Config::DEFAULTS['json_report']} " \
+                  "(--file, --operator, --triage), or re-run with --since or --subject"
       end
     end
   end
