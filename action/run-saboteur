@@ -478,7 +478,7 @@ case "$saboteur_status" in
     exit 0
     ;;
   *)
-    echo "::error::saboteur stopped with exit code $saboteur_status (2 means bad configuration, 3 means the run itself failed). Read the output above."
+    echo "::error::saboteur stopped with exit code $saboteur_status (2 means bad configuration, 3 means the change could not be verified, 5 means the baseline suite is red - fix your tests first, 70 means an internal crash, a saboteur bug). Read the output above."
     exit "$saboteur_status"
     ;;
 esac
