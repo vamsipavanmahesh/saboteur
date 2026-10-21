@@ -929,6 +929,34 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
       expect { select([file], since: "HEAD", subjects: ["Other"]) }
         .to raise_error(Saboteur::ConfigError, /--subject Other matches no subject/)
     end
+
+    # Under --since a well-formed pattern can miss only because the diff
+    # scope excluded its subject: name the scope and the way out instead of
+    # hinting at pattern syntax (#1234).
+    it "names the --since scope, not the pattern syntax, when a scoped --subject misses" do
+      file = write("cart.rb", source)
+      commit_all
+      File.write(file, source.sub("def total = 1", "def total = 2"))
+
+      expect { select([file], since: "HEAD", subjects: ["Other", "Nope"]) }
+        .to raise_error(Saboteur::ConfigError,
+                        "--subject Other, Nope matches no subject in the --since HEAD diff scope " \
+                        "(the scope limits the search to changed files; drop --since or pass --all)")
+    end
+
+    # Same for a partial miss: the warning names the scope, not a syntax fix
+    # (#1234).
+    it "warns with the --since scope when one scoped --subject pattern misses" do
+      file = write("cart.rb", source)
+      commit_all
+      File.write(file, source.sub("def total = 1", "def total = 2"))
+
+      select([file], since: "HEAD", subjects: ["Shop::Cart", "Other"])
+      expect(diagnostics.warnings)
+        .to include("--subject Other matches no subject in the --since HEAD diff scope " \
+                    "(the scope limits the search to changed files)")
+      expect(diagnostics.warnings).to include("1 of 2 --subject patterns matched")
+    end
   end
 
   describe ".files_matching" do

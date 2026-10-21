@@ -433,12 +433,14 @@ RSpec.describe Saboteur::Engine, "test selection" do
       end
     end
 
-    it "says there is nothing to test when --since leaves no changed source file (#607)" do
+    it "says why no spec was inferred when --since leaves no changed source file (#607, #1232)" do
       guess(specs: [], unmatched: [], changed: 0)
       run_engine("since" => "origin/main")
-      expect(err.string).to include("inferred specs: no changed source file to infer a spec for, " \
-                                    "so there is nothing to test")
+      expect(err.string).to include("inferred specs: no changed source file to infer a spec for\n")
       expect(err.string).not_to include("the whole suite runs")
+      # The conclusion is stated once, by the outcome line (#1232); this
+      # harness stops before it, so the phrase must not appear here at all.
+      expect(err.string).not_to include("nothing to test")
     end
 
     it "names every subjectless file in the note" do
@@ -620,8 +622,7 @@ RSpec.describe Saboteur::Engine, "test selection" do
     guess(specs: [], unmatched: [], changed: 0)
     used = tests_the_run_used { run_engine("since" => "origin/main") }
     expect(used).to eq([])
-    expect(err.string).to include("inferred specs: no changed source file to infer a spec for, " \
-                                  "so there is nothing to test")
+    expect(err.string).to include("inferred specs: no changed source file to infer a spec for\n")
     expect(err.string).to include("running the loaded suite unscoped")
   end
 
@@ -629,7 +630,7 @@ RSpec.describe Saboteur::Engine, "test selection" do
     guess(specs: [], unmatched: [], changed: 0)
     report = run_engine("since" => "origin/main")
     expect(report.warnings)
-      .to include("inferred specs: no changed source file to infer a spec for, so there is nothing to test")
+      .to include("inferred specs: no changed source file to infer a spec for")
   end
 
   it "names the no-source-file case without --since" do

@@ -169,6 +169,11 @@ module Saboteur
           return missed.map { |pattern| missed_pattern_message(pattern) }.join("; ")
         end
 
+        if @config["since"]
+          return "--subject #{missed.join(', ')} matches no subject in the --since #{@config['since']} " \
+                 "diff scope (the scope limits the search to changed files; drop --since or pass --all)"
+        end
+
         "--subject #{missed.join(', ')} matches no subject (patterns are names like " \
           "Klass, Klass#meth or Klass.meth, not globs)"
       end
@@ -179,6 +184,11 @@ module Saboteur
       def missed_pattern_message(pattern)
         macro = attribute_macro_for(pattern)
         return "--subject #{pattern} is defined by #{macro} and has no body to mutate" if macro
+
+        if @config["since"]
+          return "--subject #{pattern} matches no subject in the --since #{@config['since']} diff scope " \
+                 "(the scope limits the search to changed files)"
+        end
 
         "fix the --subject pattern \"#{pattern}\": it matches no subject (patterns are names like " \
           "Klass, Klass#meth or Klass.meth, not globs)"

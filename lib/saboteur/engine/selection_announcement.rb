@@ -11,12 +11,13 @@ module Saboteur
       private
 
       # A --since diff with no changed source file (a spec-only or docs-only
-      # change) yields zero subjects, so the suite never runs: say there is
-      # nothing to test rather than promise a whole-suite run that does not
-      # happen (#607).
+      # change) yields zero subjects, so the suite never runs: say why no
+      # spec was inferred rather than promise a whole-suite run that does not
+      # happen (#607). The conclusion itself is stated once, by the
+      # "--since <ref>: nothing to test - <reason>" outcome line (#1232).
       def selection_message(guess)
         if guess.changed.zero? && config["since"]
-          "inferred specs: no changed source file to infer a spec for, so there is nothing to test"
+          "inferred specs: no changed source file to infer a spec for"
         elsif guess.changed.zero?
           "inferred specs: no source file to infer a spec for, so the whole suite runs"
         elsif guess.specs.empty?

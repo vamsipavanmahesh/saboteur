@@ -107,6 +107,8 @@ RSpec.describe "saboteur run: diff mode, ignore list, exit codes", :e2e do
       expect(run.status).to eq(0)
       expect(run.out).to include("0 subjects, 0 mutants")
       expect(run.err).to include("--since HEAD~1: nothing to test - 1 changed file, none in mutation scope")
+      # Stated once: the selection announce no longer repeats it (#1232).
+      expect(run.err.scan("nothing to test").size).to eq(1)
     end
 
     # A misspelled --subject must not read as a green zero-subject run
