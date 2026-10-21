@@ -72,6 +72,42 @@ The planned mutation set as one JSON document, described in
 (currently `1`); consumers must ignore keys they do not know, and key order
 is not API. Only a breaking change raises the number.
 
+## Defaults that move: test selection and the operator set (#1155)
+
+These two defaults shape what a bare `saboteur run` judges, and both have
+moved in minor releases. This is the policy for how they move.
+
+### Default test selection
+
+The default is inference (`test_selection` is `auto` out of the box): the
+coverage map points each mutant at the specs that plausibly exercise it, and
+the inferred set gets better as inference improves.
+
+- **Not stable:** the exact inferred set. It may change in any release
+  without a `Changed` heading; a better guess is an improvement, not a
+  break. Do not diff two releases by their inferred selections.
+- **Stable:** the knobs and their meaning. `--all` (or
+  `c.test_selection = :all`) always runs the whole suite; `--test` and
+  `c.tests` always run the named specs and never get silently dropped or
+  reordered by inference. A change to what a knob *means* is a breaking
+  change under a `Changed` heading.
+- Pin a reproducible run with `--all` or an explicit `--test` list.
+
+### The default operator set
+
+The default is every builtin operator.
+
+- **Additive in minor releases:** a new default-on operator can ship in a
+  normal release under an `Added` heading. More operators means more
+  mutants, so an unchanged codebase can gain survivors after an upgrade;
+  that is the tool finding more, not a break.
+- **Breaking:** removing or renaming an operator, or moving one out of the
+  default set, requires a `Changed` heading in the release that makes it.
+- **Stable pin:** `c.operators` / `--operators` selects exactly the named
+  set, and `c.exclude_operators` / `--exclude-operators` subtracts from the
+  default; both lists are matched by operator name, so a pinned set keeps
+  its meaning across releases that add operators.
+
 ## How they change
 
 Each surface is governed by its own version:
@@ -90,6 +126,9 @@ Each surface is governed by its own version:
 - **The machine report** follows the upstream Stryker schema versioning.
 - **The dry-run inventory** is governed by its integer `schema_version`,
   under the same additive-versus-breaking rules as the agent payload.
+- **Default test selection and the default operator set** carry no version
+  number; the CHANGELOG rules in their section above are the whole
+  contract.
 
 ## Not covered
 
