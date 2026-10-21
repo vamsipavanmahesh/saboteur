@@ -22,6 +22,7 @@ require_relative "cli/selection_options"
 require_relative "cli/presets"
 require_relative "cli/help_options"
 require_relative "cli/history_command"
+require_relative "cli/ignore_command"
 require_relative "cli/execution_options"
 require_relative "cli/matrix_option"
 require_relative "cli/output_options"
@@ -50,6 +51,7 @@ module Saboteur
     include SelectionOptions
     include Presets
     include HistoryCommand
+    include IgnoreCommand
     include ExecutionOptions
     include MatrixOption
     include OutputOptions
@@ -97,13 +99,14 @@ module Saboteur
       @format = "agent" if agent_requested?
     end
 
+    SIMPLE_COMMANDS = { "run" => :run_command, "baseline" => :baseline, "survivors" => :survivors_command,
+                        "ignore" => :ignore_command, "doctor" => :doctor_command }.freeze
+
     def call
       command = @argv.shift
+      return send(SIMPLE_COMMANDS[command]) if SIMPLE_COMMANDS.key?(command)
+
       case command
-      when "run" then run_command
-      when "baseline" then baseline
-      when "survivors" then survivors_command
-      when "doctor" then doctor_command
       when "badge", "trend" then history_entry(command)
       when "version", "--version" then @out.puts(VERSION) || EXIT_OK
       when "help", "--help", "-h" then show_help(@argv.shift)
