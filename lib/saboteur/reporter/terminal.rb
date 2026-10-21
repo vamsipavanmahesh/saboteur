@@ -9,6 +9,7 @@ require_relative "survivor_ranking"
 require_relative "palette"
 require_relative "score_table"
 require_relative "survivor_list"
+require_relative "survivor_classification"
 require_relative "test_matrix"
 
 module Saboteur
@@ -21,11 +22,13 @@ module Saboteur
       MAX_NOT_SCORED = 10
       MAX_PASSING_TESTS = SurvivorList::MAX_PASSING_TESTS
 
-      def initialize(out, verbose: false, color: :auto, overrides: nil, replay_command: nil, all_mutants: false,
-                     exit_code: nil, threshold: nil, previous_score: nil, baseline_gate: nil)
+      def initialize(out, verbose: false, quiet: false, color: :auto, overrides: nil,
+                     replay_command: nil, all_mutants: false, exit_code: nil,
+                     threshold: nil, previous_score: nil, baseline_gate: nil)
         @out = SafeOut.new(out)
         @all_mutants = all_mutants
         @verbose = verbose
+        @quiet = quiet
         @palette = Palette.for(out, mode: color, overrides: overrides)
         @score_table = ScoreTable.new(@out, @palette)
         @next_steps = NextSteps.new(@out, @palette, replay_command: replay_command)
@@ -41,6 +44,8 @@ module Saboteur
       end
 
       def call(report)
+        return quiet_call(report) if @quiet
+
         survivors(report)
         errors(report)
         skipped_subjects(report) if @verbose
@@ -57,6 +62,26 @@ module Saboteur
       private
 
       def middot = @palette.glyph(:middot)
+
+      # One finding per statement, live survivors in ranked order (#1065).
+      def quiet_call(report)
+        groups = SurvivorRanking.ordered(report, report.unignored_survivors).group_by do |result|
+          [relative(result.subject.file, report.root), MutationText.line(result), result.subject.id]
+        end
+        @out.puts(groups.map { |(path, line, id), rs| quiet_survivor_line(path, line, id, rs) }) if groups.any?
+        untested_subjects(report).each do |subject|
+          @out.puts "#{relative(subject.file, report.root)}:#{subject.start_line} #{subject.id} [untested]"
+        end
+        @baseline_gate ? BaselineTail.new(@out, @palette).call(@baseline_gate, @exit_code) : canonical_line(report)
+        verdict_line(report)
+      end
+
+      def quiet_survivor_line(path, line, subject_id, results)
+        first, *rest = results
+        label = SurvivorClassification.label(first)
+        text = "#{path}:#{line} #{subject_id}#{" [#{label}]" if label} - #{first.digest}"
+        rest.any? ? "#{text} (+#{rest.size} more)" : text
+      end
 
       def operator_policy(report)
         policy = report.operator_policy
