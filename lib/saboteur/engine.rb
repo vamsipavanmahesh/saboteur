@@ -39,7 +39,8 @@ module Saboteur
     # The specs inference narrowed the run to, or nil when it did not.
     attr_reader :guessed_tests
 
-    def initialize(config, err: $stderr, digest: nil, capture_evidence: false, evidence_files: [], verbose: false,
+    def initialize(config, err: $stderr, digest: nil, survivors: nil, capture_evidence: false, evidence_files: [],
+                   verbose: false,
                    palette: nil, quiet_start: true)
       @config = config
       @hooks = Hooks.new
@@ -49,6 +50,7 @@ module Saboteur
       @root = File.realpath(config.root)
       @skipped_subjects = {}
       @replay = Replay.new(digest: digest) if digest
+      @survivors = survivors
       if capture_evidence && (digest || config["since"] || config["incremental"] || config["resume"] || config["shard"])
         raise ConfigError,
               "baseline evidence requires fresh whole-scope execution: no since, replay, shard or incremental"
@@ -176,7 +178,13 @@ module Saboteur
                  operator_policy: config.operator_policy, discovery_failures: @diagnostics.discovery_failures,
                  test_command: config["test_command"],
                  shard: @shard, memory: @memory_report, referenced: @guessed_referenced || {},
-                 reuse: @reuse_stats)
+                 reuse: @reuse_stats, survivors_rerun: survivors_rerun)
+    end
+
+    def survivors_rerun
+      return nil unless @survivors
+
+      { source: @survivors[:source], gone: @gone_digests || @survivors[:digests] }
     end
 
     def complete_evidence(results, subjects)
@@ -301,8 +309,17 @@ module Saboteur
     # baseline's own chatter (demoted to --verbose) would start.
     def announce_quiet_start(store, files)
       @map_cached = store.reusable?(files)
-      @diagnostics.quiet_start_header(scope: config["since"] ? "--since #{config['since']}" : "whole project",
-                                      seed: config["seed"], operators: config.operator_policy["effective"].size)
+      @diagnostics.quiet_start_header(scope: start_scope, seed: config["seed"],
+                                      operators: (@survivors ? nil : config.operator_policy["effective"].size))
+    end
+
+    # The quiet start's middle: what this run mutates. A --survivors run
+    # names its source report instead of a diff or the whole project.
+    def start_scope
+      return "#{@survivors[:digests].size} survivors from #{@survivors[:source]}" if @survivors
+      return "--since #{config['since']}" if config["since"]
+
+      "whole project"
     end
 
     def inform_about_run(subjects, map)
@@ -423,6 +440,23 @@ module Saboteur
     # Shared with the runner so the hazard report wins over a log loss (#283).
     def canary = (@canary ||= Canary.new(@root, cache_dir: config["cache_dir"]))
 
+    # --survivors: keep only the mutants whose digests the report named;
+    # a digest no current mutant produces is "gone" - the code changed
+    # since the report was written.
+    def survivor_lists(subjects, lists)
+      wanted = @survivors[:digests]
+      found = []
+      filtered = subjects.zip(lists).map do |subject, list|
+        list.select do |mutation, _|
+          digest = mutation.digest(subject_start: subject.start_byte, original_source: subject.file_source)
+          found << digest if wanted.include?(digest) && !found.include?(digest)
+          wanted.include?(digest)
+        end
+      end
+      @gone_digests = wanted - found
+      filtered
+    end
+
     def candidate_lists(subjects, scope, map)
       return [@replay_candidate] if @replay
 
@@ -433,6 +467,7 @@ module Saboteur
       lists = subjects.map { |subject| selection.for(subject, scope: scope) }
       @shard = Engine::Shard.parse(config["shard"]) if config["shard"]
       lists = @shard.select(subjects, lists) if @shard
+      lists = survivor_lists(subjects, lists) if @survivors
       lists.tap do
         @skipped_subjects = selection.skipped_subjects
         @unscoped_digests = selection.unscoped_digests

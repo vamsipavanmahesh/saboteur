@@ -31,7 +31,9 @@ module Saboteur
         # leave a fresh, misleading report behind.
         validate_history
         html = write_html(report)
-        record_history(report)
+        # A --survivors re-run scores a hand-picked subset: appending it to
+        # the score history would pose it as the project's score.
+        record_history(report) unless survivor_selection
         validate_history
         json = write_json(report, exit_cause(report, code))
         announce_reports(json => "JSON", html => "HTML")
@@ -59,14 +61,11 @@ module Saboteur
       end
 
       def execute_run
+        selection = survivor_selection
+        return survivors_empty_exit if selection && selection[:digests].empty?
+
         validate_history
-        # One palette per stream: stdout and stderr detect colour on their
-        # own, so a forced terminal report still leaves piped progress plain.
-        arguments = { err: @err,
-                      palette: Reporter::Palette.for(@err, mode: @color || :auto, overrides: config["palette"]) }
-        arguments[:digest] = options[:id] if options[:id]
-        arguments[:capture_evidence] = true if config["baseline"]
-        arguments[:evidence_files] = [config["baseline"]] if config["baseline"]
+        arguments = engine_arguments(selection)
         return agent_run(arguments) if agent?
 
         # Text mode only: the engine prints a per-subject marks line when

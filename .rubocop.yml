@@ -44,8 +44,9 @@ Metrics/ClassLength:
   # echo, previous-score delta) takes it to 390; the colour contract's
   # middot glyph helper takes it to 393 (#1126 and #1127 fit within it);
   # the PR6 clean-run screen and baseline-tail guard take it to 428; the
-  # clean screen's phase lines (baseline, coverage, dots) take it to 442.
-  Max: 442
+  # clean screen's phase lines (baseline, coverage, dots) take it to 442;
+  # the --survivors re-run wording and its gone-digests notes take it to 448.
+  Max: 448
 Metrics/ParameterLists:
   CountKeywordArgs: false
 

@@ -201,8 +201,8 @@ module Saboteur
         return if @verbose || !@quiet_start
 
         dot = @palette.glyph(:middot)
-        line = "saboteur #{Saboteur::VERSION} #{dot} #{scope} #{dot} seed #{seed} #{dot} " \
-               "#{operators} operators (--list-operators)"
+        line = "saboteur #{Saboteur::VERSION} #{dot} #{scope} #{dot} seed #{seed}"
+        line += " #{dot} #{operators} operators (--list-operators)" if operators
         @err.puts(@palette.paint(:dim, line))
       end
 

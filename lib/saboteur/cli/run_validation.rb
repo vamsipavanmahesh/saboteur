@@ -35,12 +35,23 @@ module Saboteur
       # Usage errors found before the target boots.
       def validate_run_options
         reject_format_conflicts
+        reject_survivor_conflicts
         validate_shard_options
         raise UsageError, "--ignore-empty applies to --since runs" if config["ignore_empty"] && !config["since"]
 
         validate_baseline_options
 
         Selection::GitDiff.verify_ref!(config["since"], root: config.root) if config["since"]
+      end
+
+      # --survivors is itself the selection: a diff scope, the capped
+      # --all-mutants view or a single replay would contradict it.
+      def reject_survivor_conflicts
+        return unless options[:survivors]
+
+        raise UsageError, "--survivors cannot be combined with --since" if config["since"]
+        raise UsageError, "--survivors cannot be combined with --all-mutants" if options[:all_mutants]
+        raise UsageError, "--survivors cannot be combined with --id" if options[:id]
       end
 
       # The run gate needs fresh whole-scope execution evidence, so it

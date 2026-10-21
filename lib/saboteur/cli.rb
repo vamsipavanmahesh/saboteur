@@ -14,6 +14,7 @@ require_relative "cli/exit_status"
 require_relative "cli/baseline_gate"
 require_relative "preview"
 require_relative "cli/run_reporting"
+require_relative "cli/survivor_selection"
 require_relative "cli/survivors_command"
 require_relative "cli/source_set"
 require_relative "cli/run_budget_options"
@@ -43,6 +44,7 @@ module Saboteur
     include ExitStatus
     include BaselineGate
     include RunReporting
+    include SurvivorSelection
     include SurvivorsCommand
     include SourceSet
     include RunBudgetOptions
@@ -136,7 +138,9 @@ module Saboteur
 
     def agent_requested? = self.class.agent_requested?(@argv)
 
-    def overrides = options.except(:config, :id, :suite, :list_operators, :dry_run, :all_mutants, :quiet)
+    def overrides
+      options.except(:config, :id, :suite, :list_operators, :dry_run, :all_mutants, :quiet, :survivors)
+    end
 
     def add_subject(expr) = (options[:subjects] ||= []) << expr
 

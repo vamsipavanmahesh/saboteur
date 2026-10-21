@@ -47,7 +47,12 @@ module Saboteur
       def load_survivor_report(path)
         raise UsageError, "report not found: #{path}" unless File.file?(path)
 
-        JSON.parse(File.read(path))
+        report = JSON.parse(File.read(path))
+        unless report.is_a?(Hash) && report["files"].is_a?(Hash) && report["saboteur"].is_a?(Hash)
+          raise UsageError, "#{path} is not a saboteur report (no files/saboteur sections)"
+        end
+
+        report
       rescue JSON::ParserError => e
         raise UsageError, "#{path} is not a readable saboteur report: #{e.message}"
       end
@@ -68,6 +73,11 @@ module Saboteur
 
         [header(survivors.size, file, operator, triage), *rows(survivors)]
       end
+
+      # The unignored survivors' full digests, for --survivors re-runs:
+      # the report's files section already excludes ignored mutants from
+      # the "Survived" status.
+      def survivor_digests = all_survivors.map { |survivor| survivor[:digest] }
 
       def show(digest)
         survivor = all_survivors.find { |s| s[:digest].start_with?(digest) } ||

@@ -20,6 +20,10 @@ module Saboteur
         opts.on("--list-operators", "List operator names and descriptions") { set(:list_operators, true) }
         opts.on("--dry-run", "Preview mutants without boot, tests, forks or report writes") { set(:dry_run, true) }
         opts.on("--id DIGEST", "Replay exactly one current mutant by its full digest") { |v| set(:id, v) }
+        opts.on("--survivors [PATH]",
+                "Re-run the report's unignored survivors (default: .saboteur/report.json)") do |v|
+          set(:survivors, v || ".saboteur/report.json")
+        end
         opts.on("--shard K/N", "Run one of N deterministic candidate shards (for example 1/4)") { |v| set(:shard, v) }
         opts.on("--since REF", "Only mutate subjects changed since git REF") { |v| options[:since] = v }
         opts.on("--ignore-empty", "A --since diff that selects no mutants exits 0 with a note instead of " \

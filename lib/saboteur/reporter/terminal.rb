@@ -185,6 +185,7 @@ module Saboteur
         @out.puts "#{@palette.paint(:pass, win)} #{total}"
         untested = untested_subjects(report)
         @out.puts "  #{@palette.paint(:warn, untested_win_note(untested))}" if untested.any?
+        print_gone_digests(report.survivors_rerun&.fetch(:gone, []) || [])
         clean_reports_line
       end
 
@@ -315,11 +316,20 @@ module Saboteur
       # One greppable line, pytest-style.
       def canonical_line(report)
         parts = state_parts(report)
+        gone = report.survivors_rerun&.fetch(:gone, []) || []
+        parts << "#{gone.size} digest#{'s' unless gone.size == 1} gone (code changed)" if gone.any?
         parts << "no mutants" if parts.empty?
         line = "saboteur: #{parts.join(', ')} in #{duration(report.wall_time)}"
         line += " - score #{painted_score(report.score)}"
+        line += " of re-run survivors" if report.survivors_rerun
         line += " (threshold #{format('%g', @threshold)})" if @threshold
         @out.puts line
+        print_gone_digests(gone)
+      end
+
+      # The canonical line never prints on the clean screen; it notes too.
+      def print_gone_digests(gone)
+        @out.puts @palette.paint(:dim, "  gone digests: #{gone.join(', ')}") if gone.any?
       end
 
       # The states that say how the run went: nonzero counts only, except
