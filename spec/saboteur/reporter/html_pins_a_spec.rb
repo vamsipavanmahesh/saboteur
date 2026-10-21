@@ -50,7 +50,7 @@ RSpec.describe Saboteur::Reporter::Html, "page pins" do
 
   it "puts the Files section after the score details" do
     expect(page).to include("with the reason).</p>\n\n</details>\n\n<h2>Files</h2>\n")
-    expect(page).to include("triage reasons.</p>\n<details open>")
+    expect(page).to include("triage reasons.</p>\n<details class=\"file\" open>")
   end
 
   it "prints no inline suppression section when there are none" do
