@@ -214,6 +214,16 @@ RSpec.describe Saboteur::CLI do
     expect(err.string).to include('invalid --max-duration "soon": use seconds or an s/m/h suffix, e.g. 10m')
   end
 
+  it "skips the preset notice when the run is only --help" do
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    begin
+      cli("pr", "--help").call
+    rescue SystemExit
+      # OptionParser's officious --help prints the options and exits 0.
+    end
+    expect(err.string).not_to include("preset 'pr':")
+  end
+
   it "expands the pr preset into its flag bundle, default ref main (#244)" do
     command = cli("pr")
     allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")

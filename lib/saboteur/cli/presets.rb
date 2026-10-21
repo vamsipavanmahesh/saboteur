@@ -35,7 +35,11 @@ module Saboteur
         # deprecated inference alias (#245).
         explicit_scope = @argv.any? { |arg| arg == "--test" || arg.start_with?("--test=") || arg == "--guess-tests" }
         flags.delete("--all") if explicit_scope
-        @err.puts("saboteur: preset '#{name}': #{preset_banner(flags).join(' ')} (explicit flags override)")
+        # --help prints and exits before any flag takes effect, so the preset
+        # notice would only be noise above the help text.
+        unless @argv.include?("--help") || @argv.include?("-h")
+          @err.puts("saboteur: preset '#{name}': #{preset_banner(flags).join(' ')} (explicit flags override)")
+        end
         @argv = flags + @argv
         run_command
       end

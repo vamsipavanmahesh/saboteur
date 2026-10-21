@@ -41,8 +41,7 @@ RSpec.describe Saboteur::Help do
 
   it "has the sections an agent looks for, in a fixed order" do
     headers = overview.lines.grep(/\A[A-Z][A-Z ]+( \(.*\))?\n\z/).map(&:strip)
-    expect(headers).to eq(["USAGE", "COMMANDS", "OPTIONS (saboteur run)", "OPTIONS (saboteur pr)",
-                           "OPTIONS (saboteur audit)", "OPTIONS (saboteur doctor)",
+    expect(headers).to eq(["USAGE", "COMMANDS", "OPTIONS (saboteur run)", "OPTIONS (saboteur doctor)",
                            "OPTIONS (saboteur baseline)", "OPTIONS (saboteur survivors)",
                            "OPTIONS (saboteur badge)", "OPTIONS (saboteur trend)",
                            "EXAMPLES",
@@ -92,9 +91,18 @@ RSpec.describe Saboteur::Help do
 
   it "has an options section and an exit codes section for every command that takes options" do
     described_class::COMMANDS.select(&:takes_options).each do |command|
-      expect(overview).to include("OPTIONS (saboteur #{command.name})")
       expect(overview).to include("EXIT CODES (saboteur #{command.name})")
+      next if %w[pr audit].include?(command.name)
+
+      expect(overview).to include("OPTIONS (saboteur #{command.name})")
     end
+  end
+
+  it "prints the run options once, naming pr and audit as sharing them" do
+    expect(overview.scan(/^OPTIONS \(saboteur /).size).to eq(6)
+    expect(overview).not_to include("OPTIONS (saboteur pr)")
+    expect(overview).not_to include("OPTIONS (saboteur audit)")
+    expect(overview).to include("These options also apply to saboteur pr and saboteur audit.")
   end
 
   it "appends the stricter --agent exit code note to the general exit codes (#245)" do

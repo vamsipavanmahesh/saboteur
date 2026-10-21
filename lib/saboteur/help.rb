@@ -259,9 +259,14 @@ module Saboteur
 
     private
 
-    # One section for every command that takes options, so the overview needs no other page.
+    # One section for every command that takes options, so the overview needs
+    # no other page. Commands that share one parser (run, pr, audit) get a
+    # single section named after the first of them, with the rest named in a
+    # closing line.
     def option_sections
-      @commands.select(&:takes_options).map { |command| options_section(command) }
+      @commands.select(&:takes_options)
+               .group_by { |command| @option_lines.fetch(command.name) }
+               .map { |_lines, group| options_section(group.first, also: group.drop(1)) }
     end
 
     # run, audit and pr share one exit-code table; the overview keeps every
@@ -297,8 +302,11 @@ module Saboteur
       @commands.map { |command| command.name.length }.max
     end
 
-    def options_section(command)
-      "OPTIONS (saboteur #{command.name})\n#{@option_lines.fetch(command.name).map(&:rstrip).join("\n")}\n"
+    def options_section(command, also: [])
+      section = "OPTIONS (saboteur #{command.name})\n#{@option_lines.fetch(command.name).map(&:rstrip).join("\n")}\n"
+      return section if also.empty?
+
+      "#{section}  These options also apply to #{also.map { |other| "saboteur #{other.name}" }.join(' and ')}.\n"
     end
 
     def all_examples
