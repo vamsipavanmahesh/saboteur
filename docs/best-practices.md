@@ -218,7 +218,9 @@ survivor. What the tool does for you today:
   suite first, twice by default. Both passes must be green, complete and in the same RSpec
   order at the run seed. `saboteur doctor --suite` runs the same kind of setup
   check without mutating. Setting `c.baseline_passes = 1` is faster, but gives
-  up the order-stability comparison.
+  up the order-stability comparison. Use 1 for pull request runs (the `pr`
+  preset already does this) where speed matters most, and keep 2 on main so
+  the second pass can catch an unstable test order before it corrupts a score.
 - **Unchanged-method check.** After a method's mutants run, saboteur re-runs
   the killing tests against the unmodified method. If they fail there too, the
   kill is not credited. It becomes an error and is counted as a rejected kill
