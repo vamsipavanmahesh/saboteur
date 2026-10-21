@@ -9,7 +9,7 @@ RSpec.describe Saboteur::Reporter::Html, "seed and whole-body pins" do
 
   it "leaves the seed out of the summary line when the run had none" do
     expect(described_class.build(unseeded(result_for(:killed))))
-      .to include("(1 subjects, 1 mutants, 1.2s)</p>\n")
+      .to include("(1 subject, 1 mutant, 1.2s)</p>\n")
   end
 
   it "shows the seed after the time when the run had one" do

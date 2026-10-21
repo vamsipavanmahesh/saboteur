@@ -28,6 +28,57 @@ RSpec.describe Saboteur::Reporter::Agent, "pins" do
     expect(described_class.render({ a: 1, b: [2] })).to eq("{\n  \"a\": 1,\n  \"b\": [\n    2\n  ]\n}\n")
   end
 
+  # C9: the agent format carries numeric counts, never the human opener,
+  # so opener pluralization cannot shift it - pinned byte for byte.
+  it "is byte-identical for a singular report (no prose opener)" do
+    report = report_of(result_for(:killed))
+    expected = <<~JSON
+      {
+        "version": 1,
+        "status": "complete",
+        "verdict": "clean",
+        "exitCode": 0,
+        "provenance": {
+          "seed": 7,
+          "workingTree": "clean",
+          "mode": "diff"
+        },
+        "counts": {
+          "killed": 1,
+          "survived": 0,
+          "timeout": 0,
+          "resourceLimit": 0,
+          "error": 0,
+          "skipped": 0,
+          "ranAtLoad": 0,
+          "unreachable": 0,
+          "unverified": 0,
+          "executed": 1
+        },
+        "score": 1.0,
+        "killCauses": {
+          "assertionKills": 0,
+          "crashKills": 0,
+          "unclassifiedKills": 1
+        },
+        "scoreDefinition": "(killed + timeout) / (killed + survived + timeout); null when nothing was tested",
+        "incomplete": [],
+        "timeoutCountedAsDetected": 0,
+        "findings": {
+          "survivors": 0,
+          "shown": [],
+          "omitted": 0,
+          "accepted": 0,
+          "ordering": "#{Saboteur::Reporter::Findings::ORDERING}",
+          "hintCaveat": "#{Saboteur::Reporter::SurvivorHints::CAVEAT}"
+        },
+        "warnings": [],
+        "next": {}
+      }
+    JSON
+    expect(described_class.render(described_class.send(:minimal, report, provenance_with))).to eq(expected)
+  end
+
   it "shows no findings in the minimal payload and keeps the incomplete reasons as reason then count" do
     with_findings(finding_with)
     small = described_class.send(:minimal, report, provenance_with)

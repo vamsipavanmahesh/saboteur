@@ -190,13 +190,18 @@ module Saboteur
           "the score covers those changes, not the whole project.</p>"
       end
 
+      # "1 subject, 2 mutants": each count pluralizes on its own (C9).
+      def counts_note(report)
+        "#{Text.counted(report.subjects.size, 'subject')}, #{Text.counted(report.results.size, 'mutant')}"
+      end
+
       def summary(report, data)
         seed = data.dig(:config, :seed)
         seed_note = seed ? ", seed #{seed}" : ""
         counts = data[:files].values.flat_map { |entry| entry[:mutants] }.map { |mutant| mutant[:status] }.tally
         <<~HTML
           <p><strong>Covered mutation score: #{score_text(report.score)}</strong>
-          (#{report.subjects.size} subjects, #{report.results.size} mutants, #{format('%.1f', report.wall_time)}s#{seed_note})</p>
+          (#{counts_note(report)}, #{format('%.1f', report.wall_time)}s#{seed_note})</p>
           <p class="note">Covered mutation score = #{SCORE_FORMULA}. NoCoverage, errors, resource limits and skipped
           mutants are not counted. Survivors accepted on the ignore list stay in the denominator. It covers only the subjects of this run, not the whole project. A tool that reads the
           Stryker JSON may show a different score, because the schema counts NoCoverage as undetected.</p>

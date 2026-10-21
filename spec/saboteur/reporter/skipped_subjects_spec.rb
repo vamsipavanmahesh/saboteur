@@ -14,7 +14,7 @@ RSpec.describe "reporting skipped subjects" do
   it "reports subject skips separately from mutant counts and the score" do
     output = StringIO.new
     Saboteur::Reporter::Terminal.new(output, verbose: true).call(report)
-    expect(output.string).to include("1 subjects, 0 mutants", "methods never run by tests: 1", "K#m", "Score: n/a")
+    expect(output.string).to include("1 subject, 0 mutants", "methods never run by tests: 1", "K#m", "Score: n/a")
     expect(report.counts[:skipped]).to eq(0)
   end
 

@@ -17,7 +17,7 @@ RSpec.describe Saboteur::Reporter::Html, "page pins" do
   end
 
   it "prints the subject, mutant and time counts on one exact line" do
-    expect(page).to include("</strong>\n(1 subjects, 2 mutants, 1.2s, seed 1)</p>\n")
+    expect(page).to include("</strong>\n(1 subject, 2 mutants, 1.2s, seed 1)</p>\n")
   end
 
   it "explains the score and its limits" do

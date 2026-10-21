@@ -11,6 +11,12 @@ module Saboteur
   module Text
     module_function
 
+    # "1 subject" / "2 subjects": the count with the noun in the right
+    # number (review C9). An irregular plural passes explicitly.
+    def counted(count, singular, plural = "#{singular}s")
+      "#{count} #{count == 1 ? singular : plural}"
+    end
+
     # A list for a warning or note: the first five items, then "and N more".
     # One rule for every message that names files, subjects or specs (#332).
     # Items are repo-controlled text, so each is display_safe (#834).
