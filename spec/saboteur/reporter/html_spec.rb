@@ -55,6 +55,12 @@ RSpec.describe Saboteur::Reporter::Html do
                             "the table adds notes,\ncovering tests and triage reasons.</p>")
   end
 
+  it "prints the table instead of the viewer: paper cannot scroll sideways" do
+    style = html[%r{<style>(.*?)</style>}m, 1]
+    expect(style).to include("@media print", "mutation-test-report-app{display:none}",
+                             ".scroll{overflow-x:visible}", "table{min-width:0}")
+  end
+
   it "shows the viewer in dark mode by default" do
     expect(html).to include('<mutation-test-report-app theme="dark"')
   end
