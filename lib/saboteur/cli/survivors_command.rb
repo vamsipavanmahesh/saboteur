@@ -20,16 +20,22 @@ module Saboteur
         EXIT_USAGE
       end
 
-      def survivors_command_inner
-        parser = OptionParser.new do |opts|
+      # The survivors parser, shared with `saboteur help` so the overview lists
+      # the same options. The banner is what `survivors --help` prints.
+      def survivors_parser
+        OptionParser.new do |opts|
+          opts.banner = "Usage: saboteur survivors [options] REPORT"
           opts.on("--ranked", "Review-priority order: the report's ranked findings first")
           opts.on("--file SUBSTR", "Only survivors whose path contains SUBSTR")
           opts.on("--operator NAME", "Only survivors of operator NAME")
-          opts.on("--triage LABEL", "Only survivors classified LABEL (for example missing_test)")
+          opts.on("--triage LABEL", "Only survivors classified LABEL (for example boundary)")
           opts.on("--show DIGEST", "Diff, replay command and ignore template for one survivor")
         end
+      end
+
+      def survivors_command_inner
         options = {}
-        args = parser.parse!(@argv, into: options)
+        args = survivors_parser.parse!(@argv, into: options)
         path = args.shift or raise UsageError,
                                    "survivors expects a report path: saboteur survivors .saboteur/report.json"
         raise UsageError, "unexpected arguments: #{args.join(' ')}" if args.any?

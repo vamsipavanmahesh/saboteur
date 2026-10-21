@@ -43,7 +43,8 @@ RSpec.describe Saboteur::Help do
     headers = overview.lines.grep(/\A[A-Z][A-Z ]+( \(.*\))?\n\z/).map(&:strip)
     expect(headers).to eq(["USAGE", "COMMANDS", "OPTIONS (saboteur run)", "OPTIONS (saboteur pr)",
                            "OPTIONS (saboteur audit)", "OPTIONS (saboteur doctor)",
-                           "OPTIONS (saboteur baseline)", "OPTIONS (saboteur badge)", "OPTIONS (saboteur trend)",
+                           "OPTIONS (saboteur baseline)", "OPTIONS (saboteur survivors)",
+                           "OPTIONS (saboteur badge)", "OPTIONS (saboteur trend)",
                            "EXAMPLES",
                            "EXIT CODES (saboteur run)", "EXIT CODES (saboteur pr)", "EXIT CODES (saboteur audit)",
                            "EXIT CODES (saboteur doctor)",

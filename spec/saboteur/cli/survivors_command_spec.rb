@@ -177,6 +177,7 @@ RSpec.describe Saboteur::CLI, "survivors (#475)" do
       ensure
         $stdout = STDOUT
       end
+      expect(captured.string).to start_with("Usage: saboteur survivors [options] REPORT\n")
       expect(captured.string).to include("Review-priority order",
                                          "Only survivors whose path contains SUBSTR",
                                          "Only survivors of operator NAME",

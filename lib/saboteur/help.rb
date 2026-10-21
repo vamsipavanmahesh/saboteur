@@ -11,7 +11,14 @@ module Saboteur
   # own line, command and key rows start with two spaces. Option lines come from
   # the CLI's own option parser, so a new option shows up here without an edit.
   class Help
-    Command = Data.define(:name, :summary, :description, :takes_options, :exit_codes, :examples)
+    Command = Data.define(:name, :summary, :description, :takes_options, :exit_codes, :examples, :usage) do
+      # usage defaults to the command's plain invocation; a command with a
+      # positional argument (survivors REPORT) passes its own.
+      def initialize(name:, takes_options:, usage: nil, **rest)
+        suffix = takes_options ? " [options]" : ""
+        super(name: name, takes_options: takes_options, usage: usage || "saboteur #{name}#{suffix}", **rest)
+      end
+    end
 
     PURPOSE = "mutation testing for Ruby and RSpec"
     DOCUMENTATION = "https://github.com/vamsipavanmahesh/saboteur"
@@ -143,7 +150,8 @@ module Saboteur
                      "filters with --file, --operator and --triage; --ranked uses the report's ranked " \
                      "findings order. --show DIGEST prints the diff, the exact replay command and an " \
                      "ignore-file entry template for that mutant. It never edits the ignore file.",
-        takes_options: false,
+        takes_options: true,
+        usage: "saboteur survivors [options] REPORT",
         exit_codes: { 0 => "Survivors listed or shown (including none).",
                       2 => "Missing, malformed or unreadable report; bad arguments." },
         examples: [["List survivors from the last run", "saboteur survivors .saboteur/report.json"],
@@ -277,8 +285,7 @@ module Saboteur
     end
 
     def command_usage(command)
-      suffix = command.takes_options ? " [options]" : ""
-      "USAGE\n  saboteur #{command.name}#{suffix}\n"
+      "USAGE\n  #{command.usage}\n"
     end
 
     def commands_section

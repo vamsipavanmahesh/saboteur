@@ -10,7 +10,7 @@ module Saboteur
         run = parser.summarize
         { "run" => run, "pr" => run, "audit" => run, "doctor" => doctor_parser.summarize,
           "baseline" => baseline_parser.summarize, "badge" => badge_parser.summarize,
-          "trend" => trend_parser.summarize }
+          "trend" => trend_parser.summarize, "survivors" => survivors_parser.summarize }
       end
     end
   end
