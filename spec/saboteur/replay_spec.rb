@@ -30,6 +30,23 @@ RSpec.describe Saboteur::Replay do
     expect { replay.select([subject], candidates) }.to raise_error(Saboteur::ConfigError, /ambiguous/)
   end
 
+  it "names the digest in the not found and ambiguous messages" do
+    candidates = instance_double(Saboteur::Engine::Candidates, for: [])
+    unknown = "a" * 16
+    expect { described_class.new(digest: unknown).select([subject], candidates) }
+      .to raise_error(Saboteur::ConfigError, "mutant #{unknown} not found in the selected current source")
+    twice = instance_double(Saboteur::Engine::Candidates, for: [[mutation, text], [mutation, text]])
+    expect { described_class.new(digest: digest).select([subject], twice) }
+      .to raise_error(Saboteur::ConfigError,
+                      "mutant #{digest} is ambiguous; narrow --subject or include files")
+  end
+
+  it "does not accept a digest with anything before or after the 16 hex digits" do
+    ["zz#{digest}", "#{digest}zz", "#{digest}\n", "\n#{digest}"].each do |bad|
+      expect { described_class.new(digest: bad) }.to raise_error(Saboteur::ConfigError, /16 lowercase hexadecimal/)
+    end
+  end
+
   it "does not accept digest prefixes" do
     expect { described_class.new(digest: digest[0, 8]) }
       .to raise_error(Saboteur::ConfigError, /16 lowercase hexadecimal/)
