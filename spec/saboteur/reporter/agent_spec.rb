@@ -181,8 +181,10 @@ RSpec.describe Saboteur::Reporter::Agent do
       shown = payload[:findings][:shown]
       covered = payload_for(report_of(result_for(:survived, covered_by: %w[t1])))[:findings][:shown].first
       expect(covered[:classification]).to eq("boundary")
+      expect(shown.first[:classification]).to eq("input_gap")
       # Unlabeled means the key is absent from the JSON, never null.
-      expect(shown.first).not_to have_key(:classification)
+      coarse = payload_for(report_of(result_for(:survived, coarse: true)))[:findings][:shown].first
+      expect(coarse).not_to have_key(:classification)
     end
 
     it "gives the finding a testHint with the boundary case, as data" do

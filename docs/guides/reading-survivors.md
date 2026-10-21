@@ -29,9 +29,11 @@ from the label alone.
   method-level guesses and never get this label, and neither does
   anything without real coverage - a `--test-command` run records only
   the pseudo-test for every mutant, so its survivors never receive missing_test from pseudo evidence.
+- `input_gap` - no test reached this mutant at all, so its input never
+  varied: start by exercising the line with a varied input.
 
-A survivor with no signal stays unlabeled - the field is omitted, never
-empty. One label per survivor, first match in the order above. Labels
+A coarse mutant with no other signal stays unlabeled - the field is
+omitted, never empty. One label per survivor, first match in the order above. Labels
 never change scores or the exit code. The label also shows as a badge
 next to the survivor's status in the HTML report and as the
 `classification` field on each shown finding in the agent JSON.
