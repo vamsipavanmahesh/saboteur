@@ -24,7 +24,7 @@ RSpec.describe "candidate limits", :e2e do
     run = saboteur(dir, "--all", "--subject", "Untested")
     expect(run.status).to eq(0), run.err
     expect(mutants(run)).to be_empty
-    expect(run.out).to include("1 subjects, 0 mutants", "skipped subjects: no coverage: 1", "Untested#value")
+    expect(run.out).to include("1 subjects, 0 mutants", "methods never run by tests: 1", "Untested#value")
     expect(run.json["skippedSubjects"].first).to include("subject" => "Untested#value", "reason" => "no coverage")
   end
   it "keeps a one-line uncalled definition uncovered, without inventing mutants" do
@@ -34,7 +34,7 @@ RSpec.describe "candidate limits", :e2e do
     run = saboteur(dir, "--all", "--subject", "LoadOnly")
     expect(run.status).to eq(0), run.err
     expect(mutants(run)).to be_empty
-    expect(run.out).to include("1 subjects, 0 mutants", "skipped subjects: no coverage:", "LoadOnly#value")
+    expect(run.out).to include("1 subjects, 0 mutants", "methods never run by tests: 1", "LoadOnly#value")
     expect(run.json["skippedSubjects"].first).to include(
       "subject" => "LoadOnly#value", "reason" => "no coverage"
     )

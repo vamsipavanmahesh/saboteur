@@ -149,7 +149,7 @@ module Saboteur
                            'errors, resource limits and skips excluded'
                        end}"
         end
-        report.skip_reasons.each { |reason, count| @out.puts "skipped: #{reason}: #{count}" }
+        report.skip_reasons.each { |reason, count| @out.puts skip_reason_line(reason, count) }
         reused = report.results.count(&:reused?)
         @out.puts "reused #{reused} of #{report.results.size} verdicts from earlier runs (--incremental)" if
           reused.positive?
@@ -237,10 +237,19 @@ module Saboteur
         end
       end
 
+      # "no coverage" names two different things (#1070): subjects no test
+      # runs at all, and mutant locations inside covered methods that no
+      # test reaches. Say which is which; every other reason prints as-is.
+      def skip_reason_line(reason, count)
+        reason == "no coverage" ? "mutant locations not reached: #{count}" : "skipped: #{reason}: #{count}"
+      end
+
+      def skipped_subject_line(reason, count)
+        reason == "no coverage" ? "methods never run by tests: #{count}" : "skipped subjects: #{reason}: #{count}"
+      end
+
       def skipped_subjects(report)
-        report.skipped_subjects.values.tally.each do |reason, count|
-          @out.puts "skipped subjects: #{reason}: #{count}"
-        end
+        report.skipped_subjects.values.tally.each { |reason, count| @out.puts skipped_subject_line(reason, count) }
         report.skipped_subjects.each do |subject, reason|
           @out.puts "  #{subject.id} #{relative(subject.file, report.root)}:#{subject.start_line}: #{reason}"
         end

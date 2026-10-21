@@ -359,8 +359,13 @@ RSpec.describe Saboteur::Reporter::Terminal do
     survivor = result_for(:survived)
     survivor.ignored = "equivalent: ages are integers"
     text = render(report_of(survivor, result_for(:skipped, reason: "no coverage"), warnings: ["stale entry"]))
-    expect(text).to include("survived 1 (1 ignored)", "skipped: no coverage: 1", "warning: stale entry",
+    expect(text).to include("survived 1 (1 ignored)", "mutant locations not reached: 1", "warning: stale entry",
                             "ignored: equivalent: ages are integers")
+  end
+
+  it "prints other mutant skip reasons with the generic wording (#1087)" do
+    text = render(report_of(result_for(:skipped, reason: "filtered")))
+    expect(text).to include("skipped: filtered: 1")
   end
 
   it "starts no CI workflow command from repository text the report prints (#834)" do

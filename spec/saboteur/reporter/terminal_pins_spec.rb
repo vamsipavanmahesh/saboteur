@@ -57,7 +57,7 @@ RSpec.describe Saboteur::Reporter::Terminal, "pins" do
   it "lists skipped subjects with their file, line and reason" do
     root = File.dirname(person_subject.file)
     text = render(report_with(result_for(:killed), skipped_subjects: { person_subject => "no coverage" }))
-    expect(text).to include("skipped subjects: no coverage: 1\n",
+    expect(text).to include("methods never run by tests: 1\n",
                             "  #{person_subject.id} #{person_subject.file.delete_prefix("#{root}/")}:" \
                             "#{person_subject.start_line}: no coverage\n")
   end
