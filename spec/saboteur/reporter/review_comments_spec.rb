@@ -4,7 +4,7 @@
 RSpec.describe Saboteur::Reporter::ReviewComments do
   def finding(digest, line: 12, classification: "missing_test", original: "a > b", replacement: "a >= b", **extra)
     { "digest" => digest, "path" => "lib/x.rb", "operator" => "comparison", "original" => original,
-      "replacement" => replacement, "classification" => classification,
+      "replacement" => replacement, "subject" => "X#go", "classification" => classification,
       "changedLines" => line ? [line, line + 1] : [] }.merge(extra.transform_keys(&:to_s))
   end
 
@@ -20,7 +20,7 @@ RSpec.describe Saboteur::Reporter::ReviewComments do
     it "matches the recorded format" do
       expect(described_class.body(finding("aabbccdd11223344"))).to eq(<<~BODY.chomp)
         <!-- saboteur:digest=aabbccdd11223344 -->
-        **Surviving mutant** (`comparison`): this change did not make any test fail.
+        **Surviving mutant** (`comparison`) in `X#go`: this change did not make any test fail.
 
         Original:
         ```ruby
@@ -33,6 +33,17 @@ RSpec.describe Saboteur::Reporter::ReviewComments do
 
         A test reaches this line and still passes with the change. Add an assertion that pins this behaviour.
       BODY
+    end
+
+    it "leaves the subject out of the opening line when the finding has none" do
+      body = described_class.body(finding("aabbccdd11223344", subject: nil))
+      expect(body).to include("**Surviving mutant** (`comparison`): this change did not make any test fail.")
+    end
+
+    it "caps the subject at sixty characters" do
+      body = described_class.body(finding("aabbccdd11223344", subject: "X#m#{'a' * 100}"))
+      expect(body).to include(" in `#{"X#m#{'a' * 57}"}`:")
+      expect(body).not_to include("a" * 58)
     end
 
     it "uses the plain hint when nothing is classified, and the limit hint for tool_limit" do

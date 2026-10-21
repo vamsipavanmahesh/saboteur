@@ -82,7 +82,7 @@ module Saboteur
                    "the resolved range has no changes"
                  elsif !@raw_changed_files.intersect?(@files)
                    "#{count} changed file#{'s' unless count == 1}, none in mutation scope " \
-                     "(docs-only, excluded, or non-Ruby)"
+                     "(specs, docs, excluded, or non-Ruby files)"
                  else
                    "no subject covers the changed lines (layout-only edits, deletions, " \
                      "or intentionally untested code)"

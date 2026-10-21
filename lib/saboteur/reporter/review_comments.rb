@@ -57,8 +57,9 @@ module Saboteur
         end
 
         def body(finding)
-          [marker(finding["digest"]),
-           "**Surviving mutant** (`#{word(finding['operator'])}`): this change did not make any test fail.",
+          opening = "**Surviving mutant** (`#{word(finding['operator'])}`)#{in_subject(finding)}: " \
+                    "this change did not make any test fail."
+          [marker(finding["digest"]), opening,
            "",
            fenced(finding["original"], "Original"),
            fenced(finding["replacement"], "Mutant"),
@@ -134,6 +135,12 @@ module Saboteur
 
         def hint(label)
           HINTS.fetch(label, DEFAULT_HINT)
+        end
+
+        # The subject rides in the opening line: notification mail shows the
+        # body without its diff (#1212). Empty when there is none.
+        def in_subject(finding)
+          finding["subject"].to_s.gsub(/[`\r\n]/, "")[0, 60].then { |name| name.empty? ? "" : " in `#{name}`" }
         end
 
         def word(text)

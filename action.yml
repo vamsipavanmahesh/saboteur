@@ -62,6 +62,15 @@ inputs:
       fail-on-survivors "true".
     required: false
     default: ""
+  max-duration:
+    description: >-
+      Wall-time budget for the whole run, passed as --max-duration (for
+      example "10m"). When the budget runs out, saboteur stops early with
+      exit 4 and the step fails; the summary says so. Empty means no budget:
+      a big diff then runs until the GitHub job timeout kills it with no
+      summary at all, so set one (#1210).
+    required: false
+    default: ""
   cache:
     description: >-
       "true" or "false" (anything else fails the step). "false" skips restoring
@@ -211,6 +220,7 @@ runs:
         SABOTEUR_FAIL_ON_SURVIVORS: ${{ inputs.fail-on-survivors }}
         SABOTEUR_MAX_TIMEOUTS: ${{ inputs.max-timeouts }}
         SABOTEUR_MAX_ERRORS: ${{ inputs.max-errors }}
+        SABOTEUR_MAX_DURATION: ${{ inputs.max-duration }}
         SABOTEUR_REPORT_PATH: ${{ inputs.report-path }}
         SABOTEUR_CACHE: ${{ inputs.cache }}
         SABOTEUR_ARTIFACT_NAME: ${{ inputs.artifact-name || format('saboteur-report-{0}-{1}', github.job, strategy.job-index) }}

@@ -28,6 +28,7 @@ extra_arguments="${SABOTEUR_ARGUMENTS:-}"
 fail_on_survivors="${SABOTEUR_FAIL_ON_SURVIVORS:-false}"
 max_timeouts="${SABOTEUR_MAX_TIMEOUTS:-}"
 max_errors="${SABOTEUR_MAX_ERRORS:-}"
+max_duration="${SABOTEUR_MAX_DURATION:-}"
 report_path="${SABOTEUR_REPORT_PATH:-.saboteur/report.json}"
 use_cache="${SABOTEUR_CACHE:-true}"
 github_output="${GITHUB_OUTPUT:-/dev/null}"
@@ -216,6 +217,9 @@ cache_arguments=()
 gate_arguments=()
 [ -n "$max_timeouts" ] && gate_arguments+=(--max-timeouts "$max_timeouts")
 [ -n "$max_errors" ] && gate_arguments+=(--max-errors "$max_errors")
+# The wall-time budget is a gate input too, so a stray --max-duration in
+# "arguments" cannot widen it (#1210).
+[ -n "$max_duration" ] && gate_arguments+=(--max-duration "$max_duration")
 
 log_file="$(mktemp)"
 "${command_words[@]}" run ${cache_arguments[@]+"${cache_arguments[@]}"} ${argument_words[@]+"${argument_words[@]}"} ${gate_arguments[@]+"${gate_arguments[@]}"} --since "$base_sha" --json "$report_path" 2>&1 | tee "$log_file"
@@ -415,6 +419,17 @@ fence="$(awk 'BEGIN { longest = 2 } { while (match($0, /`+/)) { if (RLENGTH > lo
   echo
   if [ "$report_valid" != "true" ] && [ "$saboteur_status" -le 1 ]; then
     echo "**No trusted result.** saboteur exited with $saboteur_status but its report is missing or unreadable."
+  elif [ "$saboteur_status" -gt 1 ]; then
+    # The report is only trusted on exit 0 or 1, so the zeroed counters above
+    # must not speak here: name what actually stopped the run instead (#1209).
+    case "$saboteur_status" in
+      2) echo "**saboteur stopped: bad configuration (exit 2).** No mutants were scored; the saboteur output below names the complaint." ;;
+      3) echo "**saboteur stopped: the diff holds changes it could not verify (exit 3).** Usually that is changed code no test covers; the saboteur output below lists the unverified subjects." ;;
+      4) echo "**saboteur stopped early: the --max-duration budget ran out (exit 4).** The partial result is not trusted; widen the budget or shrink the diff." ;;
+      5) echo "**saboteur stopped: the baseline suite is red (exit 5).** Fix the failing tests first; the saboteur output below names them." ;;
+      70) echo "**saboteur crashed (exit 70, a saboteur bug).** The saboteur output below has the details." ;;
+      *) echo "**saboteur stopped with exit code $saboteur_status before producing a trusted result.** Read the saboteur output below." ;;
+    esac
   elif [ "$score" = "n/a" ]; then
     echo "No mutant was scored. $uncovered had no coverage or were ignored, and $errors errored or hit a resource limit."
   else
@@ -478,7 +493,7 @@ case "$saboteur_status" in
     exit 0
     ;;
   *)
-    echo "::error::saboteur stopped with exit code $saboteur_status (2 means bad configuration, 3 means the change could not be verified, 5 means the baseline suite is red - fix your tests first, 70 means an internal crash, a saboteur bug). Read the output above."
+    echo "::error::saboteur stopped with exit code $saboteur_status (2 means bad configuration, 3 means the change could not be verified, 4 means the --max-duration budget stopped the run early, 5 means the baseline suite is red - fix your tests first, 70 means an internal crash, a saboteur bug). Read the output above."
     exit "$saboteur_status"
     ;;
 esac

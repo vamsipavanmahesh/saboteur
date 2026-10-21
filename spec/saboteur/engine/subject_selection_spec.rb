@@ -845,7 +845,7 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
       expect(select([file], since: "HEAD")).to be_empty
       expect(diagnostics.warnings).to be_empty
       expect(err.string).to eq("saboteur: --since HEAD: nothing to test - 1 changed file, none in mutation " \
-                               "scope (docs-only, excluded, or non-Ruby)\n")
+                               "scope (specs, docs, excluded, or non-Ruby files)\n")
     end
 
     it "selects every subject of an untracked file, as fully changed (#295)" do
@@ -1679,13 +1679,13 @@ RSpec.describe Saboteur::Engine::SubjectSelection, "nothing-to-test notice (#659
   it "names the changed-file count and the scope reason on a docs-only diff" do
     select_with_since([], changed_paths: { present: ["README.md", "docs/guide.md"], deleted: [] })
     expect(err.string).to include("--since main: nothing to test - 2 changed files, none in mutation scope " \
-                                  "(docs-only, excluded, or non-Ruby)")
+                                  "(specs, docs, excluded, or non-Ruby files)")
   end
 
   it "counts present and deleted changed files in the notice" do
     select_with_since([], changed_paths: { present: ["README.md"], deleted: ["lib/old.rb"] })
     expect(err.string).to include("--since main: nothing to test - 2 changed files, none in mutation scope " \
-                                  "(docs-only, excluded, or non-Ruby)")
+                                  "(specs, docs, excluded, or non-Ruby files)")
   end
 
   it "names the no-covering-subject reason when a changed Ruby file selects nothing" do
