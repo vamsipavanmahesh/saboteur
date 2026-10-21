@@ -48,12 +48,12 @@ RSpec.describe Saboteur::Reporter::Terminal, "quiet pins" do
   def calculator = subjects.find { |subject| subject.id == "Calculator#compound" }
   def cart = subjects.find { |subject| subject.id == "Cart#total" }
 
-  def result(status, original, replacement, covered_by: ["spec/calculator_spec.rb:7"])
+  def result(status, original, replacement, covered_by: ["spec/calculator_spec.rb:7"], coarse: false)
     at = calculator.file_source.index(original)
     edit = Saboteur::MutationSource::Edit.new(file: calculator.file, start_byte: at,
                                               end_byte: at + original.bytesize, replacement:)
     mutation = Saboteur::MutationSource::Mutation.new(subject_id: calculator.id, operator: "comparison",
-                                                      edits: [edit])
+                                                      edits: [edit], coarse: coarse)
     Saboteur::MutantResult.new(subject: calculator, mutation:, status:,
                                mutated_source: calculator.apply(mutation.edits), covered_by:)
   end
@@ -131,7 +131,10 @@ RSpec.describe Saboteur::Reporter::Terminal, "quiet pins" do
 
   it "takes the label from the group's first survivor in ranked order" do
     labeled = result(:survived, "*", "/", covered_by: ["spec/calculator_spec.rb:7"])
-    unlabeled = result(:survived, "+", "-", covered_by: [])
+    # coarse (whole-body) mutants never get the missing_test label, so this one
+    # stays unlabeled while its thicker coverage ranks it after `labeled` (C2).
+    unlabeled = result(:survived, "+", "-", covered_by: ["spec/calculator_spec.rb:7",
+                                                         "spec/calculator_spec.rb:9"], coarse: true)
     report = Saboteur::Report.new(results: [killed, labeled, unlabeled], subjects:, wall_time: 62,
                                   root: File.dirname(calculator.file), seed: 1)
     ranked = Saboteur::Reporter::SurvivorRanking.ordered(report, report.unignored_survivors)

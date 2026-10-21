@@ -26,8 +26,8 @@ RSpec.describe "reporter pins" do
     it "ranks by the path relative to the root and by the line of the earliest edit" do
       result = result_with(edit("second = 2", "a"), edit("first = 1", "b"))
       key = described_class.key(report, result)
-      expect(key[4]).to eq(File.basename(target.file))
-      expect(key[5]).to eq(3)
+      expect(key[5]).to eq(File.basename(target.file))
+      expect(key[6]).to eq(3)
     end
   end
 
