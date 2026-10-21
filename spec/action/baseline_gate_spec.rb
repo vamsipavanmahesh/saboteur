@@ -86,10 +86,12 @@ RSpec.describe "action/run-baseline-gate" do
 
   it "fails a review-needed result only when fail-on-survivors is true" do
     stdout = result_json(state: "review_required", exit_code: 1, new: 2)
-    _, advisory = run_gate({}, exit_status: 1, stdout:)
+    output, advisory = run_gate({}, exit_status: 1, stdout:)
     _, enforced = run_gate({ "SABOTEUR_FAIL_ON_SURVIVORS" => "true" }, exit_status: 1, stdout:)
     expect([advisory, enforced]).to eq([0, 1])
     expect(outputs).to include("baseline-new" => "2")
+    expect(output).to include("Add a test that fails for each one, or accept it in config/saboteur_ignore.rb " \
+                              "with a reason")
   end
 
   it "always fails an invalid, incompatible or incomplete check with its exit code" do
@@ -98,6 +100,12 @@ RSpec.describe "action/run-baseline-gate" do
       expect(status).to eq(code)
       expect(output).to include("::error::saboteur baseline check failed")
     end
+  end
+
+  it "names what exit 2 and 3 mean and points at the output" do
+    output, = run_gate({}, exit_status: 2, stdout: "")
+    expect(output).to include("2 means the check was invalid or incompatible with the baseline, " \
+                              "3 means the check could not complete")
   end
 
   it "does not trust a result it cannot read" do

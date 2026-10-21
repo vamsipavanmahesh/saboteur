@@ -57,12 +57,8 @@ module Saboteur
         end
 
         def body(finding)
-          [marker(finding["digest"]),
-           "**Surviving mutant** (`#{word(finding['operator'])}`): this change did not make any test fail.",
-           "",
-           fenced(finding["original"], "Original"),
-           fenced(finding["replacement"], "Mutant"),
-           "",
+          [marker(finding["digest"]), opening(finding), "",
+           fenced(finding["original"], "Original"), fenced(finding["replacement"], "Mutant"), "",
            hint(finding["classification"])].join("\n")
         end
 
@@ -128,12 +124,20 @@ module Saboteur
           return nil if left_out.zero?
 
           text = "#{SUMMARY_MARKER}\n#{left_out} more surviving mutant#{'s' unless left_out == 1} " \
-                 "not shown as comments."
+                 "not shown as comments. Add a test that fails for each one, or accept it in " \
+                 "config/saboteur_ignore.rb with a reason."
           HTTPS_URL.match?(run_url.to_s) ? "#{text} Full report: #{run_url}" : text
         end
 
         def hint(label)
           HINTS.fetch(label, DEFAULT_HINT)
+        end
+
+        # The subject rides in the opening line: notification mail shows the
+        # body without its diff (#1212). Empty when there is none.
+        def opening(finding)
+          subject = finding["subject"].to_s.gsub(/[`\r\n]/, "")[0, 60].then { |n| n.empty? ? "" : " in `#{n}`" }
+          "**Surviving mutant** (`#{word(finding['operator'])}`)#{subject}: this change did not make any test fail."
         end
 
         def word(text)

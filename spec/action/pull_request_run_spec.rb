@@ -385,6 +385,26 @@ RSpec.describe "action/run-saboteur" do
       expect(status).to eq(3)
       expect(output).to include("::error")
     end
+
+    {
+      2 => "bad configuration (exit 2)",
+      3 => "could not verify (exit 3)",
+      4 => "the --max-duration budget ran out (exit 4)",
+      5 => "the baseline suite is red (exit 5)",
+      70 => "saboteur crashed (exit 70"
+    }.each do |exit_status, phrase|
+      it "names the exit #{exit_status} state in the summary instead of a zeroed tally (#1209)" do
+        run_action({}, exit_status: exit_status, report: nil)
+        summary = File.read(step_summary, encoding: "UTF-8")
+        expect(summary).to include(phrase)
+        expect(summary).not_to include("No mutant was scored")
+      end
+    end
+
+    it "explains exit 4 in the error annotation (#1209)" do
+      output, = run_action({}, exit_status: 4, report: nil)
+      expect(output).to include("4 means the --max-duration budget stopped the run early")
+    end
   end
 
   describe "the report" do
@@ -529,6 +549,16 @@ RSpec.describe "action/run-saboteur" do
     it "passes the limits to saboteur after the extra arguments and before --since" do
       run_action({ "SABOTEUR_ARGUMENTS" => "--jobs 2", "SABOTEUR_MAX_TIMEOUTS" => "3", "SABOTEUR_MAX_ERRORS" => "5%" })
       expect(invocation).to start_with("run --jobs 2 --max-timeouts 3 --max-errors 5% --since #{@base_sha}")
+    end
+
+    it "passes --max-duration after the extra arguments and before --since (#1210)" do
+      run_action({ "SABOTEUR_ARGUMENTS" => "--jobs 2", "SABOTEUR_MAX_DURATION" => "10m" })
+      expect(invocation).to start_with("run --jobs 2 --max-duration 10m --since #{@base_sha}")
+    end
+
+    it "passes no --max-duration flag when the input is empty (#1210)" do
+      run_action({ "SABOTEUR_MAX_DURATION" => "" })
+      expect(invocation).not_to include("--max-duration")
     end
 
     it "accepts a limit of exactly 100% and a zero-padded count" do
@@ -728,7 +758,7 @@ RSpec.describe "action/run-saboteur" do
 
     it "treats a fractional truncation count as malformed findings" do
       output, = run_action({}, report: report_with_findings([finding], truncated: 1.5))
-      expect(output).to include("not version 1 findings data")
+      expect(output).to include("not in the version 1 format this action reads")
       expect(output).not_to include("file=")
     end
 
@@ -773,7 +803,7 @@ RSpec.describe "action/run-saboteur" do
       report = JSON.generate(schemaVersion: "2", files: { "lib/a.rb" => { mutants: mutants_from(%w[Survived]) } },
                              saboteur: { findings: { version: 1, survivors: "broken" } })
       output, = run_action({}, exit_status: 1, report:)
-      expect(output).to include("findings section, but it is not version 1 findings data")
+      expect(output).to include("findings section is not in the version 1 format this action reads")
       expect(output).not_to include("file=")
     end
 

@@ -4,7 +4,7 @@
 RSpec.describe Saboteur::Reporter::ReviewComments do
   def finding(digest, line: 12, classification: "missing_test", original: "a > b", replacement: "a >= b", **extra)
     { "digest" => digest, "path" => "lib/x.rb", "operator" => "comparison", "original" => original,
-      "replacement" => replacement, "classification" => classification,
+      "replacement" => replacement, "subject" => "X#go", "classification" => classification,
       "changedLines" => line ? [line, line + 1] : [] }.merge(extra.transform_keys(&:to_s))
   end
 
@@ -20,7 +20,7 @@ RSpec.describe Saboteur::Reporter::ReviewComments do
     it "matches the recorded format" do
       expect(described_class.body(finding("aabbccdd11223344"))).to eq(<<~BODY.chomp)
         <!-- saboteur:digest=aabbccdd11223344 -->
-        **Surviving mutant** (`comparison`): this change did not make any test fail.
+        **Surviving mutant** (`comparison`) in `X#go`: this change did not make any test fail.
 
         Original:
         ```ruby
@@ -33,6 +33,17 @@ RSpec.describe Saboteur::Reporter::ReviewComments do
 
         A test reaches this line and still passes with the change. Add an assertion that pins this behaviour.
       BODY
+    end
+
+    it "leaves the subject out of the opening line when the finding has none" do
+      body = described_class.body(finding("aabbccdd11223344", subject: nil))
+      expect(body).to include("**Surviving mutant** (`comparison`): this change did not make any test fail.")
+    end
+
+    it "caps the subject at sixty characters" do
+      body = described_class.body(finding("aabbccdd11223344", subject: "X#m#{'a' * 100}"))
+      expect(body).to include(" in `#{"X#m#{'a' * 57}"}`:")
+      expect(body).not_to include("a" * 58)
     end
 
     it "uses the plain hint when nothing is classified, and the limit hint for tool_limit" do
@@ -181,7 +192,9 @@ RSpec.describe Saboteur::Reporter::ReviewComments do
       plan = described_class.plan(findings(*found), locate: locate, limit: 5)
 
       expect(plan.post.map { |c| [c[:digest][-2..], c[:line]] }).to eq([["01", 101], ["03", 103]])
-      expect(plan.summary).to eq("#{described_class::SUMMARY_MARKER}\n1 more surviving mutant not shown as comments.")
+      expect(plan.summary).to eq("#{described_class::SUMMARY_MARKER}\n1 more surviving mutant not shown as comments. " \
+                                 "Add a test that fails for each one, or accept it in config/saboteur_ignore.rb " \
+                                 "with a reason.")
     end
 
     it "lets the next finding take the room of one locate refuses" do
@@ -265,14 +278,18 @@ RSpec.describe Saboteur::Reporter::ReviewComments do
 
       expect(plan.post.map { |c| c[:digest] }).to eq(%w[aabbccdd11223302])
       expect(plan.summary).to eq("#{described_class::SUMMARY_MARKER}\n4 more surviving mutants not shown as " \
-                                 "comments. Full report: https://github.com/o/r/actions/runs/1")
+                                 "comments. Add a test that fails for each one, or accept it in " \
+                                 "config/saboteur_ignore.rb with a reason. " \
+                                 "Full report: https://github.com/o/r/actions/runs/1")
     end
 
     it "uses a singular summary without a run link, and posts nothing at limit 0" do
       plan = described_class.plan(findings(finding("aabbccdd11223344")), limit: 0)
 
       expect(plan.post).to eq([])
-      expect(plan.summary).to eq("#{described_class::SUMMARY_MARKER}\n1 more surviving mutant not shown as comments.")
+      expect(plan.summary).to eq("#{described_class::SUMMARY_MARKER}\n1 more surviving mutant not shown as comments. " \
+                                 "Add a test that fails for each one, or accept it in config/saboteur_ignore.rb " \
+                                 "with a reason.")
     end
 
     it "treats a negative limit as zero and defaults to ten" do

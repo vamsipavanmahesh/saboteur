@@ -223,12 +223,12 @@ case "$saboteur_status" in
     if [ "$exceeded" = "true" ]; then
       echo "::warning::saboteur: the score dropped by $drop points against the baseline, more than the allowed $epsilon."
     fi
-    echo "::warning::saboteur: the baseline check needs review ($new new, $changed changed, $unmatched unmatched survivors)."
+    echo "::warning::saboteur: the baseline check needs review ($new new, $changed changed, $unmatched unmatched survivors). Add a test that fails for each one, or accept it in config/saboteur_ignore.rb with a reason."
     [ "$fail_on_survivors" = "true" ] && exit 1
     exit 0
     ;;
   *)
-    echo "::error::saboteur baseline check failed with exit $saboteur_status."
+    echo "::error::saboteur baseline check failed with exit $saboteur_status (2 means the check was invalid or incompatible with the baseline, 3 means the check could not complete). Read the output above."
     exit "$saboteur_status"
     ;;
 esac

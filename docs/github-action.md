@@ -77,6 +77,7 @@ summary lists them apart with the reason from the ignore list.
 | `fail-on-survivors` | `false` | `true` or `false`; any other value fails the step. `true` fails the step when a mutant survives, and also when the run is incomplete (see below). |
 | `max-timeouts` | empty | Passed as `--max-timeouts`: a count (`3`) or a percentage of the executed mutants (`5%`, at most 100). saboteur exits 1 when more mutants end as a timeout. Anything else fails the step with exit 2. Empty sets no gate. |
 | `max-errors` | empty | Passed as `--max-errors`, same shape. With a value set, errored mutants within the limit no longer fail an incomplete run under `fail-on-survivors: "true"`. |
+| `max-duration` | empty | Passed as `--max-duration` (for example `10m`): a wall-time budget for the whole run. On a stop saboteur exits 4, the step fails and the summary says the budget ran out. Empty sets no budget - a big diff then runs until the GitHub job timeout kills it with no summary, so set one. |
 | `cache` | `true` | `true` or `false`; any other value fails the step. `false` skips restoring the cached coverage map and also passes `--no-cache` to saboteur, so the map is rebuilt. |
 | `report-path` | `.saboteur/report.json` | Where the JSON report is written. Letters, digits, `.`, `_`, `/` and `-` only, and it may not start with `-`. |
 | `artifact-name` | `saboteur-report-<job>-<matrix leg>` | Name of the uploaded JSON report artifact. Set it when one job uses this action more than once: upload-artifact rejects a second upload under one name. |
