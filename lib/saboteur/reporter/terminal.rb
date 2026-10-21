@@ -195,11 +195,23 @@ module Saboteur
 
         check = @palette.paint(:pass, @palette.glyph(:check))
         @out.puts "#{check} baseline green (#{@baseline[:examples]} examples, #{@baseline[:seconds]}s)  " \
-                  "#{check} coverage map: #{@coverage[:tests]} tests (#{@coverage[:seconds]}s)"
+                  "#{check} #{coverage_map_text}"
         total = report.executed.size
         dots = "." * total
         suffix = @palette.paint(:dim, "(#{total}/#{total} #{middot} #{@mutant_phase[:seconds]}s)")
         @out.puts "#{dots}  #{suffix}"
+      end
+
+      # #312: a built map says what it cost and that it is cached next run; a
+      # cached one says so. Without :cached (no caller sets it yet - the
+      # engine's diagnostics line owns the live wording) the cost form stays.
+      def coverage_map_text
+        tests = @coverage[:tests]
+        case @coverage[:cached]
+        when true then "coverage map: #{tests} tests (cached)"
+        when false then "coverage map: built #{tests} tests (#{@coverage[:seconds]}s) - cached next run"
+        else "coverage map: #{tests} tests (#{@coverage[:seconds]}s)"
+        end
       end
 
       def win_tally(report)
