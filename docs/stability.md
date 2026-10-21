@@ -37,7 +37,7 @@ differently:
 | 0 | Clean: every selected mutant killed or ignored, or no subjects selected from non-empty source or change sets. Survivors may still be accepted when `--threshold` passes the score, or a budget-stopped run is accepted with `--max-duration-ok` | Verdict `clean` (status `complete`) |
 | 1 | Survivors to review: unignored survivors, a missing or below-`--threshold` score, a `--fail-fast` stop, or a failed custom gate | Verdict `survivors` - including a budget-stopped partial run with unignored survivors |
 | 2 | Usage or configuration error | Verdict `invalid_invocation` |
-| 3 | Incomplete run or tool failure: a stopped run that tested nothing, most mutants errored, an under-threshold incomplete run, or an internal error | Verdict `incomplete` or `not_applicable`, or a `tool_failure` |
+| 3 | Incomplete run or tool failure: a stopped run that tested nothing, most mutants errored, a `--flaky-check` rerun that disagreed (your tests depend on run order), an under-threshold incomplete run, or an internal error | Verdict `incomplete` or `not_applicable`, or a `tool_failure` |
 | 4 | The `--max-duration` budget stopped the run (unless `--max-duration-ok`) | Never exit 4: exit 1 if unignored survivors are present, otherwise 3 |
 | 5 | The unchanged suite failed its baseline check before any mutant was judged (a red or flaky suite) - fix the tests first | Verdict `tool_failure`, `exitCode` 5 |
 | 70 | Internal crash, a saboteur bug; the details land in the crash log next to the run state | Verdict `tool_failure`, `exitCode` 70 (a crash before the reporter loads still emits a minimal payload) |
