@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require_relative "../survivor_guidance"
+
 module Saboteur
   module Reporter
     # The footer under a run that left survivors: how to look at one, how to
@@ -26,14 +28,12 @@ module Saboteur
         if command
           @out.puts "  replay one survivor: #{@palette.paint(:info, command)}"
         else
-          seed = " --seed #{report.seed}" if report.seed
-          @out.puts "  replay one survivor: " \
-                    "#{@palette.paint(:info, "saboteur run --id #{survivor.digest}#{seed}")}"
-          @out.puts "    (add this run's own --config, --since, --subject, --test and source options)"
+          command = SurvivorGuidance.replay_command(survivor.digest, seed: report.seed)
+          @out.puts "  replay one survivor: #{@palette.paint(:info, command)}"
+          @out.puts "    #{SurvivorGuidance::REPLAY_CAVEAT}"
         end
-        @out.puts "  accept an equivalent one: add to your ignore file (c.ignore_file, default #{Config::IGNORE_FILE}):"
-        entry = %(i.mutation "#{survivor.digest}", subject: "#{survivor.subject.id}", reason: "why it is equivalent")
-        @out.puts "    #{entry}"
+        @out.puts "  #{SurvivorGuidance::IGNORE_INTRO}"
+        @out.puts "    #{SurvivorGuidance.ignore_entry(survivor.digest, survivor.subject.id)}"
         @out.puts "  let an agent close the gaps: saboteur run --agent, with the same options"
       end
     end

@@ -3,6 +3,8 @@
 
 require "json"
 
+require_relative "../survivor_guidance"
+
 module Saboteur
   class CLI
     # saboteur survivors <report.json> (#475): a read-only, line-oriented
@@ -74,17 +76,18 @@ module Saboteur
                    raise(UsageError, "no survivor with digest #{digest} in this report")
         finding = findings_by_digest[survivor[:digest]] || {}
         subject = finding["subject"]
+        seed = @report.dig("config", "seed")
         [
           "#{survivor[:path]}:#{survivor[:line]}  #{survivor[:operator]}  #{survivor[:digest]}",
           "",
           "- #{finding['original'] || original_line(survivor)}",
           "+ #{finding['replacement'] || survivor[:replacement]}",
           "",
-          "Replay exactly this mutant:",
-          "  bundle exec saboteur run --id #{survivor[:digest]}",
+          "replay one survivor: #{SurvivorGuidance.replay_command(survivor[:digest], seed: seed)}",
+          "  #{SurvivorGuidance::REPLAY_CAVEAT}",
           "",
-          "Ignore-file entry (config/saboteur_ignore.rb):",
-          *ignore_entry(survivor, subject)
+          SurvivorGuidance::IGNORE_INTRO,
+          "  #{ignore_entry(survivor, subject)}"
         ].join("\n")
       end
 
@@ -114,8 +117,10 @@ module Saboteur
       end
 
       def ignore_entry(survivor, subject)
-        note = subject ? subject.inspect : '"Klass#meth" # TODO: capped findings omit this digest - fill it in'
-        [%(  i.mutation "#{survivor[:digest]}",), "      subject: #{note},", %(      reason: "...")]
+        return SurvivorGuidance.ignore_entry(survivor[:digest], subject) if subject
+
+        SurvivorGuidance.ignore_entry(survivor[:digest], "Klass#meth",
+                                      todo: "capped findings omit this digest - fill in the subject")
       end
 
       def all_survivors
