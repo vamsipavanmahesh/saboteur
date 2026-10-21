@@ -8,12 +8,15 @@ require_relative "survivor_classification"
 
 module Saboteur
   module Reporter
-    # One self-contained HTML page: inline style, no script, no network. It is
-    # rendered from the same hash the JSON reporter writes (Stryker.build), so
-    # both reports list the same mutants with the same statuses. The scores can
+    # One self-contained HTML page: inline style and script, no network. The
+    # body is the mutation-testing-elements viewer (the vendored UMD bundle
+    # under assets/, pinned there by version and sha256) with the Stryker
+    # report JSON inlined, so the page works from file://. Viewer and table
+    # are rendered from the same hash the JSON reporter writes (Stryker.build),
+    # so both list the same mutants with the same statuses. The scores can
     # differ: the JSON schema counts NoCoverage as undetected, while this page
-    # shows Report#score, which leaves it out (see the "Covered mutation score"
-    # label on the page). The score note says what is and is not counted.
+    # shows Report#score, which leaves it out (see the "Covered mutation
+    # score" label on the page). The score note says what is and is not counted.
     class Html
       STYLE = <<~CSS
         body{font:14px/1.5 system-ui,sans-serif;margin:1rem auto;max-width:72rem;padding:0 1rem;color:#1b1b1b}
@@ -34,6 +37,15 @@ module Saboteur
       CSS
 
       SCORE_FORMULA = "(killed + timeout) / (killed + survived + timeout)"
+
+      # The vendored viewer bundle, embedded verbatim into every report.
+      BUNDLE_PATH = File.expand_path("assets/mutation_report.js", __dir__)
+
+      # binread + force: the bundle is UTF-8; the default external encoding
+      # depends on the locale of the shell that ran saboteur.
+      def bundle
+        File.binread(BUNDLE_PATH).force_encoding(Encoding::UTF_8)
+      end
 
       def initialize(path)
         @path = path
@@ -59,16 +71,49 @@ module Saboteur
           <html lang="en"><head><meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1">
           <title>saboteur report</title>
-          <style>#{STYLE}</style></head><body>
+          <style>#{STYLE}</style>
+          <script>#{bundle}</script></head><body>
           <h1>saboteur report</h1>
-          #{summary(report, data)}#{inline_suppressions(report)}#{warnings(data[:warnings])}#{skipped_subjects(data[:skippedSubjects])}
+          #{headline(report)}
+          <mutation-test-report-app theme="dark" title-postfix="saboteur"></mutation-test-report-app>
+          <script type="application/json" id="saboteur-report-json">#{embed_json(data)}</script>
+          <script>document.querySelector("mutation-test-report-app").report =
+          JSON.parse(document.getElementById("saboteur-report-json").textContent);</script>
+          <details><summary>How the score is computed</summary>
+          #{summary(report, data)}
+          </details>
+          #{inline_suppressions(report)}#{warnings(data[:warnings])}#{skipped_subjects(data[:skippedSubjects])}
           <h2>Files</h2>
+          <p class="note">The viewer above and this table list the same mutants; the table adds notes,
+          covering tests and triage reasons.</p>
           #{data[:files].map { |file, entry| file_section(file, entry, names, results, report) }.join("\n")}
           </body></html>
         HTML
       end
 
       private
+
+      # The honest pair (#3): the score over tested subjects and, when the
+      # run skipped subjects for want of tests, the count it cannot see -
+      # the same contract as the terminal headline.
+      def headline(report)
+        breakdown = report.score_breakdown
+        text = "<p><strong>Covered mutation score: #{score_text(report.score)}</strong>"
+        text << " (#{breakdown.detected}/#{breakdown.tested} killed, tested subjects)" if breakdown.tested.positive?
+        untested = report.skipped_subjects.count { |_, reason| reason == ScoreTable::NO_COVERAGE }
+        if untested.positive?
+          noun = untested == 1 ? "subject" : "subjects"
+          text << " - #{untested} #{noun} not scored - no tests exist"
+        end
+        "#{text}</p>"
+      end
+
+      # Inline JSON for the viewer: escape every "<" so hostile source text
+      # (a file name or reason holding "<script>" or "</script>") stays inert
+      # inside the tag. JSON.parse turns "<" back into "<".
+      def embed_json(data)
+        JSON.generate(data).gsub("<", '\u003c')
+      end
 
       def inline_suppressions(report)
         return "" if report.inline_suppressions.empty?

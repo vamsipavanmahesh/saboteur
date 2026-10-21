@@ -9,8 +9,10 @@ RSpec.describe Saboteur::Reporter::Html, "page pins" do
 
   it "opens the page with the head, title and heading" do
     expect(page).to include("<!DOCTYPE html>\n<html lang=\"en\"><head><meta charset=\"utf-8\">\n",
-                            "<title>saboteur report</title>\n<style>", "</style></head><body>\n",
-                            "<h1>saboteur report</h1>\n<p><strong>Covered mutation score: 50.0%</strong>\n")
+                            "<title>saboteur report</title>\n<style>", "</style>\n<script>",
+                            "</script></head><body>\n",
+                            "<h1>saboteur report</h1>\n<p><strong>Covered mutation score: 50.0%</strong> " \
+                            "(1/2 killed, tested subjects)</p>\n")
     expect(page).to end_with("</table></div></details>\n</body></html>\n")
   end
 
@@ -46,8 +48,9 @@ RSpec.describe Saboteur::Reporter::Html, "page pins" do
     expect(text).to match(%r{crash\. A crash shows[^\n]*</p>\n<p>[^\n]*whole-body})
   end
 
-  it "puts a blank line between the summary and the Files heading" do
-    expect(page).to include("with the reason).</p>\n\n<h2>Files</h2>\n<details open>")
+  it "puts the Files section after the score details" do
+    expect(page).to include("with the reason).</p>\n\n</details>\n\n<h2>Files</h2>\n")
+    expect(page).to include("triage reasons.</p>\n<details open>")
   end
 
   it "prints no inline suppression section when there are none" do
@@ -89,7 +92,7 @@ RSpec.describe Saboteur::Reporter::Html, "page pins" do
                                   root: File.dirname(person_subject.file), seed: 1, warnings: ["careful"],
                                   skipped_subjects: { other => "no coverage" })
     text = described_class.build(report)
-    expect(text).to include("with the reason).</p>\n<h2>Warnings</h2>\n<div class=\"warning\">careful</div>" \
+    expect(text).to include("</details>\n<h2>Warnings</h2>\n<div class=\"warning\">careful</div>" \
                             "<h2>Skipped subjects</h2>\n<div class=\"scroll\">")
     expect(text.index("Skipped subjects")).to be < text.index("<h2>Files</h2>")
   end
