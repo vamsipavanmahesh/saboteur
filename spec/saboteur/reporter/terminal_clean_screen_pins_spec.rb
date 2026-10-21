@@ -123,6 +123,29 @@ RSpec.describe Saboteur::Reporter::Terminal, "clean screen pins" do
 ")
   end
 
+  it "renders the baseline, coverage and dots lines only when phase data is present" do
+    with_phases = render(report, **options, baseline: { examples: 6, seconds: 0.3 },
+                                            coverage: { tests: 6, seconds: 0.2 }, mutant_phase: { seconds: 1.8 })
+    expect(with_phases).to include("✓ baseline green (6 examples, 0.3s)  ✓ coverage map: 6 tests (0.2s)\n")
+    expect(with_phases).to include("..  (2/2 · 1.8s)
+")
+    expect(render(report, **options)).not_to include("baseline green", "coverage map:")
+  end
+
+  it "skips the phase lines when only some phase data is present" do
+    baseline = { examples: 6, seconds: 0.3 }
+    coverage = { tests: 6, seconds: 0.2 }
+    mutant_phase = { seconds: 1.8 }
+    [
+      [{ baseline:, coverage: }, "baseline green"],
+      [{ baseline:, mutant_phase: }, "baseline green"],
+      [{ coverage:, mutant_phase: }, "coverage map:"],
+      [{ mutant_phase: }, "(2/2 · 1.8s)"]
+    ].each do |phases, marker|
+      expect(render(report, **options, **phases)).not_to include(marker)
+    end
+  end
+
   it "keeps the ordinary closing block when the run is not clean" do
     dirty = clean_report(killed_result, result_for(:survived))
     text = render(dirty, **options, exit_code: 1)
