@@ -601,27 +601,50 @@ RSpec.describe Saboteur::Engine::SurvivorConfirmation, "#1063" do
       expect(err.string).not_to include("survivor confirmation skipped")
     end
 
+    def skipped_engine(err, **settings)
+      config = Saboteur::Config.new({ "partial_coverage" => "use", "tests" => ["spec/a_spec.rb"] }.merge(settings),
+                                    root: @root)
+      described_class.new(config, err:)
+    end
+
     it "names the skip when any result is a live unignored survivor, not only when all are" do
       err = StringIO.new
-      eng = described_class.new(Saboteur::Config.new({ "partial_coverage" => "off" }, root: @root), err:)
       results = [double("ignored", survived?: true), double("killed", survived?: false),
                  double("live", survived?: true)]
       ignore_list = double("ignore_list")
       allow(ignore_list).to receive(:accepts?) { |result| result == results.first }
 
-      eng.send(:confirm_survivors, results, double("scheduler", map: nil), nil, ignore_list)
-      expect(err.string).to include("survivor confirmation skipped: inferred specs")
+      skipped_engine(err).send(:confirm_survivors, results, double("scheduler", map: nil), nil, ignore_list)
+      expect(err.string).to include("survivor confirmation skipped: partial_coverage = use applies only to a " \
+                                    "cached whole-suite run (no --test, one coverage part)")
     end
 
-    it "says on the run tail when inferred specs skip the confirmation of a live survivor" do
+    it "says on the run tail when a scoped run skips the confirmation of a live survivor under partial_coverage use" do
       err = StringIO.new
-      eng = described_class.new(Saboteur::Config.new({ "partial_coverage" => "off" }, root: @root), err:)
       results = [double("result", survived?: true)]
 
       expect(Saboteur::Engine::SurvivorConfirmation).not_to receive(:new)
-      eng.send(:confirm_survivors, results, double("scheduler", map: nil), nil,
-               double("ignore_list", accepts?: false))
-      expect(err.string).to include("survivor confirmation skipped: inferred specs")
+      skipped_engine(err).send(:confirm_survivors, results, double("scheduler", map: nil), nil,
+                               double("ignore_list", accepts?: false))
+      expect(err.string).to include("survivor confirmation skipped: partial_coverage = use")
+    end
+
+    it "stays silent under partial_coverage use when no survivor is live" do
+      err = StringIO.new
+
+      skipped_engine(err).send(:confirm_survivors, [double("killed", survived?: false)],
+                               double("scheduler", map: nil), nil, double("ignore_list", accepts?: false))
+      expect(err.string).to eq("")
+    end
+
+    it "stays silent for a live survivor when partial_coverage is not use (the default)" do
+      err = StringIO.new
+      results = [double("result", survived?: true)]
+
+      skipped_engine(err, "partial_coverage" => "off").send(:confirm_survivors, results,
+                                                            double("scheduler", map: nil), nil,
+                                                            double("ignore_list", accepts?: false))
+      expect(err.string).not_to include("survivor confirmation")
     end
 
     it "runs the confirmation pass when CoveragePartial.use? holds" do
