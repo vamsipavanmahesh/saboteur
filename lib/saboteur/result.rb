@@ -182,15 +182,12 @@ module Saboteur
       @seed = seed
       @skipped_subjects = skipped_subjects
       @diff_scope = diff_scope
-      @generation_events = generation_events.dup.freeze
-      @omissions = omissions.dup.freeze
+      take_frozen_copies(generation_events, omissions, inline_suppressions, discovery_failures)
       @run_evidence = run_evidence
       @hazard_suppressions = hazard_suppressions
       @early_stop = early_stop
       @matrix = matrix
-      @inline_suppressions = inline_suppressions.dup.freeze
       @operator_policy = operator_policy
-      @discovery_failures = discovery_failures.dup.freeze
       # Per-worker and supervisor peak RSS in MB, when the platform measured
       # it (#202); nil elsewhere, so JSON reports omit the section.
       @memory = memory.dup.freeze
@@ -300,6 +297,17 @@ module Saboteur
     def mean_runtime
       timed = executed.reject(&:reused?).filter_map(&:runtime)
       timed.empty? ? nil : timed.sum / timed.size
+    end
+
+    # The run lists arrive from builders that may reuse them; the report
+    # keeps its own frozen copies.
+    private
+
+    def take_frozen_copies(generation_events, omissions, inline_suppressions, discovery_failures)
+      @generation_events = generation_events.dup.freeze
+      @omissions = omissions.dup.freeze
+      @inline_suppressions = inline_suppressions.dup.freeze
+      @discovery_failures = discovery_failures.dup.freeze
     end
   end
 end

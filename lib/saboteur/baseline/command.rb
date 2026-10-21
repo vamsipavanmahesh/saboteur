@@ -35,11 +35,7 @@ module Saboteur
           workflow = Baseline::Workflow.new(config: config, err: @err)
           baseline_action(workflow, action)
         end
-        if action == "propose" && @format != "json"
-          print_proposal(payload)
-        else
-          @out.puts(JSON.generate(payload))
-        end
+        action == "propose" && @format != "json" ? print_proposal(payload) : @out.puts(JSON.generate(payload))
         payload.fetch("exit_code", CLI::EXIT_OK)
       rescue ConfigError, SystemCallError => e
         @err.puts("saboteur: #{e.message}")
