@@ -149,3 +149,7 @@ decision and keeps the survivor counting) - badged in the HTML report.
 
 The order of operations never changes: read, decide missing-test vs
 equivalent, fix with a test or accept with a reason, replay, rerun.
+
+The ignore list is the one place to accept; the inline `saboteur:disable-line`
+directive and `baseline accept` are advanced paths, framed in
+[Handling surviving mutants](../best-practices.md#handling-surviving-mutants).
