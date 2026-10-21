@@ -17,7 +17,7 @@
 
 ```text
 $ bundle exec saboteur pr
-saboteur 0.11.0: 1 subjects, 10 mutants, wall 0.70 s, seed 1 (repeat with --seed 1)
+saboteur 0.11.0: 2 subjects, 10 mutants, wall 0.70 s, seed 1 (repeat with --seed 1)
 Score: 80.0% (8/10 killed, tested subjects)
 saboteur: 8 killed, 2 survived in 1s - score 80.0%
 ```
