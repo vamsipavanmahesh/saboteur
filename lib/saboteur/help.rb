@@ -121,7 +121,8 @@ module Saboteur
                      "accept verifies current inputs and publishes it. No scores or execution are suppressed. " \
                      "With --epsilon POINTS, check also fails when the score drops more than POINTS percentage " \
                      "points below the accepted baseline's score. " \
-                     "Only whole or subject scope; no diff, replay, incremental reuse or score threshold.",
+                     "Only whole or subject scope; no diff, replay, shard, resume, incremental reuse or " \
+                     "score threshold.",
         takes_options: true,
         exit_codes: { 0 => "Clean check, proposal written or accepted.",
                       1 => "New, changed or unmatched survivors, or a score drop beyond --epsilon.",

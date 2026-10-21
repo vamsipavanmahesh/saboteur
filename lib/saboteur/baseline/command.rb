@@ -83,16 +83,32 @@ module Saboteur
 
       def print_proposal(payload)
         @out.puts("baseline proposal written: #{payload.fetch('proposal')}")
+        survivors = payload.fetch("survivors")
         @out.puts("  matched mutants: #{payload.fetch('candidates')} " \
-                  "(#{payload.fetch('survivors')} survivors to reason about)")
+                  "(#{plural(survivors, 'survivor')} to reason about)")
         gaps = payload.fetch("gaps", [])
         unless gaps.empty?
           names = gaps.map { |gap| gap.sub(/\A(subject_skipped|omitted):/, "") }
-          @out.puts("  proposed with #{names.size} untested subjects: #{names.join(', ')} - " \
+          @out.puts("  proposed with #{plural(names.size, 'untested subject')}: #{names.join(', ')} - " \
                     "the baseline cannot speak for them")
         end
-        @out.puts("  next step: review the reasons in the proposal, then run: saboteur baseline accept " \
+        @out.puts("  next step: give each accepted survivor a reason in the proposal, then run: " \
+                  "saboteur baseline accept#{scope_flags} " \
                   "--baseline #{payload.fetch('destination')} --proposal #{payload.fetch('proposal')}")
+      end
+
+      def plural(count, noun)
+        count == 1 ? "#{count} #{noun}" : "#{count} #{noun}s"
+      end
+
+      # accept re-verifies the recorded run settings, so the printed command
+      # repeats the scope flags this propose ran with.
+      def scope_flags
+        flags = +""
+        Array(options[:subjects]).each { |expr| flags << " --subject #{expr}" }
+        flags << " --seed #{options[:seed]}" if options[:seed]
+        flags << " --config #{options[:config]}" if options[:config]
+        flags
       end
 
       def baseline_action(workflow, action)
