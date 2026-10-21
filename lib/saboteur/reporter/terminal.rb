@@ -178,13 +178,26 @@ module Saboteur
         @out.puts @palette.paint(:dim, header)
         clean_phases(report)
         @out.puts
+        clean_win_line(report)
+        untested = untested_subjects(report)
+        @out.puts "  #{@palette.paint(:warn, untested_win_note(untested))}" if untested.any?
+        clean_note(reused_verdicts_text(report))
+        clean_note(hazard_suppression_text(report))
+        clean_reports_line
+      end
+
+      def clean_win_line(report)
         win = "#{@palette.glyph(:check)} #{win_tally(report)} #{middot} " \
               "score #{format('%.1f%%', report.score * 100)}"
         total = @palette.paint(:dim, "#{middot} #{format('%.1f', report.wall_time)}s total")
         @out.puts "#{@palette.paint(:pass, win)} #{total}"
-        untested = untested_subjects(report)
-        @out.puts "  #{@palette.paint(:warn, untested_win_note(untested))}" if untested.any?
-        clean_reports_line
+      end
+
+      # Notes a clean run still owes the reader (#1138): the JSON report keeps
+      # the incremental reuse count and the hazard-suppression note, so the
+      # success screen echoes them when the data is present.
+      def clean_note(text)
+        @out.puts "  #{text}" if text
       end
 
       # The phase lines and the progress-dots line print only when their data
@@ -220,10 +233,20 @@ module Saboteur
       end
 
       def hazard_suppressions(report)
+        text = hazard_suppression_text(report)
+        @out.puts text if text
+      end
+
+      def reused_verdicts_text(report)
+        reused = report.results.count(&:reused?)
+        "reused #{reused} of #{report.results.size} verdicts from earlier runs (--incremental)" if reused.positive?
+      end
+
+      def hazard_suppression_text(report)
         return unless report.hazard_suppressions.positive?
 
-        @out.puts "hazardous mutations suppressed: #{report.hazard_suppressions} " \
-                  "(--allow-hazardous runs them anyway; the canary still watches the tree)"
+        "hazardous mutations suppressed: #{report.hazard_suppressions} " \
+          "(--allow-hazardous runs them anyway; the canary still watches the tree)"
       end
 
       # Subjects skipped for "no coverage" (CandidateSelection's reason).
@@ -410,9 +433,8 @@ module Saboteur
 
       def details(report)
         report.skip_reasons.each { |reason, count| @out.puts skip_reason_line(reason, count) } if @verbose
-        reused = report.results.count(&:reused?)
-        @out.puts "reused #{reused} of #{report.results.size} verdicts from earlier runs (--incremental)" if
-          reused.positive?
+        reused = reused_verdicts_text(report)
+        @out.puts reused if reused
         @out.puts "invalid mutations dropped (did not parse): #{report.invalid_mutations}" if
           report.invalid_mutations.positive?
         hazard_suppressions(report)

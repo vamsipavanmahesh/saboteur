@@ -74,6 +74,22 @@ RSpec.describe Saboteur::Reporter::Terminal, "clean screen pins" do
     expect(text).not_to include("next:")
   end
 
+  it "keeps the incremental reuse note from the JSON report on a clean run (#1138)" do
+    text = render(clean_report(killed_result, result_for(:killed, reused: true)), **options)
+    expect(text).to include("  reused 1 of 2 verdicts from earlier runs (--incremental)\n")
+  end
+
+  it "keeps the hazard-suppression note from the JSON report on a clean run (#1138)" do
+    text = render(clean_report(killed_result, hazard_suppressions: 3), **options)
+    expect(text).to include("  hazardous mutations suppressed: 3 " \
+                            "(--allow-hazardous runs them anyway; the canary still watches the tree)\n")
+  end
+
+  it "omits both notes when nothing was reused or suppressed" do
+    text = render(report, **options)
+    expect(text).not_to include("reused", "hazardous mutations suppressed")
+  end
+
   it "yields to the baseline tail on a gated clean run (PR8 owns that screen)" do
     categories = %w[accepted changed resolved_kills detected_timeouts new unmatched errors].to_h { |k| [k, []] }
     comparison = instance_double(Saboteur::Baseline::Comparison, categories:, score: nil)
