@@ -228,7 +228,7 @@ saboteur_status="${PIPESTATUS[0]}"
 killed=0 timed_out=0 survivors=0 accepted=0 errors=0 uncovered=0 score="n/a" report_valid=false
 if [ "$saboteur_status" -le 1 ]; then
   if [ ! -f "$report_path" ]; then
-    echo "::error::saboteur exited with $saboteur_status but wrote no report at $report_path, so the result cannot be trusted."
+    echo "::error::saboteur exited with $saboteur_status but wrote no report at $report_path, so the result cannot be trusted. The saboteur output above may say why."
   elif ! counts="$(jq -es -r '
         def known: IN("Killed", "Timeout", "Survived", "NoCoverage", "Ignored", "RuntimeError");
         if length != 1 then error("the report must hold exactly one JSON document")
@@ -249,7 +249,7 @@ if [ "$saboteur_status" -le 1 ]; then
                      (map(select(.status == "NoCoverage" or .status == "Ignored")) | length) ] | @tsv
             end
         end' "$report_path" 2>&1)"; then
-    echo "::error::saboteur wrote a report at $report_path that could not be read ($counts), so the result cannot be trusted."
+    echo "::error::saboteur wrote a report at $report_path that could not be read ($counts), so the result cannot be trusted. The saboteur output above may say why."
   else
     report_valid=true
     read -r killed timed_out survivors accepted errors uncovered <<<"$counts"
@@ -326,7 +326,7 @@ if [ "$report_valid" = "true" ]; then
       and (.accepted | type == \"array\")
       and (.acceptedTruncated | type == \"number\" and floor == . and . >= 0)"
   if jq -e '.saboteur.findings != null' "$report_path" >/dev/null 2>&1 && ! jq -e "$findings_gate" "$report_path" >/dev/null 2>&1; then
-    echo "::warning::saboteur: the report has a findings section, but it is not version 1 findings data, so no annotations were written. The counts above still stand."
+    echo "::warning::saboteur: the report's findings section is not in the version 1 format this action reads, so no annotations were written. Align the action and saboteur versions. The counts above still stand."
   fi
   if jq -e "$findings_gate" "$report_path" >/dev/null 2>&1; then
     # The action enforces the annotation bound itself instead of trusting

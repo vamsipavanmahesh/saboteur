@@ -192,7 +192,9 @@ RSpec.describe Saboteur::Reporter::ReviewComments do
       plan = described_class.plan(findings(*found), locate: locate, limit: 5)
 
       expect(plan.post.map { |c| [c[:digest][-2..], c[:line]] }).to eq([["01", 101], ["03", 103]])
-      expect(plan.summary).to eq("#{described_class::SUMMARY_MARKER}\n1 more surviving mutant not shown as comments.")
+      expect(plan.summary).to eq("#{described_class::SUMMARY_MARKER}\n1 more surviving mutant not shown as comments. " \
+                                 "Add a test that fails for each one, or accept it in config/saboteur_ignore.rb " \
+                                 "with a reason.")
     end
 
     it "lets the next finding take the room of one locate refuses" do
@@ -276,14 +278,18 @@ RSpec.describe Saboteur::Reporter::ReviewComments do
 
       expect(plan.post.map { |c| c[:digest] }).to eq(%w[aabbccdd11223302])
       expect(plan.summary).to eq("#{described_class::SUMMARY_MARKER}\n4 more surviving mutants not shown as " \
-                                 "comments. Full report: https://github.com/o/r/actions/runs/1")
+                                 "comments. Add a test that fails for each one, or accept it in " \
+                                 "config/saboteur_ignore.rb with a reason. " \
+                                 "Full report: https://github.com/o/r/actions/runs/1")
     end
 
     it "uses a singular summary without a run link, and posts nothing at limit 0" do
       plan = described_class.plan(findings(finding("aabbccdd11223344")), limit: 0)
 
       expect(plan.post).to eq([])
-      expect(plan.summary).to eq("#{described_class::SUMMARY_MARKER}\n1 more surviving mutant not shown as comments.")
+      expect(plan.summary).to eq("#{described_class::SUMMARY_MARKER}\n1 more surviving mutant not shown as comments. " \
+                                 "Add a test that fails for each one, or accept it in config/saboteur_ignore.rb " \
+                                 "with a reason.")
     end
 
     it "treats a negative limit as zero and defaults to ten" do

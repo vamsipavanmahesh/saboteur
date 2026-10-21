@@ -758,7 +758,7 @@ RSpec.describe "action/run-saboteur" do
 
     it "treats a fractional truncation count as malformed findings" do
       output, = run_action({}, report: report_with_findings([finding], truncated: 1.5))
-      expect(output).to include("not version 1 findings data")
+      expect(output).to include("not in the version 1 format this action reads")
       expect(output).not_to include("file=")
     end
 
@@ -803,7 +803,7 @@ RSpec.describe "action/run-saboteur" do
       report = JSON.generate(schemaVersion: "2", files: { "lib/a.rb" => { mutants: mutants_from(%w[Survived]) } },
                              saboteur: { findings: { version: 1, survivors: "broken" } })
       output, = run_action({}, exit_status: 1, report:)
-      expect(output).to include("findings section, but it is not version 1 findings data")
+      expect(output).to include("findings section is not in the version 1 format this action reads")
       expect(output).not_to include("file=")
     end
 
