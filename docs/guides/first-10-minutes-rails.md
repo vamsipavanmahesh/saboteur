@@ -33,7 +33,6 @@ bundle exec saboteur run --dry-run
 ```
 
 ```
-Operators: operator_assignment, condition_negation, range, body_nil, body_true, body_false, body_raise, comparison, arithmetic, ...
 lib/publify_plugins/gravatar.rb:27 PublifyPlugins::Gravatar.gravatar_tag  38 mutants
 ...
 Total: 395 mutants; 56 dropped by max_mutants_per_method
