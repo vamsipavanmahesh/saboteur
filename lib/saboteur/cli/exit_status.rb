@@ -60,9 +60,10 @@ module Saboteur
       # must not exit 0 with score n/a and green-light an untested change.
       def unverifiable_scope?(report)
         if unverifiable_review?(report)
-          report.skipped_subjects.each do |subject, reason|
-            @err.puts(subject.skipped_gate_sentence(reason, report.root))
-          end
+          # A text run already printed each skip up front; json and agent
+          # runs read this sentence as the exit explanation (#1227).
+          skips = %w[json agent].include?(@format) ? report.skipped_subjects : report.unannounced_skips
+          skips.each { |subject, reason| @err.puts(subject.skipped_gate_sentence(reason, report.root)) }
           return true
         end
         return false unless unverifiable_unreachable?(report)
