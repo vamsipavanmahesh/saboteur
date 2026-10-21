@@ -74,6 +74,30 @@ The planned mutation set as one JSON document, described in
 (currently `1`); consumers must ignore keys they do not know, and key order
 is not API. Only a breaking change raises the number.
 
+## Behavior defaults
+
+These decide what a bare `saboteur run` does. They are behavior, not API,
+but they move scores, so their changes follow the discipline below until
+1.0 and freeze after it.
+
+### Default test selection
+
+With no selection flags, a mutant runs the specs inferred for its method,
+never the whole suite (`--all` opts into that). The inference rules - which
+files count as specs, the custom-map lookup, the fallback when the map has
+no entry - may change in a minor release only, with a CHANGELOG entry under
+a `Changed` heading; they never change in a patch release. After 1.0 a
+selection change is breaking and waits for a major release.
+
+### The default operator set
+
+Every registered operator (`saboteur run --list-operators`) is on by
+default; `operators` and `exclude_operators` tune the set. A new operator
+turns on for everyone and can change scores, so it ships only in a minor
+release with a CHANGELOG entry. Renaming or removing an operator, or
+turning one off by default, is a breaking change under a `Changed` heading;
+after 1.0 it waits for a major release.
+
 ## How they change
 
 Each surface is governed by its own version:
