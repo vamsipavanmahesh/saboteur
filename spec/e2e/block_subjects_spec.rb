@@ -15,7 +15,8 @@ RSpec.describe "block-defined subjects (end to end)", :e2e do
   end
 
   it "names uncovered factory methods as no coverage, not skipped (#290)" do
-    expect(run.out).to include("2 subjects not scored - no tests exist: Uncovered#tripled, Uncovered#nothing")
+    expect(run.out).to include("2 subjects not scored - no test executes these methods: " \
+                               "Uncovered#tripled, Uncovered#nothing")
     expect(run.out).not_to include("Covered#doubled")
   end
 

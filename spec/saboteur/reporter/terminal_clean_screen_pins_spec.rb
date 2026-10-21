@@ -54,15 +54,21 @@ RSpec.describe Saboteur::Reporter::Terminal, "clean screen pins" do
 
   it "keeps the win and appends the warn line when subjects are untested at 100%" do
     other = subjects_in("class Other\n  def m; 1; end\nend\n", name: "other.rb").first
-    text = render(clean_report(killed_result, skipped_subjects: { other => "no coverage" }), **options)
+    text = render(clean_report(killed_result, skipped_subjects: { other => "no tests" }), **options)
     expect(text).to include("✓ 1/1 mutants killed · score 100.0% · 2.3s total\n",
                             "  1 subject not scored - no tests exist: #{other.id}\n")
+  end
+
+  it "says no test executes this method in the warn line for an unexecuted method (C3)" do
+    other = subjects_in("class Other\n  def m; 1; end\nend\n", name: "other.rb").first
+    text = render(clean_report(killed_result, skipped_subjects: { other => "no coverage" }), **options)
+    expect(text).to include("  1 subject not scored - no test executes this method: #{other.id}\n")
   end
 
   it "names every untested subject in the warn line" do
     others = subjects_in("class A\n  def m; 1; end\nend\nclass B\n  def n; 2; end\nend\n", name: "ab.rb")
     text = render(clean_report(killed_result,
-                               skipped_subjects: others.to_h { |subject| [subject, "no coverage"] }), **options)
+                               skipped_subjects: others.to_h { |subject| [subject, "no tests"] }), **options)
     ids = others.sort_by { |subject| [subject.file, subject.start_line] }.map(&:id)
     expect(text).to include("  2 subjects not scored - no tests exist: #{ids.join(', ')}\n")
   end

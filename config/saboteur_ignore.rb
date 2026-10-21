@@ -2671,7 +2671,7 @@ i.mutation "fdc4600f4e8e8625",
                      "[kill] array the check is called with, so the returned result is identical"
   # Score-honesty dogfood survivors (#1104, merged); each per-id replay diff
   # was inspected and proven unobservable.
-  i.mutation "66e3a0cfce46abb7",
+  i.mutation "200bb49624e2398a",
              subject: "Saboteur::Reporter::ScoreTable#untested_subjects",
              reason: "equivalent: dropping subject.file from the sort key is unobservable - the " \
                      "sorted list is only consumed via group_by(&:file), and within one file " \
@@ -2701,15 +2701,4 @@ i.mutation "fdc4600f4e8e8625",
              reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not " \
                      "position - hand-applied swap leaves run --help byte-identical"
 
-  # Subject#to_s delegates to #id (subject.rb:188): dropping the map leaves join
-  # calling to_s - hand-probed byte-identical ("A#m, B#n").
-  i.mutation "a2711ae885de2792",
-             subject: "Saboteur::Reporter::Terminal#untested_win_note",
-             reason: "equivalent: Subject#to_s delegates to #id, so join(', ') renders the identical string"
-
-  # each returns the receiver and Subject#to_s delegates to #id - the joined
-  # string is unchanged (hand-probed byte-identical, same probe as above).
-  i.mutation "3680c6f564cfca0f",
-             subject: "Saboteur::Reporter::Terminal#untested_win_note",
-             reason: "equivalent: each returns the receiver; Subject#to_s delegates to #id - same string"
 end

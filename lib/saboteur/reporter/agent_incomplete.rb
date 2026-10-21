@@ -8,6 +8,7 @@ module Saboteur
       # stable code, a count and a plain meaning.
       module Incomplete
         NO_COVERAGE = "no coverage"
+        NO_TESTS = "no tests"
         SYNTAX_FAILURE = "invalid_file_syntax"
         UNREADABLE_FAILURE = "unreadable"
 
@@ -91,7 +92,8 @@ module Saboteur
           end
 
           def skipped_for_coverage(report)
-            report.skipped_subjects.values.count(NO_COVERAGE) + report.counts[:skipped]
+            report.skipped_subjects.values.count(NO_COVERAGE) +
+              report.skipped_subjects.values.count(NO_TESTS) + report.counts[:skipped]
           end
 
           # Load-only mutants plus the subjects skipped for the same reason.
@@ -107,7 +109,7 @@ module Saboteur
 
           def unsupported_subjects(report)
             report.skipped_subjects.values.count do |reason|
-              reason != NO_COVERAGE && reason != Selection::CoverageMap::RAN_AT_LOAD &&
+              reason != NO_COVERAGE && reason != NO_TESTS && reason != Selection::CoverageMap::RAN_AT_LOAD &&
                 reason != Selection::CoverageMap::PRELOADED
             end
           end

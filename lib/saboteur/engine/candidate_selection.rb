@@ -65,7 +65,7 @@ module Saboteur
       # at most five, like the other selection notes.
       def skip_announcement(subject, reason)
         line = "#{subject.id} (#{subject.location(@root)}): skipped (#{reason}); its change is not verified by this run"
-        return line unless reason == "no coverage"
+        return line unless ["no coverage", "no tests"].include?(reason)
 
         loaded = @map.tests.map { |id| id.split("[").first.delete_prefix("./") }.uniq.sort
         names = loaded.empty? ? "none" : Text.name_list(loaded)
@@ -75,9 +75,15 @@ module Saboteur
 
       # Load-only code is not "no coverage": it ran, just never inside a
       # test, and no forked test can re-run it (see CoverageMap::RAN_AT_LOAD).
+      # "no coverage" splits two truths the report must not conflate (C3):
+      # no test recorded anything in the subject's file ("no tests") vs
+      # tests ran the file but never executed this method, as with a stub
+      # ("no coverage").
       def skip_reason_for(subject)
         return Selection::CoverageMap::PRELOADED if @map.preloaded?(subject.file)
-        return "no coverage" unless @map.ran_at_load?(subject.file, subject.coverage_lines)
+        unless @map.ran_at_load?(subject.file, subject.coverage_lines)
+          return @map.empty_for?([subject.file]) ? "no tests" : "no coverage"
+        end
 
         Selection::CoverageMap::RAN_AT_LOAD
       end

@@ -91,8 +91,8 @@ RSpec.describe "score honesty" do
      result(calculator.fetch("Calculator#add"), :timeout, to: "== 1")]
   end
   let(:skipped) do
-    { cart.fetch("Cart#total") => "no coverage", cart.fetch("Cart#biggest") => "no coverage",
-      calculator.fetch("Calculator#shipping_cost") => "no coverage" }
+    { cart.fetch("Cart#total") => "no tests", cart.fetch("Cart#biggest") => "no tests",
+      calculator.fetch("Calculator#shipping_cost") => "no tests" }
   end
   let(:report) do
     Saboteur::Report.new(results:, subjects:, wall_time: 62.0, root: dir, seed: 7, skipped_subjects: skipped)
@@ -113,7 +113,7 @@ RSpec.describe "score honesty" do
   it "prints the honest golden, monochrome" do
     expected = <<~TEXT
       saboteur #{Saboteur::VERSION}: 6 subjects, 5 mutants, wall 62.00 s, seed 7 (repeat with --seed 7)
-      Score: 80.0% (4/5 killed, tested subjects)  3 subjects not scored - no tests exist
+      Score: 80.0% (4/5 killed, 1 by timeout, tested subjects)  3 subjects not scored - no tests exist
 
       Score by file (worst first):
         calculator.rb   66.7% (2/3) · n/a - 1 subject has no tests: Calculator#shipping_cost
@@ -140,7 +140,7 @@ RSpec.describe "score honesty" do
   it "prints the honest golden with colour, one palette name per mock tag" do
     expected = <<~TEXT
       \e[2msaboteur #{Saboteur::VERSION}: 6 subjects, 5 mutants, wall 62.00 s, seed 7 (repeat with --seed 7)\e[0m
-      Score: 80.0% (4/5 killed, tested subjects)  \e[33m3 subjects not scored - no tests exist\e[0m
+      Score: 80.0% (4/5 killed, 1 by timeout, tested subjects)  \e[33m3 subjects not scored - no tests exist\e[0m
 
       Score by file (worst first):
         calculator.rb   66.7% (2/3) · \e[33mn/a - 1 subject has no tests: Calculator#shipping_cost\e[0m
@@ -412,7 +412,7 @@ RSpec.describe "score honesty" do
     end
 
     it "lists only no-coverage subjects as untested, in file and line order" do
-      skipped = { cart.fetch("Cart#biggest") => "no coverage", cart.fetch("Cart#total") => "no coverage",
+      skipped = { cart.fetch("Cart#biggest") => "no tests", cart.fetch("Cart#total") => "no tests",
                   add => "filtered" }
       text = render(honest_report([result(add, :killed)], skipped:, subjects:), color: :never)
       expect(text).to include("n/a - 2 subjects have no tests: Cart#total, Cart#biggest")
@@ -479,8 +479,8 @@ RSpec.describe "score honesty" do
     end
 
     it "keeps the skipped-subjects lines under --verbose only" do
-      expect(render(report, color: :never)).not_to include("methods never run by tests")
-      expect(render(report, color: :never, verbose: true)).to include("methods never run by tests: 3")
+      expect(render(report, color: :never)).not_to include("methods no test touches")
+      expect(render(report, color: :never, verbose: true)).to include("methods no test touches: 3")
     end
 
     it "keeps mutant skip reasons under --verbose only" do
@@ -620,10 +620,30 @@ RSpec.describe "score honesty" do
         .to eq("\u2717 exit 3 - run incomplete; the score is not a verified result\n")
     end
     it "says 1 subject not scored in the singular" do
-      skipped = { cart.fetch("Cart#total") => "no coverage" }
+      skipped = { cart.fetch("Cart#total") => "no tests" }
       text = render(honest_report([result(add, :killed)], skipped:, subjects:), color: :never)
       expect(text).to include("1 subject not scored - no tests exist")
       expect(text).not_to include("1 subjects")
+    end
+
+    it "says no test executes this method when tests run the file but not the method (C3)" do
+      skipped = { cart.fetch("Cart#total") => "no coverage" }
+      text = render(honest_report([result(add, :killed)], skipped:, subjects:), color: :never)
+      expect(text).to include("1 subject not scored - no test executes this method")
+      expect(text).to include("Not scored - no test executes this method (treat these as your biggest gaps):")
+    end
+
+    it "says no test executes these methods for several unexecuted methods (C3)" do
+      skipped = { cart.fetch("Cart#total") => "no coverage", cart.fetch("Cart#biggest") => "no coverage" }
+      text = render(honest_report([result(add, :killed)], skipped:, subjects:), color: :never)
+      expect(text).to include("2 subjects not scored - no test executes these methods")
+    end
+
+    it "keeps the execution claim when the untested subjects mix both reasons (C3)" do
+      skipped = { cart.fetch("Cart#total") => "no tests", cart.fetch("Cart#biggest") => "no coverage" }
+      text = render(honest_report([result(add, :killed)], skipped:, subjects:), color: :never)
+      expect(text).to include("2 subjects not scored - no test executes these methods")
+      expect(text).not_to include("no tests exist")
     end
 
     it "names gate limits when the score is nil under a threshold" do

@@ -42,9 +42,20 @@ RSpec.describe Saboteur::Engine::CandidateSelection do
     allow(map).to receive(:tests_for).with(subject_under_test).and_return([])
     allow(map).to receive(:ran_at_load?).with(subject_under_test.file, subject_under_test.coverage_lines)
                                         .and_return(false)
+    allow(map).to receive(:empty_for?).with([subject_under_test.file]).and_return(false)
     expect(candidates).not_to receive(:for)
     expect(selection.for(subject_under_test)).to be_empty
     expect(selection.skipped_subjects).to eq(subject_under_test => "no coverage")
+  end
+
+  it "records a file no test touches as no tests, distinct from no coverage (C3)" do
+    allow(map).to receive(:tests_for).with(subject_under_test).and_return([])
+    allow(map).to receive(:ran_at_load?).with(subject_under_test.file, subject_under_test.coverage_lines)
+                                        .and_return(false)
+    allow(map).to receive(:empty_for?).with([subject_under_test.file]).and_return(true)
+    expect(candidates).not_to receive(:for)
+    expect(selection.for(subject_under_test)).to be_empty
+    expect(selection.skipped_subjects).to eq(subject_under_test => "no tests")
   end
 
   it "classifies a subject in a file loaded before Coverage.start distinctly from no coverage" do
@@ -170,6 +181,7 @@ RSpec.describe Saboteur::Engine::CandidateSelection do
     allow(map).to receive(:tests_for).with(subject_under_test).and_return([])
     allow(map).to receive(:ran_at_load?).with(subject_under_test.file, subject_under_test.coverage_lines)
                                         .and_return(false)
+    allow(map).to receive(:empty_for?).with([subject_under_test.file]).and_return(false)
     allow(map).to receive(:tests)
       .and_return(["./spec/models/widget_spec.rb[1:2]", "./spec/models/widget_spec.rb[1:1]",
                    "./spec/models/other_spec.rb[1:1]"])
@@ -186,6 +198,7 @@ RSpec.describe Saboteur::Engine::CandidateSelection do
     allow(map).to receive(:tests_for).with(subject_under_test).and_return([])
     allow(map).to receive(:ran_at_load?).with(subject_under_test.file, subject_under_test.coverage_lines)
                                         .and_return(false)
+    allow(map).to receive(:empty_for?).with([subject_under_test.file]).and_return(false)
     allow(map).to receive(:tests).and_return((1..5).map { |n| "./spec/m#{n}_spec.rb[1:1]" })
     scope = instance_double(Saboteur::Engine::DiffScope)
     selection.for(subject_under_test, scope: scope)
@@ -200,6 +213,7 @@ RSpec.describe Saboteur::Engine::CandidateSelection do
     allow(map).to receive(:tests_for).with(subject_under_test).and_return([])
     allow(map).to receive(:ran_at_load?).with(subject_under_test.file, subject_under_test.coverage_lines)
                                         .and_return(false)
+    allow(map).to receive(:empty_for?).with([subject_under_test.file]).and_return(false)
     allow(map).to receive(:tests).and_return((1..6).map { |n| "./spec/m#{n}_spec.rb[1:1]" })
     scope = instance_double(Saboteur::Engine::DiffScope)
     selection.for(subject_under_test, scope: scope)
@@ -214,6 +228,7 @@ RSpec.describe Saboteur::Engine::CandidateSelection do
     allow(map).to receive(:tests_for).with(subject_under_test).and_return([])
     allow(map).to receive(:ran_at_load?).with(subject_under_test.file, subject_under_test.coverage_lines)
                                         .and_return(false)
+    allow(map).to receive(:empty_for?).with([subject_under_test.file]).and_return(false)
     allow(map).to receive(:tests).and_return([])
     scope = instance_double(Saboteur::Engine::DiffScope)
     selection.for(subject_under_test, scope: scope)

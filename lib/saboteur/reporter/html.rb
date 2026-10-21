@@ -99,11 +99,20 @@ module Saboteur
       def headline(report)
         breakdown = report.score_breakdown
         text = "<p><strong>Covered mutation score: #{score_text(report.score)}</strong>"
-        text << " (#{breakdown.detected}/#{breakdown.tested} killed, tested subjects)" if breakdown.tested.positive?
-        untested = report.skipped_subjects.count { |_, reason| reason == ScoreTable::NO_COVERAGE }
-        if untested.positive?
-          noun = untested == 1 ? "subject" : "subjects"
-          text << " - #{untested} #{noun} not scored - no tests exist"
+        if breakdown.tested.positive?
+          timeouts = report.counts[:timeout]
+          note = timeouts.positive? ? ", #{timeouts} by timeout" : ""
+          text << " (#{breakdown.detected}/#{breakdown.tested} killed#{note}, tested subjects)"
+        end
+        untested = report.skipped_subjects.select { |_, reason| [ScoreTable::NO_COVERAGE, ScoreTable::NO_TESTS].include?(reason) }
+        if untested.any?
+          claim = if untested.values.all? { |reason| reason == ScoreTable::NO_TESTS }
+                    "no tests exist"
+                  else
+                    untested.one? ? "no test executes this method" : "no test executes these methods"
+                  end
+          noun = untested.one? ? "subject" : "subjects"
+          text << " - #{untested.size} #{noun} not scored - #{claim}"
         end
         "#{text}</p>"
       end

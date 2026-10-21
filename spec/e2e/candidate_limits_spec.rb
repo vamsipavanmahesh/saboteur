@@ -24,7 +24,7 @@ RSpec.describe "candidate limits", :e2e do
     run = saboteur(dir, "--all", "--subject", "Untested")
     expect(run.status).to eq(0), run.err
     expect(mutants(run)).to be_empty
-    expect(run.out).to include("1 subjects, 0 mutants", "Not scored - no tests exist", "Untested#value",
+    expect(run.out).to include("1 subjects, 0 mutants", "Not scored - no test executes this method", "Untested#value",
                                "saboteur: 1 subject untested")
     expect(run.json["skippedSubjects"].first).to include("subject" => "Untested#value", "reason" => "no coverage")
   end
@@ -35,7 +35,7 @@ RSpec.describe "candidate limits", :e2e do
     run = saboteur(dir, "--all", "--subject", "LoadOnly")
     expect(run.status).to eq(0), run.err
     expect(mutants(run)).to be_empty
-    expect(run.out).to include("1 subjects, 0 mutants", "Not scored - no tests exist", "LoadOnly#value",
+    expect(run.out).to include("1 subjects, 0 mutants", "Not scored - no test executes this method", "LoadOnly#value",
                                "saboteur: 1 subject untested")
     expect(run.json["skippedSubjects"].first).to include(
       "subject" => "LoadOnly#value", "reason" => "no coverage"

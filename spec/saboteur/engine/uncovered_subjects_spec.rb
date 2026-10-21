@@ -42,7 +42,7 @@ RSpec.describe Saboteur::Engine, "uncovered subjects" do
         report = engine.call
         expect(report.subjects).to eq([subject_under_test])
         expect(report.results).to be_empty
-        expect(report.skipped_subjects).to eq(subject_under_test => "no coverage")
+        expect(report.skipped_subjects).to eq(subject_under_test => "no tests")
         expect(report.score).to be_nil
         expect(report.review?).to be(false)
       end

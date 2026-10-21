@@ -182,7 +182,7 @@ module Saboteur
               "score #{format('%.1f%%', report.score * 100)}"
         total = @palette.paint(:dim, "#{middot} #{format('%.1f', report.wall_time)}s total")
         @out.puts "#{@palette.paint(:pass, win)} #{total}"
-        untested = untested_subjects(report)
+        untested = untested_pairs(report)
         @out.puts "  #{@palette.paint(:warn, untested_win_note(untested))}" if untested.any?
         clean_reports_line
       end
@@ -206,9 +206,9 @@ module Saboteur
         "#{report.counts[:killed]}/#{report.executed.size} mutants killed"
       end
 
-      def untested_win_note(untested)
-        ids = untested.map(&:id).join(", ")
-        "#{untested.size} subject#{'s' unless untested.one?} not scored - no tests exist: #{ids}"
+      def untested_win_note(pairs)
+        ids = pairs.map { |subject, _| subject.id }.join(", ")
+        "#{pairs.size} subject#{'s' unless pairs.one?} not scored - #{untested_claim(pairs)}: #{ids}"
       end
 
       def clean_reports_line
@@ -226,17 +226,46 @@ module Saboteur
                   "(--allow-hazardous runs them anyway; the canary still watches the tree)"
       end
 
-      # Subjects skipped for "no coverage" (CandidateSelection's reason).
+      # Subjects skipped for want of test execution (CandidateSelection's
+      # two reasons, C3): "no tests" when no test recorded anything in the
+      # file, "no coverage" when tests ran the file but not this method.
       def untested_subjects(report)
-        report.skipped_subjects.select { |_, reason| reason == ScoreTable::NO_COVERAGE }
-              .keys.sort_by { |subject| [subject.file, subject.start_line] }
+        untested_pairs(report).map(&:first)
+      end
+
+      def untested_pairs(report)
+        report.skipped_subjects
+              .select { |_, reason| [ScoreTable::NO_COVERAGE, ScoreTable::NO_TESTS].include?(reason) }
+              .sort_by { |subject, _| [subject.file, subject.start_line] }
+      end
+
+      # The claim the untested wording may make (C3): "no tests exist" only
+      # when every listed subject's file is dark; otherwise the execution
+      # claim, which is true of every listed subject either way.
+      def untested_claim(pairs)
+        return "no tests exist" if pairs.all? { |_, reason| reason == ScoreTable::NO_TESTS }
+
+        pairs.one? ? "no test executes this method" : "no test executes these methods"
+      end
+
+      # The headline's untested count carries the C3 claim, warn-painted.
+      def untested_suffix(pairs)
+        "  #{@palette.paint(:warn, "#{pairs.size} subject#{'s' unless pairs.one?} " \
+                                   "not scored - #{untested_claim(pairs)}")}"
+      end
+
+      # C4: the score numerator counts timeouts as killed while the tally
+      # lists them apart, so the headline calls them out too.
+      def timeout_note(report)
+        timeouts = report.counts[:timeout]
+        timeouts.positive? ? ", #{timeouts} by timeout" : ""
       end
 
       # The score covers tested subjects only; the untested count stands
       # next to it, never folded in.
       def score_headline(report)
         breakdown = report.score_breakdown
-        untested = untested_subjects(report)
+        untested = untested_pairs(report)
         # The share covers scored mutants only, so an error-dominated run
         # must not print it as a bare score: "100.0 %" above "the run
         # tested almost nothing" reads as a contradiction (#557).
@@ -250,16 +279,13 @@ module Saboteur
         line << if breakdown.tested.zero?
                   " - nothing tested"
                 else
-                  " (#{breakdown.detected}/#{breakdown.tested} killed, tested subjects)"
+                  " (#{breakdown.detected}/#{breakdown.tested} killed#{timeout_note(report)}, tested subjects)"
                 end
         if @verbose && breakdown.tested.positive?
           line << "#{score_split(breakdown)} (killed+timeout)/(killed+survived+timeout); " \
                   "errors, resource limits and skips excluded"
         end
-        if untested.any?
-          line << "  #{@palette.paint(:warn, "#{untested.size} subject#{'s' unless untested.one?} " \
-                                             'not scored - no tests exist')}"
-        end
+        line << untested_suffix(untested) if untested.any?
         @out.puts line
       end
 
@@ -300,12 +326,12 @@ module Saboteur
 
       # The gaps the score cannot see, named with their location.
       def not_scored(report)
-        untested = untested_subjects(report)
+        untested = untested_pairs(report)
         return if untested.empty?
 
         @out.puts
-        @out.puts @palette.paint(:warn, "Not scored - no tests exist (treat these as your biggest gaps):")
-        entries = untested.map { |subject| "#{subject.id} (#{subject.location(report.root)})" }
+        @out.puts @palette.paint(:warn, "Not scored - #{untested_claim(untested)} (treat these as your biggest gaps):")
+        entries = untested.map { |subject, _| "#{subject.id} (#{subject.location(report.root)})" }
         line = "  #{@palette.paint(:warn, '!')} #{entries.first(MAX_NOT_SCORED).join(" #{middot} ")}"
         line << " #{middot} ... #{entries.size - MAX_NOT_SCORED} more" if entries.size > MAX_NOT_SCORED
         @out.puts line
@@ -478,7 +504,11 @@ module Saboteur
       end
 
       def skipped_subject_line(reason, count)
-        reason == "no coverage" ? "methods never run by tests: #{count}" : "skipped subjects: #{reason}: #{count}"
+        case reason
+        when ScoreTable::NO_COVERAGE then "methods never run by tests: #{count}"
+        when ScoreTable::NO_TESTS then "methods no test touches: #{count}"
+        else "skipped subjects: #{reason}: #{count}"
+        end
       end
 
       # Verbose-only: the Not scored block names the no-coverage subjects;
@@ -486,7 +516,7 @@ module Saboteur
       def skipped_subjects(report)
         report.skipped_subjects.values.tally.each { |reason, count| @out.puts skipped_subject_line(reason, count) }
         report.skipped_subjects.each do |subject, reason|
-          next if reason == ScoreTable::NO_COVERAGE
+          next if [ScoreTable::NO_COVERAGE, ScoreTable::NO_TESTS].include?(reason)
 
           @out.puts "  #{subject.id} #{relative(subject.file, report.root)}:#{subject.start_line}: #{reason}"
         end

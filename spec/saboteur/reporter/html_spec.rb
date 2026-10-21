@@ -73,9 +73,20 @@ RSpec.describe Saboteur::Reporter::Html do
 
   it "shows the honest pair: the tested-subject score and the not-scored count" do
     untested = subjects_in(ReportHelpers::PERSON, name: "untested.rb").first
-    page = described_class.build(report_of(result_for(:killed), skipped_subjects: { untested => "no coverage" }))
+    page = described_class.build(report_of(result_for(:killed), skipped_subjects: { untested => "no tests" }))
     expect(page).to include("Covered mutation score: 100.0%</strong> (1/1 killed, tested subjects)")
     expect(page).to include("tested subjects) - 1 subject not scored - no tests exist")
+  end
+
+  it "says no test executes this method when tests run the file but not the method (C3)" do
+    untested = subjects_in(ReportHelpers::PERSON, name: "untested.rb").first
+    page = described_class.build(report_of(result_for(:killed), skipped_subjects: { untested => "no coverage" }))
+    expect(page).to include("tested subjects) - 1 subject not scored - no test executes this method")
+  end
+
+  it "calls timeouts out in the killed fraction (C4)" do
+    page = described_class.build(report_of(result_for(:killed), result_for(:timeout)))
+    expect(page).to include("(2/2 killed, 1 by timeout, tested subjects)")
   end
 
   it "omits the not-scored clause when every skipped subject has another reason" do
@@ -97,7 +108,7 @@ RSpec.describe Saboteur::Reporter::Html do
   it "says subjects when more than one subject is not scored" do
     pair = subjects_in("#{ReportHelpers::PERSON}\n#{ReportHelpers::PERSON.sub('Person', 'PersonTwo')}",
                        name: "untested.rb")
-    skipped = pair.to_h { |subject| [subject, "no coverage"] }
+    skipped = pair.to_h { |subject| [subject, "no tests"] }
     page = described_class.build(report_of(result_for(:killed), skipped_subjects: skipped))
     expect(page).to include("2 subjects not scored - no tests exist")
   end

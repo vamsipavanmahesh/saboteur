@@ -17,6 +17,9 @@ module Saboteur
       MAX_UNTESTED_NAMES = 3
       # The skip reason CandidateSelection gives a subject no test covers.
       NO_COVERAGE = "no coverage"
+      # The file-dark sibling of NO_COVERAGE (C3): no test recorded anything
+      # in the subject's file, so "no tests exist" is literally true.
+      NO_TESTS = "no tests"
 
       def initialize(out, palette)
         @out = out
@@ -52,7 +55,7 @@ module Saboteur
       end
 
       def untested_subjects(report)
-        report.skipped_subjects.select { |_, reason| reason == NO_COVERAGE }
+        report.skipped_subjects.select { |_, reason| [NO_COVERAGE, NO_TESTS].include?(reason) }
               .keys.sort_by { |subject| [subject.file, subject.start_line] }
       end
 
