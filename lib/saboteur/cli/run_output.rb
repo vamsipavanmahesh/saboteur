@@ -21,6 +21,16 @@ module Saboteur
         @out.puts "\nReports: #{names.join(', ')}"
       end
 
+      # The clean screen's scope label (#1173, #1174): --since, positional
+      # sources and --subject each name what the run covered.
+      def scope_label
+        parts = []
+        parts << "--since #{config['since']}" if config["since"]
+        parts.concat(@sources) if @sources
+        parts << "--subject #{config['subjects'].join(', ')}" if config["subjects"].any?
+        parts.empty? ? "whole project" : parts.join(", ")
+      end
+
       # Agent mode: stdout carries exactly one JSON payload. The target's own output (boot
       # files, hooks, spec loading, child processes) goes to stderr while the engine runs.
       # Descriptor 1 points at stderr for the block, so Kernel#puts, system and forked

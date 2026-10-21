@@ -18,7 +18,8 @@ RSpec.describe "finished run reporting" do
       expect(Saboteur::Reporter::Terminal).to receive(:new)
         .with(out, verbose: verbose || false, quiet: false, color: color || :auto, overrides: {},
                    replay_command: kind_of(Proc),
-                   all_mutants: false, exit_code: 0, threshold: nil, previous_score: nil, baseline_gate: nil)
+                   all_mutants: false, exit_code: 0, threshold: nil, previous_score: nil, baseline_gate: nil,
+                   scope: "whole project")
         .and_return(terminal)
       expect(terminal).to receive(:call).with(report)
       replay_report = instance_double(Saboteur::Reporter::Replay)
@@ -77,6 +78,57 @@ RSpec.describe "finished run reporting" do
     allow(Saboteur::WorkingTree).to receive(:new).and_return(instance_double(Saboteur::WorkingTree, state: state))
     expect(cli.send(:text_run, report, engine)).to eq(1)
     expect(captured.call("53b683c4659bb71c")).to include("saboteur run", "--id", "53b683c4659bb71c")
+  end
+
+  {
+    "since" => ["origin/main", "--since origin/main"],
+    "subjects" => [["Foo#bar"], "--subject Foo#bar"],
+    "multi" => [nil, "--subject Foo#bar, Baz.qux"],
+    "none" => [nil, "whole project"]
+  }.each do |scope, (setting, label)|
+    it "labels the clean screen scope as #{label.inspect} (#1173, #1174)" do
+      report = report_of(result_for(:killed))
+      cli = Saboteur::CLI.new([], out: StringIO.new, err: StringIO.new)
+      if scope == "multi"
+        allow(cli.config).to receive(:[]).and_call_original
+        allow(cli.config).to receive(:[]).with("subjects").and_return(["Foo#bar", "Baz.qux"])
+      elsif scope != "none"
+        allow(cli.config).to receive(:[]).and_call_original
+        allow(cli.config).to receive(:[]).with(scope).and_return(setting)
+      end
+      captured = nil
+      allow(Saboteur::Reporter::Terminal).to receive(:new) do |*_args, **kwargs|
+        captured = kwargs[:scope]
+        instance_double(Saboteur::Reporter::Terminal, call: nil)
+      end
+      allow(cli).to receive(:validate_history)
+      allow(cli).to receive(:write_html)
+      allow(cli).to receive(:record_history)
+      allow(cli).to receive(:write_json)
+      state = Saboteur::WorkingTree::State.new(head: "a" * 40, dirty: false, changed_files: 0)
+      allow(Saboteur::WorkingTree).to receive(:new).and_return(instance_double(Saboteur::WorkingTree, state: state))
+      cli.send(:text_run, report, nil)
+      expect(captured).to eq(label)
+    end
+  end
+
+  it "labels the clean screen scope with positional sources (#1174)" do
+    report = report_of(result_for(:killed))
+    cli = Saboteur::CLI.new([], out: StringIO.new, err: StringIO.new)
+    cli.instance_variable_set(:@sources, ["lib/foo.rb", "lib/bar.rb"])
+    captured = nil
+    allow(Saboteur::Reporter::Terminal).to receive(:new) do |*_args, **kwargs|
+      captured = kwargs[:scope]
+      instance_double(Saboteur::Reporter::Terminal, call: nil)
+    end
+    allow(cli).to receive(:validate_history)
+    allow(cli).to receive(:write_html)
+    allow(cli).to receive(:record_history)
+    allow(cli).to receive(:write_json)
+    state = Saboteur::WorkingTree::State.new(head: "a" * 40, dirty: false, changed_files: 0)
+    allow(Saboteur::WorkingTree).to receive(:new).and_return(instance_double(Saboteur::WorkingTree, state: state))
+    cli.send(:text_run, report, nil)
+    expect(captured).to eq("lib/foo.rb, lib/bar.rb")
   end
 
   it "builds survivor replay commands from a working tree that excludes output paths" do
