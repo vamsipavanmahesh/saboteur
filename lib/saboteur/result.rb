@@ -208,6 +208,12 @@ module Saboteur
       @matrix
     end
 
+    # True when the run was scoped to a diff (--since): the expand command
+    # echoes that scope.
+    def diff?
+      !@diff_scope.nil?
+    end
+
     # In diff mode, the changed lines (sorted) that a mutant touches; empty
     # outside diff mode, or when the mutant touches none (a whole-body mutant
     # of a method whose only change is its signature).

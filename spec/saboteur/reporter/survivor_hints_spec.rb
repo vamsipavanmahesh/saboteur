@@ -65,12 +65,12 @@ RSpec.describe Saboteur::Reporter::SurvivorList do
 
   it "prints the file, then the method, then the line" do
     text = render(report_of(result_for(:survived)))
-    expect(text).to include("\nperson.rb\n  Person#adult?\n    person.rb:2 in Person#adult?\n")
+    expect(text).to include("1. person.rb:2 Person#adult?")
   end
 
   it "gives a whole-method mutant its whole-method suggestion" do
     expect(render(report_of(result_for(:survived, coarse: true)))).to include(
-      "hint: try asserting this method's result or its effect"
+      "\u2192 try asserting this method's result or its effect"
     )
   end
 
@@ -81,8 +81,8 @@ RSpec.describe Saboteur::Reporter::SurvivorList do
     result = Saboteur::MutantResult.new(subject: person_subject, mutation:, status: :survived,
                                         mutated_source: person_subject.apply(mutation.edits))
     text = render(report_of(result))
-    expect(text).to include("- made_up >= ->")
-    expect(text).not_to include("hint:", "Hints are suggestions")
+    expect(text).to include("made_up \u00b7")
+    expect(text).not_to include("\u2192", "Hints are suggestions")
   end
 end
 

@@ -20,7 +20,7 @@ module Saboteur
     class Terminal
       MAX_ERRORS = 10
       MAX_NOT_SCORED = 10
-      MAX_PASSING_TESTS = SurvivorList::MAX_PASSING_TESTS
+      MAX_PASSING_TESTS = 5
 
       def initialize(out, verbose: false, quiet: false, color: :auto, overrides: nil,
                      replay_command: nil, all_mutants: false, exit_code: nil,
