@@ -3,6 +3,7 @@
 
 require_relative "acceptance"
 require_relative "comparison"
+require_relative "loader"
 require_relative "../engine"
 require_relative "../text"
 
@@ -67,22 +68,8 @@ module Saboteur
       private
 
       def load_manifest(path)
-        raise ConfigError, "baseline file too large" if File.size(path) > Acceptance::MAX_BYTES
-
-        bytes = File.read(path)
-        @baseline_digest = Digest::SHA256.hexdigest(bytes)
-        manifest = Manifest.new(JSON.parse(Text.utf8_strict(bytes)))
-        metadata = manifest.to_h.fetch("metadata")
-        candidates = manifest.candidates.values
-        restored = metadata.slice("snapshot", "subjects", "complete", "issues").merge(
-          "compatibility" => manifest.compatibility, "candidates" => candidates,
-          "planned" => candidates.map { |entry| entry.slice(*Evidence::PLAN_FIELDS) },
-          "generation_events" => [], "omissions" => [], "discovery_failures" => [], "inline_suppressions" => []
-        )
-        Evidence.new(restored)
+        manifest, @baseline_digest = Loader.call(path)
         manifest
-      rescue SystemCallError, JSON::ParserError, ArgumentError => e
-        raise ConfigError, "baseline file: #{e.message}"
       end
 
       def store(snapshot)
