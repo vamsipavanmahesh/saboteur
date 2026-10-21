@@ -215,4 +215,15 @@ RSpec.describe Saboteur::Baseline::Manifest do
     tuple[1] = "a/b/.."
     refuse(with_tuple(tuple), /path/)
   end
+
+  it "accepts proposable metadata with only soft gaps, plus legacy metadata without the key" do
+    gapped = document.merge("metadata" => metadata.merge("complete" => false, "proposable" => true,
+                                                         "issues" => ["subject_skipped:person.rb:Person#other"]))
+    expect(described_class.new(gapped).to_h.fetch("metadata").fetch("proposable")).to be(true)
+    legacy = document.merge("metadata" => metadata.slice(*Saboteur::Baseline::Manifest::LEGACY_METADATA))
+    expect { described_class.new(legacy) }.not_to raise_error
+    refuse(document.merge("metadata" => metadata.merge("proposable" => true,
+                                                       "issues" => ["missing_result:x"])), /incomplete evidence/)
+    refuse(document.merge("metadata" => metadata.merge("proposable" => false)), /incomplete evidence/)
+  end
 end

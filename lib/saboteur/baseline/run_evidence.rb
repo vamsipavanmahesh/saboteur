@@ -46,7 +46,9 @@ module Saboteur
         completeness = assess(observed, stable_suite, skipped_subjects, omissions, errors)
         document = { "compatibility" => compatibility, "snapshot" => @snapshot.to_h, "subjects" => @subjects,
                      "candidates" => observed, "planned" => @planned,
-                     "complete" => completeness.complete?, "issues" => completeness.issues,
+                     "complete" => completeness.complete?, "proposable" => completeness.proposable?,
+                     "issues" => completeness.issues, "blockers" => completeness.blockers,
+                     "gaps" => completeness.gaps,
                      "generation_events" => generation, "omissions" => omissions.map(&:to_h),
                      "discovery_failures" => discovery, "inline_suppressions" => suppressions }
         Engine::RunFingerprint.canonical_value(document)

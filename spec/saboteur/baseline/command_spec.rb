@@ -77,7 +77,8 @@ RSpec.describe "baseline CLI validation" do
     expect(workflow).to receive(:propose).with(proposal: "p.json", destination: "b.json", previous: "a" * 64)
                                          .and_return("state" => "proposal")
     expect(command("propose", "--config", "nonexistent-config.rb", "--baseline", "b.json", "--proposal", "p.json",
-                   "--subject", "A#m", "--subject", "B.n", "--seed", "7", "--previous", "a" * 64)).to eq(0)
+                   "--subject", "A#m", "--subject", "B.n", "--seed", "7", "--previous", "a" * 64,
+                   "--format", "json")).to eq(0)
     expect(JSON.parse(@out.string)).to eq("state" => "proposal")
   end
 
@@ -123,5 +124,73 @@ RSpec.describe "baseline CLI validation" do
     allow(Saboteur::Baseline::Workflow).to receive(:new).and_raise(Saboteur::Error, "stopped")
     expect(command("check", "--baseline", "b.json")).to eq(3)
     expect(@err.string).to include("saboteur: stopped")
+  end
+
+  it "prints the proposal in terminal form by default, listing soft gaps" do
+    workflow = instance_double(Saboteur::Baseline::Workflow)
+    allow(Saboteur::Baseline::Workflow).to receive(:new).and_return(workflow)
+    allow(workflow).to receive(:propose).and_return(
+      "state" => "proposal", "proposal" => "/tmp/p.json", "destination" => "/tmp/b.json",
+      "survivors" => 1, "candidates" => 3, "gaps" => ["subject_skipped:probe.rb:Probe#other:no_tests"]
+    )
+    expect(command("propose", "--baseline", "b.json", "--proposal", "p.json")).to eq(0)
+    expect(@out.string).to eq(<<~TEXT)
+      baseline proposal written: /tmp/p.json
+        matched mutants: 3 (1 survivors to reason about)
+        proposed with 1 untested subjects: probe.rb:Probe#other:no_tests - the baseline cannot speak for them
+        next step: review the reasons in the proposal, then run: saboteur baseline accept --baseline /tmp/b.json --proposal /tmp/p.json
+    TEXT
+  end
+
+  it "prints a gap-free proposal without the untested-subjects line" do
+    workflow = instance_double(Saboteur::Baseline::Workflow)
+    allow(Saboteur::Baseline::Workflow).to receive(:new).and_return(workflow)
+    allow(workflow).to receive(:propose).and_return(
+      "state" => "proposal", "proposal" => "/tmp/p.json", "destination" => "/tmp/b.json",
+      "survivors" => 1, "candidates" => 3
+    )
+    expect(command("propose", "--baseline", "b.json", "--proposal", "p.json")).to eq(0)
+    expect(@out.string).to eq(<<~TEXT)
+      baseline proposal written: /tmp/p.json
+        matched mutants: 3 (1 survivors to reason about)
+        next step: review the reasons in the proposal, then run: saboteur baseline accept --baseline /tmp/b.json --proposal /tmp/p.json
+    TEXT
+  end
+
+  it "joins several gaps with a comma and strips only a leading gap prefix" do
+    workflow = instance_double(Saboteur::Baseline::Workflow)
+    allow(Saboteur::Baseline::Workflow).to receive(:new).and_return(workflow)
+    allow(workflow).to receive(:propose).and_return(
+      "state" => "proposal", "proposal" => "/tmp/p.json", "destination" => "/tmp/b.json",
+      "survivors" => 0, "candidates" => 3,
+      "gaps" => ["subject_skipped:probe.rb:Probe#other:no coverage", "note:subject_skipped:inner"]
+    )
+    expect(command("propose", "--baseline", "b.json", "--proposal", "p.json")).to eq(0)
+    expect(@out.string).to include(
+      "  proposed with 2 untested subjects: probe.rb:Probe#other:no coverage, " \
+      "note:subject_skipped:inner - the baseline cannot speak for them"
+    )
+  end
+
+  it "accepts --format terminal explicitly" do
+    workflow = instance_double(Saboteur::Baseline::Workflow)
+    allow(Saboteur::Baseline::Workflow).to receive(:new).and_return(workflow)
+    allow(workflow).to receive(:propose).and_return(
+      "state" => "proposal", "proposal" => "/tmp/p.json", "destination" => "/tmp/b.json",
+      "survivors" => 1, "candidates" => 3
+    )
+    expect(command("propose", "--baseline", "b.json", "--proposal", "p.json", "--format", "terminal")).to eq(0)
+    expect(@out.string).to start_with("baseline proposal written:")
+  end
+
+  it "rejects a bad or misplaced --format and pins the refusal exit code at 3" do
+    expect(command("propose", "--baseline", "b.json", "--proposal", "p.json", "--format", "yaml")).to eq(2)
+    expect(command("check", "--baseline", "b.json", "--format", "json")).to eq(2)
+    workflow = instance_double(Saboteur::Baseline::Workflow)
+    allow(Saboteur::Baseline::Workflow).to receive(:new).and_return(workflow)
+    allow(workflow).to receive(:propose)
+      .and_raise(Saboteur::Error, "baseline proposal requires complete execution evidence")
+    expect(command("propose", "--baseline", "b.json", "--proposal", "p.json")).to eq(3)
+    expect(@err.string).to include("saboteur: baseline proposal requires complete execution evidence")
   end
 end

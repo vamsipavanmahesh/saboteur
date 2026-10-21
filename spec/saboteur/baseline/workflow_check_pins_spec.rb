@@ -45,12 +45,24 @@ RSpec.describe Saboteur::Baseline::Workflow do
     end
   end
 
-  it "publishes a proposal only from a run that claims complete as exactly true" do
-    ["true", 1, nil].each do |claim|
-      run_returning(document.merge("complete" => claim))
+  it "publishes a proposal only from a run that claims proposable as exactly true" do
+    ["true", 1, nil, false].each do |claim|
+      run_returning(document.merge("proposable" => claim))
       expect { workflow.propose(proposal: File.join(@root, "p.json"), destination: File.join(@root, "b.json")) }
         .to raise_error(Saboteur::Error, "baseline proposal requires complete execution evidence"), claim.inspect
     end
+  end
+
+  it "prints every blocking issue, one per line, before the refusal sentence" do
+    err = StringIO.new
+    flow = described_class.new(config: config, err: err)
+    blocked = document.merge("proposable" => false, "issues" => %w[inputs_unverified empty_candidates],
+                             "blockers" => %w[inputs_unverified empty_candidates])
+    run_returning(blocked)
+    expect { flow.propose(proposal: File.join(@root, "p.json"), destination: File.join(@root, "b.json")) }
+      .to raise_error(Saboteur::Error, "baseline proposal requires complete execution evidence")
+    expect(err.string).to eq("saboteur: baseline proposal blocker: inputs_unverified\n" \
+                             "saboteur: baseline proposal blocker: empty_candidates\n")
   end
 
   it "names the proposal first, then the destination, when guarding artifact paths" do

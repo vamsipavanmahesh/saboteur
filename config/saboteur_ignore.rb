@@ -1661,6 +1661,16 @@ i.mutation "fdc4600f4e8e8625",
   i.mutation "bb7b34ae173b0630",
              subject: "Saboteur::Baseline::Completeness#validate_results",
              reason: "equivalent: the each block only appends to issues and its return value is discarded"
+
+  # command.rb:23 opts.on --format argument_swap - OptionParser::Switch classifies string
+  # arguments by content, not position, so swapping the option name and description builds
+  # the identical switch and `saboteur baseline --help` is byte-identical with the swap applied.
+  i.mutation "44c2de260075b537",
+             subject: "Saboteur::Baseline::Command#baseline_parser",
+             reason: "equivalent: OptionParser::Switch classifies string arguments by content, not " \
+                     "position - swapping the --format option name and description strings builds " \
+                     "the identical switch - `saboteur baseline --help` is byte-identical with the " \
+                     "swap applied"
   i.mutation "570cc90a42c23a68",
              subject: "Saboteur::Selection::DependencyShield#reject_trees",
              reason: "equivalent: Array#reject keeps an element only on a falsy block value, so next nil and next false agree"

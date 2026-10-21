@@ -52,7 +52,8 @@ RSpec.describe "opt-in baseline commands", :e2e do
     RUBY
     File.write(File.join(dir, "boot.rb"), 'puts "boot diagnostic"')
     File.write(File.join(dir, "hooks.rb"), 'puts "hook diagnostic"')
-    out, err, status = command(dir, "propose", "--baseline", "baseline.json", "--proposal", "proposal.json")
+    out, err, status = command(dir, "propose", "--baseline", "baseline.json", "--proposal", "proposal.json",
+                               "--format", "json")
     expect(status.exitstatus).to eq(0), out + err
     expect(JSON.parse(out).fetch("state")).to eq("proposal")
     expect(err).to include("config diagnostic", "boot diagnostic", "hook diagnostic")
@@ -81,7 +82,7 @@ RSpec.describe "opt-in baseline commands", :e2e do
     baseline_path = File.join(dir, "baseline.json")
     previous = Digest::SHA256.file(baseline_path).hexdigest
     out, err, status = command(dir, "propose", "--baseline", "baseline.json", "--proposal", "replacement.json",
-                               "--previous", previous)
+                               "--previous", previous, "--format", "json")
     expect(status.exitstatus).to eq(0), out + err
     replacement = File.join(dir, "replacement.json")
     revised = JSON.parse(File.read(replacement, encoding: "UTF-8"))
@@ -99,5 +100,72 @@ RSpec.describe "opt-in baseline commands", :e2e do
     out, err, status = command(dir, "check", "--baseline", "baseline.json")
     expect(status.exitstatus).to eq(1), out + err
     expect(JSON.parse(out).fetch("state")).to eq("review_required")
+  end
+
+  def probe_fixture(dir, methods: "  def value\n    1\n  end\n  def other\n    2\n  end", tested: "value",
+                    extra_config: "")
+    File.write(File.join(dir, "lib", "probe.rb"), "class BaselineProbe\n#{methods}\nend\n")
+    File.write(File.join(dir, "spec", "probe_spec.rb"), <<~RUBY)
+      require_relative "../lib/probe"
+      RSpec.describe BaselineProbe do
+        it("runs #{tested}") { expect(BaselineProbe.new.#{tested}).to eq(1) }
+      end
+    RUBY
+    File.write(File.join(dir, "config", "saboteur.rb"), <<~RUBY)
+      Saboteur.configure do |c|
+        c.include = ["lib/probe.rb"]
+        c.rspec_args = ["spec/probe_spec.rb"]
+        #{extra_config}
+      end
+    RUBY
+  end
+
+  it "proposes over an untested subject, names the gap, and the accepted baseline checks clean" do
+    dir = copy_fixture("people")
+    probe_fixture(dir)
+    out, err, status = command(dir, "propose", "--baseline", "baseline.json", "--proposal", "proposal.json")
+    expect(status.exitstatus).to eq(0), out + err
+    expect(out).to include("baseline proposal written:", "matched mutants:",
+                           "proposed with 1 untested subjects:", "BaselineProbe#other",
+                           "the baseline cannot speak for them", "saboteur baseline accept")
+    expect { JSON.parse(out) }.to raise_error(JSON::ParserError)
+    proposal = JSON.parse(File.read(File.join(dir, "proposal.json"), encoding: "UTF-8"))
+    execution = proposal.fetch("execution")
+    expect(execution.fetch("proposable")).to be(true)
+    expect(execution.fetch("complete")).to be(false)
+    expect(execution.fetch("blockers")).to eq([])
+    expect(execution.fetch("gaps")).to eq(["subject_skipped:BaselineProbe#other:no coverage"])
+    expect(proposal.fetch("document").fetch("metadata").fetch("proposable")).to be(true)
+    proposal.fetch("document").fetch("accepted").each { |entry| entry["reason"] = "reviewed fixture gap" }
+    File.write(File.join(dir, "proposal.json"), JSON.generate(proposal))
+    out, err, status = command(dir, "accept", "--baseline", "baseline.json", "--proposal", "proposal.json")
+    expect(status.exitstatus).to eq(0), out + err
+    out, err, status = command(dir, "check", "--baseline", "baseline.json")
+    expect(status.exitstatus).to eq(0), out + err
+    expect(JSON.parse(out).fetch("state")).to eq("clean")
+  end
+
+  it "prints terminal output for a fully tested --subject proposal" do
+    dir = copy_fixture("people")
+    probe_fixture(dir, methods: "  def value\n    1\n  end")
+    out, err, status = command(dir, "propose", "--baseline", "baseline.json", "--proposal", "proposal.json",
+                               "--subject", "BaselineProbe#value")
+    expect(status.exitstatus).to eq(0), out + err
+    expect(out).to include("baseline proposal written:", "matched mutants:", "next step:")
+    expect(out).not_to include("untested subjects")
+    expect { JSON.parse(out) }.to raise_error(JSON::ParserError)
+  end
+
+  it "refuses with the blocking issues listed before the sentence when the unchanged suite lacks two stable passes" do
+    dir = copy_fixture("people")
+    probe_fixture(dir, methods: "  def value\n    1\n  end", extra_config: "c.baseline_passes = 1")
+    out, err, status = command(dir, "propose", "--baseline", "baseline.json", "--proposal", "proposal.json")
+    expect(status.exitstatus).to eq(3), out + err
+    blocker = err.index("saboteur: baseline proposal blocker: unchanged_suite_incomplete")
+    refusal = err.index("saboteur: baseline proposal requires complete execution evidence")
+    expect(blocker).not_to be_nil, err
+    expect(refusal).not_to be_nil, err
+    expect(blocker).to be < refusal
+    expect(File.exist?(File.join(dir, "proposal.json"))).to be(false)
   end
 end

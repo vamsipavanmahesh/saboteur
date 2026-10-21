@@ -4,12 +4,17 @@
 require "digest"
 require "json"
 
+require_relative "completeness"
+
 module Saboteur
   module Baseline
     # Validated, immutable human acceptance and the complete run it describes.
     class Manifest
       FORMAT = 1
-      METADATA = %w[generator runtime config scope snapshot subjects complete issues].freeze
+      METADATA = %w[generator runtime config scope snapshot subjects complete proposable issues].freeze
+      # Baselines written before the two-tier completeness split carry no
+      # proposable key; their strict complete flag is the proposability gate.
+      LEGACY_METADATA = (METADATA - %w[proposable]).freeze
       STATUSES = %w[killed survived timeout].freeze
 
       attr_reader :candidates, :accepted
@@ -48,8 +53,12 @@ module Saboteur
 
       def validate_metadata
         metadata = @document["metadata"]
-        fields!(metadata, METADATA, "metadata")
-        fail!("incomplete evidence") unless metadata["complete"] == true && metadata["issues"] == []
+        fail!("metadata fields") unless metadata.is_a?(Hash)
+        keys = metadata.keys.sort
+        fail!("metadata fields") unless [METADATA.sort, LEGACY_METADATA.sort].include?(keys)
+        proposable = metadata.fetch("proposable", metadata["complete"])
+        hard = metadata.fetch("issues").reject { |issue| Completeness.soft_gap?(issue) }
+        fail!("incomplete evidence") unless proposable == true && hard.empty?
         %w[generator runtime config scope snapshot].each do |name|
           fail!("metadata #{name}") unless metadata[name].is_a?(Hash) && !metadata[name].empty?
         end

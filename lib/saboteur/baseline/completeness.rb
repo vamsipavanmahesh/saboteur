@@ -6,7 +6,14 @@ module Saboteur
     # Exact planned/result reconciliation, independent of survivor acceptance.
     class Completeness
       EXECUTED = %w[killed survived timeout].freeze
+      # Soft gaps limit what the baseline can speak for; they never refuse a
+      # proposal. Everything else is a hard blocker.
+      SOFT_PREFIXES = %w[subject_skipped: omitted:].freeze
       attr_reader :issues
+
+      def self.soft_gap?(issue)
+        SOFT_PREFIXES.any? { |prefix| issue.start_with?(prefix) }
+      end
 
       def initialize(planned:, results:, subjects:, stable_suite:, stable_inputs:, skipped_subjects:, omitted:,
                      generation_issues:)
@@ -23,6 +30,20 @@ module Saboteur
 
       def complete?
         issues.empty?
+      end
+
+      def blockers
+        issues.reject { |issue| self.class.soft_gap?(issue) }
+      end
+
+      def gaps
+        issues.select { |issue| self.class.soft_gap?(issue) }
+      end
+
+      # A proposal may be written over soft gaps (they are listed in it);
+      # only hard blockers refuse.
+      def proposable?
+        blockers.empty?
       end
 
       private

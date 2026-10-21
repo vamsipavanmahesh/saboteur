@@ -44,18 +44,24 @@ module Saboteur
       def propose(proposal:, destination:, previous: nil)
         guard_artifacts(proposal, destination)
         report = Engine.new(@config, err: @err, capture_evidence: true).call
-        unless report.run_evidence["complete"] == true
+        evidence = report.run_evidence
+        unless evidence["proposable"] == true
+          evidence.fetch("blockers").each { |issue| @err.puts("saboteur: baseline proposal blocker: #{issue}") }
           raise Error,
                 "baseline proposal requires complete execution evidence"
         end
 
-        captured = Evidence.new(report.run_evidence)
+        captured = Evidence.new(evidence)
         store(captured.document.fetch("snapshot")).propose(document: captured.manifest,
                                                            evidence: captured.document, proposal: proposal,
                                                            destination: destination, previous: previous)
-        { "state" => "proposal", "proposal" => File.expand_path(proposal),
-          "destination" => File.expand_path(destination),
-          "survivors" => captured.manifest.fetch("accepted").size }
+        payload = { "state" => "proposal", "proposal" => File.expand_path(proposal),
+                    "destination" => File.expand_path(destination),
+                    "survivors" => captured.manifest.fetch("accepted").size,
+                    "candidates" => captured.manifest.fetch("candidates").size }
+        gaps = evidence.fetch("gaps")
+        payload["gaps"] = gaps unless gaps.empty?
+        payload
       end
 
       def accept(proposal:, destination:, previous: nil)
