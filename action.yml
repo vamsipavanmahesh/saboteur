@@ -114,7 +114,10 @@ outputs:
     description: '"true" when saboteur ran, "false" when the action had nothing to do or stopped early.'
     value: ${{ steps.run.outputs.ran }}
   exit-code:
-    description: "saboteur's exit code: 0 clean, 1 survivors, 2 usage error, 3 tool error."
+    description: >-
+      saboteur's exit code: 0 clean, 1 survivors, 2 usage error, 3 the change
+      could not be verified, 4 time budget spent, 5 baseline suite red (fix your
+      tests first), 70 internal crash (a saboteur bug, never your code).
     value: ${{ steps.run.outputs.exit-code }}
   score:
     description: >-
