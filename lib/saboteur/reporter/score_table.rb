@@ -71,7 +71,7 @@ module Saboteur
 
         score = format("%<value>5.1f%% (%<detected>d/%<tested>d)", **row, value: row[:value] * 100)
         base = "  #{row[:path].ljust(width)}  #{score}"
-        note ? "#{base} · #{note}" : base
+        note ? "#{base} #{@palette.glyph(:middot)} #{note}" : base
       end
 
       # "n/a - 2 subjects have no tests: Cart#total, Cart#biggest": names
@@ -84,8 +84,8 @@ module Saboteur
         shown = names.first(MAX_UNTESTED_NAMES)
         shown << "+#{names.size - MAX_UNTESTED_NAMES} more" if names.size > MAX_UNTESTED_NAMES
         count = untested.size
-        @palette.paint(:yellow, "n/a - #{count} subject#{'s' unless count == 1} " \
-                                "#{count == 1 ? 'has' : 'have'} no tests: #{shown.join(', ')}")
+        @palette.paint(:warn, "n/a - #{count} subject#{'s' unless count == 1} " \
+                              "#{count == 1 ? 'has' : 'have'} no tests: #{shown.join(', ')}")
       end
     end
   end

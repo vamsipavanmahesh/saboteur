@@ -41,8 +41,9 @@ Metrics/ClassLength:
   # honesty closing block (headline, untested section, canonical line,
   # verdict line) takes it to 370; the #1087 skip-wording helpers it
   # absorbs on rebase take it to 380, and the headline context (threshold
-  # echo, previous-score delta) takes it to 390.
-  Max: 390
+  # echo, previous-score delta) takes it to 390; the colour contract's
+  # middot glyph helper takes it to 393.
+  Max: 393
 Metrics/ParameterLists:
   CountKeywordArgs: false
 

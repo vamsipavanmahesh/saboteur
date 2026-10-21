@@ -14,7 +14,7 @@ module Saboteur
     # purpose, are kept: only the exact sequences Palette writes, never a
     # generic one such as "\e[8m" (conceal), and no tabs.
     class SafeOut < SimpleDelegator
-      SGR = /(\e\[(?:#{(Palette::CODES.values + [0]).join('|')})m)/
+      SGR = /(\e\[(?:#{(Palette::CODES.values + [0]).join('|')})(?:;(?:#{(Palette::CODES.values + [0]).join('|')}))*m)/
 
       def puts(*lines)
         super(*lines.flatten.map { |line| safe(line.to_s) })
