@@ -14,6 +14,9 @@ module Saboteur
     # one digest prints the diff, the exact replay command and the
     # ignore-file template. It never edits the ignore file.
     module SurvivorsCommand
+      # Where `saboteur run` writes the JSON report unless configured otherwise.
+      DEFAULT_REPORT = Config::DEFAULTS["json_report"]
+
       private
 
       def survivors_command
@@ -33,8 +36,7 @@ module Saboteur
         end
         options = {}
         args = parser.parse!(@argv, into: options)
-        path = args.shift or raise UsageError,
-                                   "survivors expects a report path: saboteur survivors .saboteur/report.json"
+        path = args.shift || DEFAULT_REPORT
         raise UsageError, "unexpected arguments: #{args.join(' ')}" if args.any?
 
         report = load_survivor_report(path)
@@ -48,7 +50,10 @@ module Saboteur
       end
 
       def load_survivor_report(path)
-        raise UsageError, "report not found: #{path}" unless File.file?(path)
+        unless File.file?(path)
+          hint = path == DEFAULT_REPORT ? "; run saboteur first, or pass a report path" : ""
+          raise UsageError, "report not found: #{path}#{hint}"
+        end
 
         JSON.parse(File.read(path))
       rescue JSON::ParserError => e
@@ -73,8 +78,7 @@ module Saboteur
       end
 
       def show(digest)
-        survivor = all_survivors.find { |s| s[:digest].start_with?(digest) } ||
-                   raise(UsageError, "no survivor with digest #{digest} in this report")
+        survivor = unique_survivor(digest)
         finding = findings_by_digest[survivor[:digest]] || {}
         subject = finding["subject"] || survivor[:subject]
         seed = @report.dig("config", "seed")
@@ -131,6 +135,18 @@ module Saboteur
 
         text = Reporter::SurvivorHints.for_label(survivor[:operator], label: label)
         text ? ["hint: #{text}"] : []
+      end
+
+      # A prefix names one survivor or none: an ambiguous one is refused
+      # with the candidates, never resolved to the first match.
+      def unique_survivor(digest)
+        match, *others = all_survivors.select { |s| s[:digest].start_with?(digest) }
+        raise UsageError, "no survivor with digest #{digest} in this report" unless match
+        return match if others.empty?
+
+        digests = [match, *others].map { |m| m[:digest] }.sort
+        raise UsageError, "digest prefix #{digest} matches #{digests.size} survivors: " \
+                          "#{digests.join(', ')}; use more characters"
       end
 
       def filtered(file, operator, triage)
