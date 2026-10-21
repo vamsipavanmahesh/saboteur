@@ -33,6 +33,10 @@ module Saboteur
     class Builtin < Base
       DEFAULT_ARID = [
         '\A(puts|pp|p|print|warn)\b',
+        # Exception message arguments read as diagnostics too (#1066): a
+        # raise/fail string edit sits inside the call, so the line and the
+        # call head both have to match.
+        '\A(raise|fail)\b',
         '\A(@|self\.|::)?(Rails\.)?logger\b',
         # A logger at the end of a receiver chain: Sentry.sdk_logger.warn
         # (#665). The match is case-sensitive, so SDK_LOGGER stays
