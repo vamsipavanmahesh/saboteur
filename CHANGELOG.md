@@ -5,6 +5,57 @@ All notable changes are documented here. The format follows
 [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
+## [0.11.1] - 2026-10-22
+
+### Added
+
+- Diff runs echo the real `--since` ref in hints and name the diff
+  scope in the reports (#1235, #1218, #1219), and `survivors` reads the
+  last report by default and refuses ambiguous digest prefixes (#1235,
+  #1189, #1188, #1192).
+- `baseline propose` tolerates untested subjects: proposability is the
+  gate at propose time, while strict evidence completeness stays where
+  it is required (#1168, #1141). The baseline command names what it is
+  doing, the file it writes and the follow-up command at every step,
+  and blockers resolve to subject, operator and reason plus a
+  remediation line (#1217, #1195, #1196).
+- The GitHub Action gains an opt-in `max-duration` input passed to
+  `--max-duration`, summary lines for exits 2/3/4/5/70, an annotation
+  on exit 4, and failure messages that each name the command or
+  setting that fixes them (#1220).
+- Incremental runs report reuse feedback (#1221), and the HTML report
+  gains a copy button on survivor blocks, print rules and aria fixes
+  (#1231).
+
+### Changed
+
+- Warning notices, the baseline tail and the CLI rescue paths render
+  through the colour palette (monochrome output is byte-identical), and
+  first runs are quieter: the Ruby 3.4 fiddle stdlib notice is dropped
+  during the guarded require, Rails mode no longer warns about the
+  harmless AR Pool Reaper thread, and the no-spec stop ends with a
+  clearer custom-map pointer (#1236, #1226, #1229, #1230).
+- Survivors rank by per-statement density first (the statement with
+  the most surviving mutants leads), then by thin coverage; ranking is
+  review priority only, with no score or exit-code effect (#1163).
+- `survivors --show` prints the complete detail - diff, replay command
+  with the run's seed, and a paste-correct ignore template (#1194,
+  #1217) - and unknown-command and doctor include errors are clearer
+  (#1194).
+- First-run DX: the footer ignore template pastes into `.saboteur.rb`
+  unchanged, install prints the next step, and lifecycle warnings are
+  quieter (#1217, #1221). The survivor-confirmation skip notice names
+  the real reason (#1231, #1184, #1177).
+- The HTML report is printable and collapsible, with clearer baseline
+  errors (#1179).
+
+### Fixed
+
+- Survivor confirmation no longer crashes the run (exit 70): a
+  confirmation failure degrades to a warning (#1164, #1140).
+- README hero output shows the right subject count (#1162), and the
+  exit-code docs match the gates (#1231, #1222).
+
 
 ## [0.11.0] - 2026-10-21
 
