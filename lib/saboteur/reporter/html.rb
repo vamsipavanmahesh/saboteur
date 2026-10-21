@@ -4,6 +4,7 @@
 require "cgi"
 require "fileutils"
 
+require_relative "../survivor_guidance"
 require_relative "survivor_classification"
 
 module Saboteur
@@ -31,6 +32,7 @@ module Saboteur
         .Accepted,.Triage_accepted_equivalent{background:#8d6e63}
         .Triage_wont_fix{background:#616161}.Triage_todo{background:#b45309}
         .classification{border-radius:3px;padding:0 .4rem;background:#eceff1;color:#37474f;white-space:nowrap}
+        .copy{font-size:11px;padding:0 .3rem;margin-left:.3rem;cursor:pointer}
         .warning{background:#fff8e1;border-left:4px solid #f9a825;margin:.3rem 0;padding:.3rem .6rem;overflow-wrap:anywhere}
         code,pre{font-family:ui-monospace,monospace;font-size:13px}
         pre{display:inline-block;vertical-align:top;margin:0;white-space:pre-wrap;overflow-wrap:anywhere}summary{cursor:pointer;font-weight:600;overflow-wrap:anywhere}
@@ -52,6 +54,21 @@ module Saboteur
       # rows. The rest stay collapsed with their survivor count in the header.
       OPEN_FILE_LIMIT = 10
       OPEN_ROW_BUDGET = 30
+      # Survivor rows get a copy button for the replay command. file:// is a
+      # secure context, so navigator.clipboard works; the textarea fallback
+      # covers browsers where it rejects without a gesture. One delegated
+      # listener keeps the page free of per-row scripts.
+      COPY_SCRIPT = <<~JS
+        document.addEventListener("click",function(event){
+        var button=event.target.closest("button.copy");if(!button)return;
+        var text=button.getAttribute("data-copy");
+        function done(){button.textContent="copied";setTimeout(function(){button.textContent="copy"},1200)}
+        function fallback(){var area=document.createElement("textarea");area.value=text;
+        document.body.appendChild(area);area.select();try{document.execCommand("copy")}catch(e){}
+        document.body.removeChild(area);done()}
+        if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(text).then(done,fallback)}
+        else{fallback()}})
+      JS
 
       # The vendored viewer bundle, embedded verbatim into every report.
       BUNDLE_PATH = File.expand_path("assets/mutation_report.js", __dir__)
@@ -94,7 +111,8 @@ module Saboteur
           <mutation-test-report-app theme="dark" title-postfix="saboteur"></mutation-test-report-app>
           <script type="application/json" id="saboteur-report-json">#{embed_json(data)}</script>
           <script>document.querySelector("mutation-test-report-app").report =
-          JSON.parse(document.getElementById("saboteur-report-json").textContent);</script>
+          JSON.parse(document.getElementById("saboteur-report-json").textContent);
+          #{COPY_SCRIPT}</script>
           <details><summary>How the score is computed</summary>
           #{summary(report, data)}
           </details>
@@ -287,7 +305,8 @@ module Saboteur
         "<tr><td class=\"fit\">#{location_cell(mutant[:location][:start], result, report)}</td>" \
           "<td>#{row_status(mutant, result)}</td>" \
           "<td>#{escape(mutant[:mutatorName])}</td><td class=\"wide\">#{change(mutant, result)}</td>" \
-          "<td class=\"fit\"><code>#{escape(mutant[:id])}</code></td><td class=\"wide\">#{escape(notes)}</td></tr>"
+          "<td class=\"fit\"><code>#{escape(mutant[:id])}</code>#{copy_button(mutant, seed: report.seed)}</td>" \
+          "<td class=\"wide\">#{escape(notes)}</td></tr>"
       end
 
       # In diff mode, the changed lines the mutant touches, under its own
@@ -314,6 +333,14 @@ module Saboteur
         extra = more.positive? ? " (+#{more} more)" : ""
         when_passed = result.reused? ? "passed in an earlier run" : "passed"
         "covered by #{passed.size} #{passed.one? ? 'test' : 'tests'} that #{when_passed}: #{shown}#{extra}"
+      end
+
+      # Only survivors are worth replaying, so only they get the button.
+      def copy_button(mutant, seed: nil)
+        return unless mutant[:status] == "Survived"
+
+        replay = escape(SurvivorGuidance.replay_command(mutant[:id], seed: seed))
+        %(<button class="copy" data-copy="#{replay}" title="Copy the replay command">copy</button>)
       end
 
       def row_status(mutant, result)

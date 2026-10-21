@@ -61,6 +61,37 @@ RSpec.describe Saboteur::Reporter::Html do
                              ".scroll{overflow-x:visible}", "table{min-width:0}")
   end
 
+  it "wires the embedded JSON into the viewer app element" do
+    expect(html).to include('document.querySelector("mutation-test-report-app").report =')
+    expect(html).to include('JSON.parse(document.getElementById("saboteur-report-json").textContent)')
+  end
+
+  it "shows the mutant id in a code cell on every row" do
+    result = result_for(:killed)
+    page = described_class.build(report_of(result))
+    expect(page).to include("<code>#{result.digest}</code>")
+  end
+
+  it "renders the notes cell with its wrapper and the passing-tests note" do
+    result = result_for(:survived, covered_by: ["./spec/person_spec.rb[1:1]"])
+    page = described_class.build(report_of(result))
+    expect(page).to include('<td class="wide">covered by 1 test that passed: ./spec/person_spec.rb[1:1]</td>')
+  end
+
+  it "puts no copy button on a killed-only report" do
+    page = described_class.build(report_of(result_for(:killed)))
+    expect(page.scan('class="copy"')).to be_empty
+  end
+
+  it "gives survivor rows a copy button for the replay command, killed rows none" do
+    survivor = result_for(:survived)
+    page = described_class.build(report_of(result_for(:killed), survivor))
+    expect(page).to include(%(<button class="copy" data-copy="saboteur run --id #{survivor.digest} --seed 1" ))
+    expect(page).to include("copy</button></td>")
+    expect(page.scan('class="copy"').size).to eq(1)
+    expect(page).to include('document.addEventListener("click"', "execCommand")
+  end
+
   it "shows the viewer in dark mode by default" do
     expect(html).to include('<mutation-test-report-app theme="dark"')
   end
