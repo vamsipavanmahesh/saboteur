@@ -267,12 +267,18 @@ jobs:
       # A config-only diff has nothing in the include scope to mutate: say so and
       # no-op green instead of dying on the out-of-scope stop (#483, exit 2). The
       # pathspec mirrors c.include in config/saboteur.rb - keep them in sync.
+      # A version-only diff (a release pull request: version.rb plus docs like
+      # CHANGELOG.md) hits the same stop, because config/saboteur.rb excludes
+      # lib/saboteur/version.rb from mutation; no-op green for it too (#1084).
       # Runs after the binding step, so inputs.base_sha is already proven.
-      - name: Detect config-only pull requests
+      - name: Detect config-only and version-only pull requests
         id: scope
         run: |
           if git diff --quiet "${{ inputs.base_sha }}" HEAD -- "lib/*.rb"; then
             echo "::notice::dogfood: no changed file lies inside the include scope (config-only diff); nothing to mutate, no-op green"
+            echo "empty=true" >> "$GITHUB_OUTPUT"
+          elif [ -z "$(git diff --name-only "${{ inputs.base_sha }}" HEAD -- "lib/*.rb" | grep -vx 'lib/saboteur/version.rb')" ]; then
+            echo "::notice::dogfood: only lib/saboteur/version.rb changed and config/saboteur.rb excludes it from mutation; nothing to mutate, no-op green"
             echo "empty=true" >> "$GITHUB_OUTPUT"
           fi
       - name: Mutate methods changed in this pull request
