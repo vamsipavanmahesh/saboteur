@@ -31,6 +31,7 @@ RSpec.describe Saboteur::CLI::ExitStatus do
   let(:harness) do
     Class.new do
       include Saboteur::CLI::ExitStatus
+      include Saboteur::CLI::FailureOutput
 
       attr_reader :config
 

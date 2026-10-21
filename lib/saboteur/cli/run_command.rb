@@ -6,7 +6,20 @@ module Saboteur
     # `saboteur run`: parse, validate, then preview or execute (#334).
     # Extracted from CLI by command.
     module RunCommand
+      # The baseline-red shapes the engine raises as Saboteur::Error when the
+      # unchanged suite itself fails: the user's tests are broken, so no
+      # mutant was ever judged. These route to EXIT_BASELINE_RED; every other
+      # deliberate raise keeps EXIT_TOOL.
+      BASELINE_RED_MESSAGE = /\A#{Regexp.union(
+        'baseline check ', 'baseline has no tests', 'the unchanged suite failed',
+        'the test command fails on the unchanged tree'
+      )}/
+
       private
+
+      def baseline_red?(error)
+        error.message.to_s.match?(BASELINE_RED_MESSAGE)
+      end
 
       def run_command = help_requested? ? show_help("run") : run
 
@@ -26,7 +39,7 @@ module Saboteur
       rescue ConfigError => e
         report_failure(e, EXIT_USAGE)
       rescue Error => e
-        report_failure(e, EXIT_TOOL)
+        report_failure(e, baseline_red?(e) ? EXIT_BASELINE_RED : EXIT_TOOL)
       end
     end
   end

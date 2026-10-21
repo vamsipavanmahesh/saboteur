@@ -45,10 +45,10 @@ RSpec.describe "--test-command", :e2e do
 
   # The unchanged-tree control: one neutral preflight runs the command
   # before any mutant exists, so a command that fails without the mutant
-  # fails the whole run up front with its own exit status (exit 3, #305).
+  # fails the whole run up front with its own exit status (exit 5, #305).
   it "refuses to run when the command fails on the unchanged tree" do
     run = saboteur(dir, "--test-command", "false")
-    expect(run.status).to eq(3)
+    expect(run.status).to eq(5)
     expect(run.err).to include("the test command fails on the unchanged tree (exit 1)")
   end
 end

@@ -27,9 +27,9 @@ RSpec.describe "agent mode when the baseline child dies", :e2e do
     RUBY
 
     run = saboteur(dir, "--all", "--agent")
-    expect(run.status).to eq(3), run.err
+    expect(run.status).to eq(5), run.err
     payload = JSON.parse(run.out) # raises unless stdout is exactly one JSON doc
-    expect(payload).to include("status" => "error", "verdict" => "tool_failure", "exitCode" => 3)
+    expect(payload).to include("status" => "error", "verdict" => "tool_failure", "exitCode" => 5)
     expect(run.err).to include("baseline check 1 failed at seed 1")
     expect(run.err).to include("baseline child died during setup/run: RuntimeError: boot exploded")
   end

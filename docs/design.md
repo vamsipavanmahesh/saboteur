@@ -24,7 +24,7 @@ config + CLI
   -> subject selection / [--since] scope / [--id] resolution
   -> if selected subjects exist:
        BaselineGuard: two fresh whole-suite runs with the same seed
-         failure -> abort, exit 3; no mutants started or per-subject skips
+         failure -> abort, exit 5; no mutants started or per-subject skips
        CoverageStore.fetch (cached)         file:line -> [test ids]
        candidate selection: coverage, diff scope, validation, deduplication, cap
        serial or parallel distribution, per runnable subject:

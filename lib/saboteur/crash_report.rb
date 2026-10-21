@@ -6,18 +6,26 @@ require "json"
 require "tmpdir"
 require "pathname"
 
+require_relative "reporter/palette"
+
 module Saboteur
   # Last-resort crash reporting, shared by the CLI's StandardError rescue
   # and the exe-level wrapper: one bounded line on stderr, the full
   # backtrace in a log file the line names, the backtrace on stderr with
   # --verbose, and the same failure as agent JSON when an agent listens.
-  # Always returns EXIT_TOOL.
+  # Always returns EXIT_CRASH (70): a crash is a saboteur bug, never a
+  # check the user can fix.
   module CrashReport
     ISSUES_URL = "https://github.com/vamsipavanmahesh/saboteur/issues"
 
-    # Same value as CLI::EXIT_TOOL, kept local so the reporter still works
+    # Same value as CLI::EXIT_CRASH, kept local so the reporter still works
     # when the CLI itself never finished loading.
-    EXIT_TOOL = 3
+    EXIT_CRASH = 70
+
+    # The crash cause's verdict line, kept in sync with
+    # CLI::ErrorCause::CAUSE_LINES["crash"] by the cause pins: the reporter
+    # cannot load the CLI's vocabulary when the CLI itself never loaded.
+    VERDICT_LINE = "exit 70 - internal crash (a saboteur bug, never your code)"
 
     # The crash log's file name under the run's cache dir; the runner reads
     # it back to explain a nested run's crash in the failure detail (#296).
@@ -25,15 +33,16 @@ module Saboteur
 
     module_function
 
-    def call(error, verbose:, agent:, err:, out:, log_path: nil)
+    def call(error, verbose:, agent:, err:, out:, log_path: nil, color: :auto)
       summary = "internal error (#{error.class}: #{one_line(error.message)})"
       line = "saboteur: #{summary} - please report it: #{ISSUES_URL}"
       written = write_log(log_path, error)
       line = "#{line}; full backtrace: #{display_path(written)}" if written
       err.puts(line)
+      err.puts(Reporter::Palette.for(err, mode: color).paint(:red, VERDICT_LINE))
       err.puts(full_text(error)) if verbose
       out.print(agent_json(summary)) if agent
-      EXIT_TOOL
+      EXIT_CRASH
     end
 
     # A crash message can span lines or carry bytes that are invalid in
@@ -59,9 +68,9 @@ module Saboteur
     def agent_json(summary)
       payload =
         if defined?(Reporter::Agent)
-          Reporter::Agent.failure(summary, EXIT_TOOL)
+          Reporter::Agent.failure(summary, EXIT_CRASH)
         else
-          { version: 1, status: "error", verdict: "tool_failure", exitCode: EXIT_TOOL,
+          { version: 1, status: "error", verdict: "tool_failure", exitCode: EXIT_CRASH,
             message: summary, next: { help: "saboteur help run" } }
         end
       "#{JSON.pretty_generate(payload)}\n"

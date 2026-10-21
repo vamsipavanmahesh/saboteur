@@ -73,6 +73,8 @@ module Saboteur
     EXIT_USAGE = 2
     EXIT_TOOL = 3
     EXIT_BUDGET = 4
+    EXIT_BASELINE_RED = 5
+    EXIT_CRASH = 70
     class UsageError < ConfigError; end
 
     attr_reader :options

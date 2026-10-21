@@ -15,12 +15,28 @@ RSpec.describe Saboteur::CrashReport do
     end
   end
 
-  def report(error, log_path: nil, verbose: false, agent: false)
-    described_class.call(error, verbose:, agent:, err:, out:, log_path:)
+  def report(error, log_path: nil, verbose: false, agent: false, color: :auto)
+    described_class.call(error, verbose:, agent:, err:, out:, log_path:, color:)
   end
 
-  it "returns the tool-failure exit code" do
-    expect(report(error)).to eq(3)
+  it "returns the crash exit code" do
+    expect(report(error)).to eq(70)
+  end
+
+  it "prints the crash verdict line, red only when colour is forced on" do
+    report(error)
+    expect(err.string).to include("exit 70 - internal crash (a saboteur bug, never your code)")
+    expect(err.string).not_to include("\e[")
+
+    err.truncate(0)
+    err.rewind
+    report(error, color: :always)
+    expect(err.string).to include("\e[31mexit 70 - internal crash (a saboteur bug, never your code)\e[0m")
+
+    err.truncate(0)
+    err.rewind
+    report(error, color: :never)
+    expect(err.string).not_to include("\e[")
   end
 
   it "prints the one-line diagnostic with the report URL" do
@@ -249,11 +265,11 @@ RSpec.describe Saboteur::CrashReport do
 
   it "emits a standalone agent failure JSON when the agent reporter never loaded" do
     hide_const("Saboteur::Reporter::Agent")
-    expect(report(error, agent: true)).to eq(3)
+    expect(report(error, agent: true)).to eq(70)
     payload = JSON.parse(out.string)
     expect(payload).to include(
       "version" => 1, "status" => "error", "verdict" => "tool_failure",
-      "exitCode" => 3, "next" => { "help" => "saboteur help run" }
+      "exitCode" => 70, "next" => { "help" => "saboteur help run" }
     )
     expect(payload["message"]).to include("internal error (RuntimeError: boom)")
     expect(err.string).to include("internal error (RuntimeError: boom)")
