@@ -37,6 +37,10 @@ RSpec.describe Saboteur::MutationSource::OperatorRegistry do
       .to raise_error(Saboteur::ConfigError, /\. Did you mean comparison\? See --list-operators\.\z/)
   end
 
+  it "describes element_removal as working on any array literal" do
+    expect(described_class::DESCRIPTIONS.fetch("element_removal")).to eq("Remove an element of an array literal")
+  end
+
   it "lists each operator as on or off with its description and example" do
     out = StringIO.new
     described_class.list(out, names: %w[range], excluded: [])
