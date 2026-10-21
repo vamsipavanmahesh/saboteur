@@ -15,6 +15,9 @@ module Saboteur
       NO_FILE = "/dev/null" # rubocop:disable Style/FileNull -- literal in git diff output
       HUNK = /\A@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/
 
+      LOCAL_BRANCH_CAP = 5
+      BASE_NAMES = %w[main master trunk develop].freeze
+
       module_function
 
       # Fails before any boot work when REF is not a commit here, as a usage
@@ -38,10 +41,20 @@ module Saboteur
         message = "--since #{ref}: not a commit in this repository " \
                   "(check the name; a shallow checkout may need a deeper fetch)"
         branch = default_branch(root)
-        return message unless branch
+        return "#{message}#{local_branches_hint(root)}" unless branch
 
         "#{message}; this repository's default branch is '#{branch}' - " \
           "pass it explicitly: saboteur pr #{branch}"
+      end
+
+      # A local-only repo has no origin/HEAD to name: list the branches it
+      # does have, so a bare `saboteur pr` (default main) points at a real one.
+      def local_branches_hint(root)
+        out, _, ok = Open3.capture3("git", "for-each-ref", "--format=%(refname:short)", "refs/heads", chdir: root)
+        branches = ok.success? ? likely_bases(out.split("\n")).first(LOCAL_BRANCH_CAP) : []
+        return "" if branches.empty?
+
+        "; local branches: #{branches.join(', ')} - pass one explicitly: saboteur pr #{branches.first}"
       end
 
       # The default branch origin publishes, without the remote name, or nil
@@ -52,6 +65,11 @@ module Saboteur
 
         branch = out.strip.sub(%r{\A[^/]+/}, "")
         branch.empty? ? nil : branch
+      end
+
+      # Conventional base names first, so the suggested example is a base.
+      def likely_bases(branches)
+        branches.sort_by { |name| [BASE_NAMES.index(name) || BASE_NAMES.size, name] }
       end
 
       def merge_base(ref, root:)

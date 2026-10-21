@@ -205,13 +205,39 @@ RSpec.describe Saboteur::Selection::GitDiff do
           }
       end
 
-      it "keeps the plain hint when origin publishes no default branch (#595)" do
+      it "lists the local branches when origin publishes no default branch (#595, #1225)" do
         commit_file("a.rb", "1\n")
+        git("branch", "-m", "feature")
+        git("branch", "master")
+        git("branch", "main")
+        git("branch", "aaa")
 
         expect { described_class.verify_ref!("no-such-ref", root: @dir) }
           .to raise_error(Saboteur::ConfigError) { |error|
             expect(error.message).to eq("--since no-such-ref: not a commit in this repository " \
+                                        "(check the name; a shallow checkout may need a deeper fetch); " \
+                                        "local branches: main, master, aaa, feature - " \
+                                        "pass one explicitly: saboteur pr main")
+          }
+      end
+
+      it "orders base names first, then the rest alphabetically" do
+        expect(described_class.likely_bases(%w[zeta alpha develop master beta main trunk]))
+          .to eq(%w[main master trunk develop alpha beta zeta])
+      end
+
+      it "caps the local branch list and keeps the plain hint when there is no branch" do
+        expect { described_class.verify_ref!("no-such-ref", root: @dir) }
+          .to raise_error(Saboteur::ConfigError) { |error|
+            expect(error.message).to eq("--since no-such-ref: not a commit in this repository " \
                                         "(check the name; a shallow checkout may need a deeper fetch)")
+          }
+        commit_file("a.rb", "1\n")
+        %w[b1 b2 b3 b4 b5 b6 b7].each { |name| git("branch", name) }
+
+        expect { described_class.verify_ref!("no-such-ref", root: @dir) }
+          .to raise_error(Saboteur::ConfigError) { |error|
+            expect(error.message.split("local branches: ").last.split(" - ").first.split(", ").size).to eq(5)
           }
       end
 
