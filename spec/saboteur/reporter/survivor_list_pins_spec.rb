@@ -144,6 +144,24 @@ RSpec.describe Saboteur::Reporter::SurvivorList, "survivor blocks" do
     expect(text).to include("       expand: saboteur run --all-mutants\n")
   end
 
+  it "appends a sibling's label when it differs from the block head's" do
+    head = edited(PINS_CALCULATOR, "(1 + rate)**years", "years", operator: "operand_replacement", dir:)
+    sibling = edited(PINS_CALCULATOR, "* (1 + rate)", "/ (1 + rate)", operator: "arithmetic", dir:,
+                                                                      covered_by: ["./spec/calculator_spec.rb[2:1]"])
+    text = render([head, sibling])
+    expect(text).to include("  1 more mutant here: #{sibling.digest} (arithmetic) [missing_test]\n")
+  end
+
+  it "omits a sibling's label when it matches the block head's" do
+    head = edited(PINS_CALCULATOR, "(1 + rate)**years", "years", operator: "operand_replacement", dir:,
+                                                                 covered_by: ["./spec/calculator_spec.rb[2:1]"])
+    sibling = edited(PINS_CALCULATOR, "* (1 + rate)", "/ (1 + rate)", operator: "arithmetic", dir:,
+                                                                      covered_by: ["./spec/calculator_spec.rb[3:1]"])
+    text = render([head, sibling])
+    expect(text).to include("  1 more mutant here: #{sibling.digest} (arithmetic)\n")
+    expect(text).not_to include("(arithmetic) [")
+  end
+
   it "echoes the run's diff scope in the expand command" do
     result = edited(PINS_CALCULATOR, "**", "*", operator: "comparison", dir:)
     sibling = edited(PINS_CALCULATOR, "* (1 + rate)", "/ (1 + rate)", operator: "arithmetic", dir:)
