@@ -113,7 +113,7 @@ RSpec.describe "replay coverage boundaries", :e2e do
     expect(mutants(replay).first).to include(
       "id" => digest, "status" => "NoCoverage", "statusReason" => "no coverage"
     )
-    expect(replay.out).to include(digest, "Selected tests:", "none", "no coverage")
+    expect(replay.out).to include(digest, "Selected tests:", "none", "mutant locations not reached: 1")
   end
 
   it "keeps changed-line scope when resolving --id with --since" do

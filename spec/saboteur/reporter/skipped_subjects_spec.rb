@@ -14,8 +14,17 @@ RSpec.describe "reporting skipped subjects" do
   it "reports subject skips separately from mutant counts and the score" do
     output = StringIO.new
     Saboteur::Reporter::Terminal.new(output).call(report)
-    expect(output.string).to include("1 subjects, 0 mutants", "skipped subjects: no coverage: 1", "K#m", "score n/a")
+    expect(output.string).to include("1 subjects, 0 mutants", "methods never run by tests: 1", "K#m", "score n/a")
     expect(report.counts[:skipped]).to eq(0)
+  end
+
+  it "prints other subject skip reasons with the generic wording (#1087)" do
+    other = Saboteur::Report.new(results: [], subjects: [subject_under_test], wall_time: 0,
+                                 root: File.dirname(subject_under_test.file),
+                                 skipped_subjects: { subject_under_test => "filtered" })
+    output = StringIO.new
+    Saboteur::Reporter::Terminal.new(output).call(other)
+    expect(output.string).to include("skipped subjects: filtered: 1\n")
   end
 
   it "adds subject skip details to JSON without inventing mutant entries" do

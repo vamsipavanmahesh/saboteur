@@ -120,7 +120,7 @@ a test, check these cases:
 
 - **Survivor:** a test ran the line and passed. Write or tighten a test.
 - **No coverage:** no test reached the line, so it is not a survivor. The
-  summary prints `skipped: no coverage: N`. Write a test that runs the code
+  summary prints `mutant locations not reached: N`. Write a test that runs the code
   first; mutation says nothing useful until one does.
 - **Other statuses** (timeout, error, resource limit) do not count as
   survivors. See the README for how each one is scored.

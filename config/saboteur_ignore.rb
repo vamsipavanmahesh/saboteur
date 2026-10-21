@@ -1637,7 +1637,7 @@ i.mutation "fdc4600f4e8e8625",
   i.mutation "ba5855123c3dddaf",
              subject: "Saboteur::Reporter::Terminal#inline_suppressions",
              reason: "equivalent: the each block only writes to @out and its return value is discarded by the caller, so each and map print the same lines"
-  i.mutation "33d41097d8a2dbd9",
+  i.mutation "809c9c6decf749bc",
              subject: "Saboteur::Reporter::Terminal#skipped_subjects",
              reason: "equivalent: the each block only writes to @out and its return value is discarded by the caller, so each and map print the same lines"
   i.mutation "fd5cf2309d9efb13",
