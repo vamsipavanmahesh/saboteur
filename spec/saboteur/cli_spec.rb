@@ -1668,9 +1668,10 @@ RSpec.describe Saboteur::CLI, "details" do
     described_class.new(argv, out:, err:)
   end
 
-  it "prints only the usage line for an unknown command" do
+  it "names an unknown command, then prints the usage line" do
     cli("explode").call
-    expect(err.string).to eq("#{described_class::USAGE}\n")
+    expect(err.string).to eq("unknown command: explode. Run 'saboteur help' for the commands.\n" \
+                             "#{described_class::USAGE}\n")
   end
 
   it "parses --allow-focus into the allow_focus config key" do
