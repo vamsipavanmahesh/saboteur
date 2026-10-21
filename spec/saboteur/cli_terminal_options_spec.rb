@@ -24,28 +24,33 @@ RSpec.describe Saboteur::CLI, "terminal options" do
   it "defaults to a quiet reporter with automatic colour" do
     run_with
     expect(Saboteur::Reporter::Terminal).to have_received(:new)
-      .with(out, verbose: false, color: :auto, replay_command: kind_of(Proc), all_mutants: false)
+      .with(out, verbose: false, color: :auto, replay_command: kind_of(Proc), all_mutants: false,
+                 exit_code: 0, threshold: nil, previous_score: nil)
   end
 
   it "passes --verbose to the reporter" do
     run_with("--verbose")
     expect(Saboteur::Reporter::Terminal).to have_received(:new)
-      .with(out, verbose: true, color: :auto, replay_command: kind_of(Proc), all_mutants: false)
+      .with(out, verbose: true, color: :auto, replay_command: kind_of(Proc), all_mutants: false,
+                 exit_code: 0, threshold: nil, previous_score: nil)
   end
 
   it "passes --color and --no-color to the reporter" do
     run_with("--color")
     expect(Saboteur::Reporter::Terminal).to have_received(:new)
-      .with(out, verbose: false, color: :always, replay_command: kind_of(Proc), all_mutants: false)
+      .with(out, verbose: false, color: :always, replay_command: kind_of(Proc), all_mutants: false,
+                 exit_code: 0, threshold: nil, previous_score: nil)
     run_with("--no-color")
     expect(Saboteur::Reporter::Terminal).to have_received(:new)
-      .with(out, verbose: false, color: :never, replay_command: kind_of(Proc), all_mutants: false)
+      .with(out, verbose: false, color: :never, replay_command: kind_of(Proc), all_mutants: false,
+                 exit_code: 0, threshold: nil, previous_score: nil)
   end
 
   it "passes --all-mutants to the reporter, defaulting to collapsed findings" do
     run_with("--all-mutants")
     expect(Saboteur::Reporter::Terminal).to have_received(:new)
-      .with(out, verbose: false, color: :auto, replay_command: kind_of(Proc), all_mutants: true)
+      .with(out, verbose: false, color: :auto, replay_command: kind_of(Proc), all_mutants: true,
+                 exit_code: 0, threshold: nil, previous_score: nil)
   end
 
   describe "--fail-fast" do

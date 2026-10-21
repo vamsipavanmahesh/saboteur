@@ -4,8 +4,7 @@ How saboteur's own messages are written. This is a contributor convention:
 it applies to every warning and note the tool prints or records - anything
 that goes through `Diagnostics#warn` (report warnings), `#inform` (stderr
 notes) or `#announce` (both), or that the CLI prints to stderr. Progress
-marks, the legend and usage errors are not warnings and keep their own
-formats.
+marks and usage errors are not warnings and keep their own formats.
 
 A warning a user cannot act on in one read is noise. Field reports (#309,
 #311, #312, #316) showed the same failure shape: a correct message that

@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require_relative "../reporter/score_history"
+require_relative "../reporter/history_reader"
 require_relative "../reporter/history_paths"
 
 module Saboteur
@@ -12,11 +13,17 @@ module Saboteur
 
       def text_run(report, engine)
         @err.puts
+        # Classify before printing: the terminal's closing verdict line names
+        # the exit and its reason, so the code must be known up front. The
+        # gate and skip notes exit_code writes to @err now precede the
+        # report instead of following it.
+        code = exit_code(report)
         Reporter::Terminal.new(@out, verbose: @verbose || false, color: @color || :auto,
                                      replay_command: survivor_replay_command(report, engine),
-                                     all_mutants: options[:all_mutants] || false).call(report)
+                                     all_mutants: options[:all_mutants] || false,
+                                     exit_code: code, threshold: config["threshold"],
+                                     previous_score: previous_score).call(report)
         Reporter::Replay.new(@out).call(report) if options[:id]
-        code = exit_code(report)
         # The JSON carries the exit cause an outer harness trusts, so it is
         # the completion evidence for the whole run: write it only after
         # every other fallible reporting stage, or a late failure would
@@ -64,6 +71,18 @@ module Saboteur
       # selection options, assembled by the same code that writes the agent
       # follow-ups, so the user never reassembles them by hand (#261).
       # Computed lazily: only a run with survivors asks for it.
+      # The headline's delta: the covered score of the last history record.
+      # The history is auxiliary evidence (#296): anything unreadable simply
+      # means no delta, since validate_history reports real corruption.
+      def previous_score
+        path = config.path("score_history")
+        return unless path && File.exist?(path)
+
+        Reporter::HistoryReader.read(path).last&.fetch("coveredScore", nil)
+      rescue Error
+        nil
+      end
+
       def survivor_replay_command(report, engine)
         lambda do |digest|
           tree = WorkingTree.new(config.root, ignored: config.ignored_tree_paths).state

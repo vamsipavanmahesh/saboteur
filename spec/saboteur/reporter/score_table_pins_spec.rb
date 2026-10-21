@@ -59,6 +59,6 @@ RSpec.describe Saboteur::Reporter::ScoreTable do
     report = Saboteur::Report.new(results:, subjects: results.map(&:subject).uniq, wall_time: 1.0, root: dir,
                                   warnings: [], seed: 1)
     described_class.new(out, palette).call(report)
-    expect(out.string.lines[2]).to eq("  f01.rb    0.0 %  1 survivor\n")
+    expect(out.string.lines[2]).to eq("  f01.rb    0.0% (0/1)\n")
   end
 end

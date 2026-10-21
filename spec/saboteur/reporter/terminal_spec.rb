@@ -20,8 +20,8 @@ RSpec.describe Saboteur::Reporter::Terminal do
                   verbose: true)
     expect(text).to include(
       "1 subjects, 2 mutants, wall 1.25 s, seed 1 (repeat with --seed 1)",
-      "killed 1  survived 1  timeout 0  resource limit 0  error 0  skipped 0",
-      "score 50.0 %",
+      "Score: 50.0% (1/2 killed, tested subjects)",
+      "saboteur: 1 killed, 1 survived in 1s - score 50.0%",
       "mean time per executed mutant 0.500 s",
       "person.rb:2 in Person#adult?",
       "- comparison >= -> > "
@@ -149,9 +149,9 @@ RSpec.describe Saboteur::Reporter::Terminal do
     expect(render(complete)).not_to include("stopped before every covering test ran")
   end
 
-  it "ends a run with survivors on the next steps, after the legend, and a clean run without them" do
+  it "ends a run with the canonical line, then the verdict, then the next steps" do
     text = render(report_of(result_for(:killed), result_for(:survived)))
-    expect(text.index("legend:")).to be < text.index("Next steps:")
+    expect(text.index("saboteur: 1 killed, 1 survived")).to be < text.index("Next steps:")
   end
 
   it "prints the complete replay command when the run provides one (#261)" do
@@ -208,7 +208,7 @@ RSpec.describe Saboteur::Reporter::Terminal do
 
   it "words the timeout legend as an exceeded deadline, not a hang" do
     text = render(report_of(result_for(:timeout)))
-    expect(text).to include("timeout: exceeded its deadline")
+    expect(text).to include("1 timeout")
     expect(text).not_to include("hung")
   end
 
@@ -298,7 +298,7 @@ RSpec.describe Saboteur::Reporter::Terminal do
     expect(render(report)).to include("#{File.basename(subject.file)}:3 in Kyc#check")
   end
 
-  it "lists a per-file score table, worst first, and a status legend" do
+  it "lists a per-file score table, worst first" do
     other = subjects_in("class Other\n  def m; 1; end\nend\n").first
     edit = Saboteur::MutationSource::Edit.new(file: other.file, start_byte: other.file_source.index("1"),
                                               end_byte: other.file_source.index("1") + 1, replacement: "2")
@@ -307,7 +307,7 @@ RSpec.describe Saboteur::Reporter::Terminal do
     report = Saboteur::Report.new(results: [result_for(:survived), killed], subjects: [person_subject, other],
                                   wall_time: 1.0, root: File.dirname(person_subject.file))
     text = render(report)
-    expect(text).to include("Score by file (worst first):", "legend: killed: a test failed")
+    expect(text).to include("Score by file (worst first):")
     expect(text.index("person.rb  ")).to be < text.index("#{File.basename(other.file)}  ")
   end
 
@@ -322,15 +322,15 @@ RSpec.describe Saboteur::Reporter::Terminal do
                             result_for(:ran_at_load, reason: Saboteur::Selection::CoverageMap::RAN_AT_LOAD),
                             result_for(:unreachable, reason: "a captured Method still calls the original")))
     expect(text).to include(
-      "killed 1  survived 0  timeout 0  resource limit 0  error 0  skipped 0  ran at load 1  unreachable 1",
       "Ran at load (out of the score):", "Unreachable (out of the score):",
-      "hint: ran at load:", "score 100.0 %"
+      "hint: ran at load:", "Score: 100.0% (1/1 killed, tested subjects)"
     )
   end
 
   it "lists errors separately and does not call them killed" do
     text = render(report_of(result_for(:error, reason: "child killed by signal 9 during tests")))
-    expect(text).to include("killed 0", "error 1", "Errors (not counted as killed):", "signal 9")
+    expect(text).to include("1 error", "Errors (not counted as killed):", "signal 9")
+    expect(text).not_to include("1 killed")
   end
 
   # A rejected kill's reason carries the child's full failure detail: the
@@ -354,25 +354,28 @@ RSpec.describe Saboteur::Reporter::Terminal do
   end
 
   it "adds an unverified count to the summary line when some mutants ran unverified (#296)" do
-    line = render(report_of(result_for(:killed), result_for(:unverified))).lines.find { |l| l.include?("killed ") }
-    expect(line).to include("unverified 1")
+    line = render(report_of(result_for(:killed), result_for(:unverified))).lines.find do |l|
+      l.start_with?("saboteur: ")
+    end
+    expect(line).to include("1 unverified")
   end
 
   it "omits the unverified count from the summary line when none ran unverified (#296)" do
-    line = render(report_of(result_for(:killed))).lines.find { |l| l.include?("killed ") }
+    line = render(report_of(result_for(:killed))).lines.find { |l| l.start_with?("saboteur: ") }
     expect(line).not_to include("unverified")
   end
 
   it "shows skip reasons, warnings and ignored survivors" do
     survivor = result_for(:survived)
     survivor.ignored = "equivalent: ages are integers"
-    text = render(report_of(survivor, result_for(:skipped, reason: "no coverage"), warnings: ["stale entry"]))
-    expect(text).to include("survived 1 (1 ignored)", "mutant locations not reached: 1", "warning: stale entry",
+    text = render(report_of(survivor, result_for(:skipped, reason: "no coverage"), warnings: ["stale entry"]),
+                  verbose: true)
+    expect(text).to include("1 accepted", "mutant locations not reached: 1", "warning: stale entry",
                             "ignored: equivalent: ages are integers")
   end
 
   it "prints other mutant skip reasons with the generic wording (#1087)" do
-    text = render(report_of(result_for(:skipped, reason: "filtered")))
+    text = render(report_of(result_for(:skipped, reason: "filtered")), verbose: true)
     expect(text).to include("skipped: filtered: 1")
   end
 
@@ -488,7 +491,7 @@ RSpec.describe Saboteur::Reporter::Terminal do
   it "splits the score into assertion and crash shares" do
     text = verbose_render(report_of(result_for(:killed, kill_cause: "assertion"),
                                     result_for(:killed, replacement: "<", kill_cause: "NoMethodError")))
-    expect(text).to include("score 100.0 % (assertion 50.0 %, crash 50.0 %)",
+    expect(text).to include("Score: 100.0% (2/2 killed, tested subjects) (assertion 50.0 %, crash 50.0 %)",
                             "(killed+timeout)/(killed+survived+timeout); errors, resource limits and skips excluded")
   end
 
@@ -530,14 +533,15 @@ RSpec.describe Saboteur::Reporter::Terminal do
   end
 
   it "leaves the split out when no kill has a recorded cause" do
-    expect(verbose_render(report_of(result_for(:killed)))).to include("score 100.0 % (killed+timeout)")
+    expect(verbose_render(report_of(result_for(:killed))))
+      .to include("Score: 100.0% (1/1 killed, tested subjects) (killed+timeout)")
   end
 
   it "scores the whole-body mutants on their own line" do
     text = verbose_render(report_of(result_for(:killed, coarse: true, kill_cause: "NoMethodError"),
                                     result_for(:killed, replacement: "<", kill_cause: "assertion"),
                                     result_for(:survived, replacement: "==")))
-    expect(text).to include("score 66.7 % (assertion 33.3 %, crash 33.3 %)",
+    expect(text).to include("Score: 66.7% (2/3 killed, tested subjects) (assertion 33.3 %, crash 33.3 %)",
                             "score without whole-body mutants 50.0 % (assertion 50.0 %, crash 0.0 %) " \
                             "(2 mutants); whole-body mutants alone 100.0 % (1)")
   end
@@ -563,11 +567,11 @@ RSpec.describe Saboteur::Reporter::Terminal do
 
   it "shows resource-limit stops as their own status" do
     text = render(report_of(result_for(:resource_limit, reason: "process tree reached 70 processes (limit 64)")))
-    expect(text).to include("resource limit 1")
+    expect(text).to include("1 resource limit")
   end
 
   it "prints n/a for the score when nothing ran" do
-    expect(render(report_of)).to include("score n/a")
+    expect(render(report_of)).to include("Score: n/a - nothing tested")
   end
 
   # 31 errored + 9 killed prints "score 100.0 %" over "the run tested almost
@@ -575,7 +579,7 @@ RSpec.describe Saboteur::Reporter::Terminal do
   # run says so instead of quoting a perfect score (#557).
   it "prints the scored share, not a bare score, when most executed mutants errored" do
     text = render(report_of(result_for(:killed), *Array.new(3) { result_for(:error) }))
-    expect(text).to include("score n/a (1 of 4 mutants scored, 100.0 % of scored)")
+    expect(text).to include("Score: n/a (1 of 4 mutants scored, 100.0 % of scored)")
   end
 end
 

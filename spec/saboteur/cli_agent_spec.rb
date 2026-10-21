@@ -62,7 +62,7 @@ RSpec.describe Saboteur::CLI, "agent mode" do
     engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report)
     allow(Saboteur::Engine).to receive(:new).and_return(engine)
     expect(cli("run", "--json", File.join(Dir.mktmpdir, "r.json")).call).to eq(0)
-    expect(out.string).to include("score 100.0 %")
+    expect(out.string).to include("Score: 100.0% (1/1 killed, tested subjects)")
   end
 
   it "answers a config error with a JSON payload and exit 2" do

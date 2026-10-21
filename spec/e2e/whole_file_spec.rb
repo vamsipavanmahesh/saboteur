@@ -16,6 +16,6 @@ RSpec.describe "whole_file re-evaluation (end to end)", :e2e do
     expect(statuses_on(10)).to eq(["Killed"])
     expect(statuses_on(6)).to eq([])
     expect(mutants(run).map { |m| m["status"] }).not_to include("Survived")
-    expect(run.out).to include("Doubled#replaced lib/doubled.rb:5: no coverage")
+    expect(run.out).to include("Doubled#replaced (lib/doubled.rb:5)")
   end
 end

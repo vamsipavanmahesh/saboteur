@@ -50,7 +50,7 @@ RSpec.describe "rejected kill accounting" do
     report = Saboteur::Report.new(results: results, subjects: [subject_under_test], wall_time: 0.1, root: Dir.pwd)
     terminal = StringIO.new
     Saboteur::Reporter::Terminal.new(terminal).call(report)
-    expect(terminal.string).to include("error 2 (2 rejected kills)")
+    expect(terminal.string).to include("2 errors (2 rejected kills)")
     expect(terminal.string).to include("Rejected kills (tests also fail with the method unchanged")
     expect(terminal.string).not_to include("Errors (not counted as killed):")
   end
@@ -71,7 +71,7 @@ RSpec.describe "rejected kill accounting" do
     report = Saboteur::Report.new(results: results, subjects: [subject_under_test], wall_time: 0.1, root: Dir.pwd)
     terminal = StringIO.new
     Saboteur::Reporter::Terminal.new(terminal).call(report)
-    expect(terminal.string).to include("error 2 (1 rejected kill)")
+    expect(terminal.string).to include("2 errors (1 rejected kill)")
     expect(terminal.string).to include("Rejected kills (tests also fail with the method unchanged")
     expect(terminal.string).to include("Errors (not counted as killed):")
   end
