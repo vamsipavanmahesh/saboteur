@@ -3,7 +3,7 @@
 
 require_relative "support"
 
-RSpec.describe "base_snapshot and readme_update", :fixture do
+RSpec.describe "base_snapshot and docs_update", :fixture do
   def repo
     @fixture.repository(base: @base)
   end
@@ -29,23 +29,29 @@ RSpec.describe "base_snapshot and readme_update", :fixture do
     expect([result.status, result.reason]).to match([:not_applicable, /unverified/])
   end
 
-  it "asks for review when a CLI file changed without README.md" do
+  it "asks for review when a CLI file changed without a docs/ change" do
     @fixture.write("lib/saboteur/cli.rb", "x\n")
     @fixture.commit("cli")
-    result = Preflight::Checks::ReadmeUpdate.new(repository: repo).call
-    expect([result.status, result.reason]).to match([:review_required, /README.md did not/])
+    result = Preflight::Checks::DocsUpdate.new(repository: repo).call
+    expect([result.status, result.reason]).to match([:review_required, %r{docs/ did not}])
   end
 
-  it "passes when README.md changes with the CLI file (valid control)" do
+  it "passes when a docs/ file changes with the CLI file (valid control)" do
+    @fixture.write("lib/saboteur/cli.rb", "x\n")
+    @fixture.write("docs/usage.md", "doc\n")
+    @fixture.commit("cli and docs")
+    expect(Preflight::Checks::DocsUpdate.new(repository: repo).call.status).to eq(:passed)
+  end
+  it "still asks for review when only README.md changes with the CLI file" do
     @fixture.write("lib/saboteur/cli.rb", "x\n")
     @fixture.write("README.md", "doc\n")
     @fixture.commit("cli and readme")
-    expect(Preflight::Checks::ReadmeUpdate.new(repository: repo).call.status).to eq(:passed)
+    expect(Preflight::Checks::DocsUpdate.new(repository: repo).call.status).to eq(:review_required)
   end
 
   it "is not applicable when no CLI file changed" do
     @fixture.write("lib/other.rb", "x\n")
     @fixture.commit("other")
-    expect(Preflight::Checks::ReadmeUpdate.new(repository: repo).call.status).to eq(:not_applicable)
+    expect(Preflight::Checks::DocsUpdate.new(repository: repo).call.status).to eq(:not_applicable)
   end
 end
