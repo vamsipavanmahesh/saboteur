@@ -421,7 +421,8 @@ RSpec.describe Saboteur::Doctor do
       File.write(File.join(root, "missing.rb"), "")
       doctor.send(:check_boot_files)
       expect(out.string).to include("require: boot.rb (found)", "hooks: missing.rb (found)",
-                                    "none/*.rb matches no file - point include at your code in config/saboteur.rb")
+                                    "Warning: include: none/*.rb matches no file - point include at your code " \
+                                    "in config/saboteur.rb")
       File.unlink(File.join(root, "boot.rb"))
       expect { doctor.send(:check_boot_files) }.to raise_error(Saboteur::ConfigError, /require file missing/)
     end
