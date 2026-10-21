@@ -38,18 +38,45 @@ module Saboteur
         validate_shard_options
         raise UsageError, "--ignore-empty applies to --since runs" if config["ignore_empty"] && !config["since"]
 
+        validate_baseline_options
+
         Selection::GitDiff.verify_ref!(config["since"], root: config.root) if config["since"]
+      end
+
+      # The run gate needs fresh whole-scope execution evidence, so it
+      # refuses every flag the evidence capture rejects, up front. A missing
+      # or corrupt baseline file is a usage error before the suite boots.
+      def validate_baseline_options
+        raise UsageError, "--epsilon applies with --baseline" if config["epsilon"] && !config["baseline"]
+        if config["epsilon"] && !(0.0..100.0).cover?(config["epsilon"])
+          raise UsageError, "--epsilon must be between 0 and 100"
+        end
+        return unless config["baseline"]
+
+        conflicts = %w[since incremental threshold resume shard].select { |key| config[key] }
+        conflicts << "id" if options[:id]
+        unless conflicts.empty?
+          flags = conflicts.map { |key| "--#{key}" }.join(", ")
+          raise UsageError, "--baseline cannot be combined with #{flags}"
+        end
+        baseline_manifest
       end
 
       # Agent mode allows no score gates (one strict exit 0); the json inventory is --dry-run planning only.
       def reject_format_conflicts
-        if agent? && (config["threshold"] || gates.any?)
-          raise UsageError, "#{config['threshold'] ? '--threshold' : gates.agent_option_name} " \
-                            "cannot be combined with --agent"
+        if agent? && (config["threshold"] || config["baseline"] || gates.any?)
+          raise UsageError, "#{agent_gate_name} cannot be combined with --agent"
         end
         return unless @format == "json" && !options[:dry_run]
 
         raise UsageError, "--format json is the --dry-run mutant inventory; a run summary is --format agent"
+      end
+
+      def agent_gate_name
+        return "--threshold" if config["threshold"]
+        return "--baseline" if config["baseline"]
+
+        gates.agent_option_name
       end
     end
   end

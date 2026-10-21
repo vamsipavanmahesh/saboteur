@@ -885,6 +885,201 @@ RSpec.describe Saboteur::CLI do
       expect(err.string).to include("--ignore-empty applies to --since runs")
     end
 
+    describe "--baseline run gate" do
+      def baseline_file(contents = "{}")
+        path = File.join(Dir.mktmpdir, "baseline.json")
+        File.write(path, contents)
+        path
+      end
+
+      def stub_baseline_load(path)
+        manifest = instance_double(Saboteur::Baseline::Manifest)
+        allow(Saboteur::Baseline::Loader).to receive(:call).with(path)
+                                                           .and_return([manifest, Digest::SHA256.file(path).hexdigest])
+        manifest
+      end
+
+      def gate_double(failed:, incomplete: false, incompatible: false)
+        instance_double(Saboteur::Baseline::RunGate,
+                        failed?: failed, incomplete?: incomplete, incompatible?: incompatible,
+                        comparison: instance_double(Saboteur::Baseline::Comparison, issues: ["scope differs"]))
+      end
+
+      def stub_run(gate)
+        allow(Saboteur::Baseline::RunGate).to receive(:build).and_return(gate)
+        allow(Saboteur::Engine).to receive(:new)
+          .and_return(instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of))
+      end
+
+      it "refuses --baseline with --agent before touching the file" do
+        expect(cli("run", "--agent", "--baseline", "nope/baseline.json").call).to eq(2)
+        expect(err.string).to include("--baseline cannot be combined with --agent")
+      end
+
+      it "refuses --epsilon without --baseline" do
+        expect(cli("run", "--epsilon", "1").call).to eq(2)
+        expect(err.string).to include("--epsilon applies with --baseline")
+      end
+
+      it "refuses an --epsilon outside 0 to 100" do
+        expect(cli("run", "--baseline", "b.json", "--epsilon", "101").call).to eq(2)
+        expect(err.string).to include("--epsilon must be between 0 and 100")
+      end
+
+      it "refuses a negative --epsilon" do
+        expect(cli("run", "--baseline", "b.json", "--epsilon", "-0.5").call).to eq(2)
+        expect(err.string).to include("--epsilon must be between 0 and 100")
+      end
+
+      it "accepts an --epsilon of 99.5" do
+        path = baseline_file
+        stub_baseline_load(path)
+        stub_run(gate_double(failed: false))
+        expect(cli("run", "--baseline", path, "--epsilon", "99.5",
+                   "--json", File.join(Dir.mktmpdir, "r.json")).call).to eq(0)
+      end
+
+      it "refuses --baseline combined with --incremental, --resume, --shard or --id" do
+        expect(cli("run", "--baseline", "b.json", "--incremental").call).to eq(2)
+        expect(err.string).to include("--baseline cannot be combined with --incremental")
+        expect(cli("run", "--baseline", "b.json", "--resume", "state.json").call).to eq(2)
+        expect(err.string).to include("--baseline cannot be combined with --resume")
+        expect(cli("run", "--baseline", "b.json", "--shard", "1/2").call).to eq(2)
+        expect(err.string).to include("--baseline cannot be combined with --shard")
+        expect(cli("run", "--baseline", "b.json", "--id", "abc123").call).to eq(2)
+        expect(err.string).to include("--baseline cannot be combined with --id")
+      end
+
+      it "refuses --baseline combined with scoped or gated runs, naming each flag" do
+        expect(cli("run", "--baseline", "b.json", "--since", "HEAD~1", "--threshold", "90").call).to eq(2)
+        expect(err.string).to include("--baseline cannot be combined with --since, --threshold")
+      end
+
+      it "fails fast with a usage error naming the fix when the file is missing" do
+        expect(cli("run", "--baseline", "nope/baseline.json").call).to eq(2)
+        expect(err.string).to include("--baseline file not found: nope/baseline.json")
+        expect(err.string).to include("saboteur baseline propose")
+      end
+
+      it "fails fast with a usage error naming the fix when the file is not a baseline" do
+        expect(cli("run", "--baseline", baseline_file("not json")).call).to eq(2)
+        expect(err.string).to include("baseline file:")
+        expect(err.string).to include("saboteur baseline propose")
+      end
+
+      it "exits 0 when the run matches the baseline with no new survivors, loading the file once" do
+        path = baseline_file
+        allow(Saboteur::Baseline::RunGate).to receive(:build).and_return(gate_double(failed: false))
+        allow(Saboteur::Engine).to receive(:new)
+          .and_return(instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of))
+        expect(Saboteur::Baseline::Loader).to receive(:call).with(path).once
+                                                            .and_return([instance_double(Saboteur::Baseline::Manifest),
+                                                                         Digest::SHA256.file(path).hexdigest])
+        expect(cli("run", "--baseline", path, "--json", File.join(Dir.mktmpdir, "r.json")).call).to eq(0)
+      end
+
+      it "hands the loaded manifest and the run's report to the gate" do
+        path = baseline_file
+        manifest = stub_baseline_load(path)
+        report = report_of
+        allow(Saboteur::Engine).to receive(:new)
+          .and_return(instance_double(Saboteur::Engine, guessed_tests: nil, call: report))
+        received = nil
+        allow(Saboteur::Baseline::RunGate).to receive(:build) do |manifest:, report:, **|
+          received = [manifest, report]
+          gate_double(failed: false)
+        end
+        result = cli("run", "--baseline", path, "--json", File.join(Dir.mktmpdir, "r.json")).call
+        expect(result).to eq(0)
+        expect(received).to eq([manifest, report])
+      end
+
+      it "builds the gate once per run" do
+        path = baseline_file
+        manifest = stub_baseline_load(path)
+        harness = Class.new do
+          include Saboteur::CLI::BaselineGate
+
+          attr_reader :config
+
+          def initialize(config)
+            @config = config
+          end
+        end.new({ "baseline" => path, "epsilon" => nil })
+        allow(Saboteur::Baseline::RunGate).to receive(:build) { gate_double(failed: false) }
+        expect(harness.send(:baseline_manifest)).to be(manifest) # validation loads it before the suite boots
+        first = harness.send(:baseline_gate, report_of)
+        expect(harness.send(:baseline_gate, report_of)).to be(first)
+      end
+
+      it "fails as a usage error when the baseline file changes during the run" do
+        path = baseline_file
+        stub_baseline_load(path)
+        allow(Saboteur::Baseline::RunGate).to receive(:build).and_return(gate_double(failed: false))
+        engine = instance_double(Saboteur::Engine, guessed_tests: nil)
+        allow(engine).to receive(:call) do
+          File.write(path, "{ }")
+          report_of
+        end
+        allow(Saboteur::Engine).to receive(:new).and_return(engine)
+        expect(cli("run", "--baseline", path, "--json", File.join(Dir.mktmpdir, "r.json")).call).to eq(2)
+        expect(err.string).to include("baseline changed during the run")
+      end
+
+      it "exits 1 when the gate reports new survivors or an excess score drop" do
+        path = baseline_file
+        stub_baseline_load(path)
+        stub_run(gate_double(failed: true))
+        expect(cli("run", "--baseline", path, "--json", File.join(Dir.mktmpdir, "r.json")).call).to eq(1)
+      end
+
+      it "exits 3 when the comparison is incomplete" do
+        path = baseline_file
+        stub_baseline_load(path)
+        stub_run(gate_double(failed: false, incomplete: true))
+        expect(cli("run", "--baseline", path, "--json", File.join(Dir.mktmpdir, "r.json")).call).to eq(3)
+      end
+
+      it "exits 2 with the issues when the baseline is incompatible with the run" do
+        path = baseline_file
+        stub_baseline_load(path)
+        stub_run(gate_double(failed: false, incompatible: true))
+        expect(cli("run", "--baseline", path, "--json", File.join(Dir.mktmpdir, "r.json")).call).to eq(2)
+        expect(err.string).to include("scope differs")
+      end
+
+      it "describes --baseline and --epsilon in run help" do
+        Saboteur::CLI.new(%w[run --help], out: out, err: StringIO.new).call
+        expect(out.string).to include("Gate the run on an accepted baseline",
+                                      "propose one with: saboteur baseline propose",
+                                      "With --baseline: allowed score drop in percentage points",
+                                      "(default 0: any drop fails)")
+      end
+
+      it "parses --epsilon as a float handed to the gate" do
+        path = baseline_file
+        stub_baseline_load(path)
+        allow(Saboteur::Engine).to receive(:new)
+          .and_return(instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of))
+        expect(Saboteur::Baseline::RunGate).to receive(:build) do |epsilon:, **|
+          expect(epsilon).to eq(0.5)
+          gate_double(failed: false)
+        end
+        expect(cli("run", "--baseline", path, "--epsilon", "0.5",
+                   "--json", File.join(Dir.mktmpdir, "r.json")).call).to eq(0)
+      end
+
+      it "asks the engine to capture execution evidence with the baseline among the input files" do
+        path = baseline_file
+        stub_baseline_load(path)
+        allow(Saboteur::Baseline::RunGate).to receive(:build).and_return(gate_double(failed: false))
+        engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of)
+        expect(Saboteur::Engine).to receive(:new)
+          .with(anything, hash_including(capture_evidence: true, evidence_files: [path])).and_return(engine)
+        expect(cli("run", "--baseline", path, "--json", File.join(Dir.mktmpdir, "r.json")).call).to eq(0)
+      end
+    end
+
     it "is 3 under --threshold when some mutants errored, even with a passing score" do
       report = report_of(result_for(:killed), result_for(:error))
       allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, guessed_tests: nil,

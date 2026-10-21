@@ -165,7 +165,7 @@ RSpec.describe Saboteur::CLI::RunValidation do
         allow(cli).to receive(:config).and_return(instance_double(Saboteur::Config, root: "/proj")
           .tap do |config|
             allow(config).to receive(:[]) do |key|
-              { "since" => "main", "ignore_empty" => false }.fetch(key)
+              { "since" => "main", "ignore_empty" => false, "baseline" => nil, "epsilon" => nil }.fetch(key)
             end
           end)
 

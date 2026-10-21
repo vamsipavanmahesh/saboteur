@@ -62,6 +62,8 @@ module Saboteur
         arguments = { err: @err,
                       palette: Reporter::Palette.for(@err, mode: @color || :auto, overrides: config["palette"]) }
         arguments[:digest] = options[:id] if options[:id]
+        arguments[:capture_evidence] = true if config["baseline"]
+        arguments[:evidence_files] = [config["baseline"]] if config["baseline"]
         return agent_run(arguments) if agent?
 
         # Text mode only: the engine prints a per-subject marks line when

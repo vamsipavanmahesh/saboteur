@@ -104,6 +104,8 @@ module Saboteur
       "max_duration" => nil,
       "max_duration_ok" => false,
       "ignore_empty" => false,
+      "baseline" => nil,
+      "epsilon" => nil,
       "tests" => [],
       "test_command" => nil,
       "fingerprint_extra" => [],
