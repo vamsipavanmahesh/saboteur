@@ -18,6 +18,15 @@ RSpec.describe Saboteur::MutationSource::Builtin do
     end
   end
 
+  describe "identity" do
+    it "is the builtin source and labels its own mutations with that name" do
+      subject = subjects_in("class K\n  def m(a)\n    a >= 1\n  end\nend\n").first
+      source = described_class.new(operators: ["comparison"])
+      expect(source.name).to eq("builtin")
+      expect(source.mutations_for(subject).map(&:source).uniq).to eq(["builtin"])
+    end
+  end
+
   describe "operator wiring" do
     it "wires arid into regex_replacement too" do
       regex = subjects_in("class K\n  def m(input)\n    input =~ /\A\d+\z/\n  end\nend\n").first
@@ -165,6 +174,7 @@ RSpec.describe Saboteur::MutationSource::Builtin do
       expect(texts("    a + 1.5", "literal_number")).to eq(["a + 2.5", "a + 0.5", "a + 0.0"])
       expect(texts("    a + 0", "literal_number")).to eq(["a + 1", "a + (-1)"])
       expect(texts("    a + 1", "literal_number")).to eq(["a + 2", "a + 0"])
+      expect(texts("    a + 0x0", "literal_number")).to eq(["a + 1", "a + (-1)"])
     end
   end
 
