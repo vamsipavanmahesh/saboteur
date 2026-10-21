@@ -35,10 +35,11 @@ RSpec.describe Saboteur::Engine, "test selection" do
   end
   let(:err) { StringIO.new }
 
-  def run_engine(overrides)
+  def run_engine(overrides, verbose = nil)
     stub_boot_phase
     stub_test_phases
-    @engine = described_class.new(Saboteur::Config.new({ "jobs" => 2 }.merge(overrides), root: @root), err: err)
+    @engine = described_class.new(Saboteur::Config.new({ "jobs" => 2 }.merge(overrides), root: @root),
+                                  err: err, verbose: verbose || false)
     @engine.call
   end
 
@@ -172,7 +173,7 @@ RSpec.describe Saboteur::Engine, "test selection" do
   end
 
   it "says something while the application loads, before any pass starts" do
-    run_engine("since" => "origin/main", "all" => true)
+    run_engine({ "since" => "origin/main", "all" => true }, true)
     expect(err.string).to include("loading the application")
     expect(err.string.index("loading the application"))
       .to be < err.string.index("checking the unchanged suite")
@@ -193,7 +194,7 @@ RSpec.describe Saboteur::Engine, "test selection" do
       guess(specs: %w[spec/a_spec.rb spec/requests/a_spec.rb], unmatched: [], changed: 1,
             changed_specs: %w[spec/requests/a_spec.rb],
             skipped_specs: { "spec/old_spec.rb" => "deleted in the diff" })
-      used = tests_the_run_used { run_engine("since" => "origin/main") }
+      used = tests_the_run_used { run_engine({ "since" => "origin/main" }, true) }
       expect(used).to eq(%w[spec/a_spec.rb spec/requests/a_spec.rb])
       expect(err.string).to include("inferred specs: running only spec/a_spec.rb, spec/requests/a_spec.rb " \
                                     "(changed in the diff: spec/requests/a_spec.rb). A spec the diff did not change " \
@@ -210,7 +211,7 @@ RSpec.describe Saboteur::Engine, "test selection" do
 
     it "scopes the run to the inferred specs and says which" do
       guess(specs: %w[spec/a_spec.rb spec/b_spec.rb], unmatched: [], changed: 2)
-      used = tests_the_run_used { @report = run_engine("since" => "origin/main") }
+      used = tests_the_run_used { @report = run_engine({ "since" => "origin/main" }, true) }
       expect(used).to eq(%w[spec/a_spec.rb spec/b_spec.rb])
       expect(Saboteur::Engine::TestGuess).to have_received(:new)
         .with(an_instance_of(Saboteur::Config), diagnostics: @engine.instance_variable_get(:@diagnostics),
@@ -235,7 +236,7 @@ RSpec.describe Saboteur::Engine, "test selection" do
     # the terminal's skip of live-announced warnings (#605, Pod 1 KC1/KC2).
     it "prints the blind-spot caveat exactly once across the whole run and report (#605)" do
       guess(specs: %w[spec/a_spec.rb spec/b_spec.rb], unmatched: [], changed: 2)
-      @report = run_engine("since" => "origin/main")
+      @report = run_engine({ "since" => "origin/main" }, true)
       Saboteur::Reporter::Terminal.new(err).call(@report)
 
       expect(@report.warnings).to include(a_string_starting_with("inferred specs: running only"))
@@ -340,7 +341,7 @@ RSpec.describe Saboteur::Engine, "test selection" do
     # (#369 review dogfood).
     it "names excluded files alongside the specs that still run" do
       guess(specs: ["a_spec.rb"], unmatched: [], changed: 2, excluded: ["lib/b.rb"])
-      used = tests_the_run_used { run_engine("since" => "origin/main") }
+      used = tests_the_run_used { run_engine({ "since" => "origin/main" }, true) }
       expect(used).to eq(["a_spec.rb"])
       expect(err.string).to include("no spec is required for lib/b.rb: intentionally untested")
       expect(err.string).to include("running only a_spec.rb")
@@ -402,7 +403,7 @@ RSpec.describe Saboteur::Engine, "test selection" do
 
     it "notes skipped subjectless files while scoping to the inferred specs" do
       guess(specs: ["spec/a_spec.rb"], unmatched: [], changed: 2, subjectless: ["lib/errors.rb"])
-      used = tests_the_run_used { run_engine("since" => "origin/main") }
+      used = tests_the_run_used { run_engine({ "since" => "origin/main" }, true) }
       expect(used).to eq(["spec/a_spec.rb"])
       expect(err.string).to include("inferred specs: running only spec/a_spec.rb")
       expect(err.string).to include("no spec is required for lib/errors.rb")
@@ -418,7 +419,7 @@ RSpec.describe Saboteur::Engine, "test selection" do
 
     it "does not stop when an included file changed even if out-of-scope files are listed (#483)" do
       guess(specs: ["spec/a_spec.rb"], unmatched: [], changed: 1, out_of_scope: ["engines/billing/lib/billing.rb"])
-      expect { run_engine("since" => "origin/main") }.not_to raise_error
+      expect { run_engine({ "since" => "origin/main" }, true) }.not_to raise_error
       expect(err.string).to include("inferred specs: running only spec/a_spec.rb")
     end
 
@@ -448,7 +449,7 @@ RSpec.describe Saboteur::Engine, "test selection" do
 
     it "infers specs from the configured sources without --since" do
       guess(specs: ["spec/a_spec.rb"], unmatched: [], changed: 1)
-      used = tests_the_run_used { run_engine({}) }
+      used = tests_the_run_used { run_engine({}, true) }
       expect(used).to eq(["spec/a_spec.rb"])
       expect(err.string).to include("inferred specs: running only spec/a_spec.rb")
       expect(err.string).not_to include("running the loaded suite unscoped")
@@ -649,11 +650,11 @@ RSpec.describe Saboteur::Engine, "test selection" do
 
   it "says a changed file with --since and a source file without in the inference warning" do
     guess(specs: ["spec/a_spec.rb"], unmatched: [], changed: 1)
-    run_engine("since" => "origin/main")
+    run_engine({ "since" => "origin/main" }, true)
     expect(err.string).to include("A spec the diff did not change that reaches a changed file only through " \
                                   "another file does not run")
     guess(specs: ["spec/a_spec.rb"], unmatched: [], changed: 1)
-    run_engine({})
+    run_engine({}, true)
     expect(err.string).to include("A spec that reaches a source file only through another file does not run")
   end
 

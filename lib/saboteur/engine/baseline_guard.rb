@@ -46,7 +46,7 @@ module Saboteur
           expected.empty?
 
         passes = @config["baseline_passes"]
-        @diagnostics.inform(announce(passes))
+        @diagnostics.detail(announce(passes))
         previous = nil
         passes.times do |index|
           break if budget_spent?(index)
@@ -114,7 +114,7 @@ module Saboteur
         work << "the remaining #{remaining} full #{remaining == 1 ? 'pass' : 'passes'}" if remaining.positive?
         work << "the coverage map build" if coverage_pending
         total = remaining + (coverage_pending ? 1 : 0)
-        @diagnostics.inform("baseline check #{number} took #{elapsed} s; about #{elapsed * total} s left for " \
+        @diagnostics.detail("baseline check #{number} took #{elapsed} s; about #{elapsed * total} s left for " \
                             "#{work.join(' and ')} at that rate")
       end
 

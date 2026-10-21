@@ -100,7 +100,7 @@ RSpec.describe Saboteur::Engine::BaselineParts do
 
   it "prepares the heap, watches the first part's log and ticks the heartbeat" do
     heartbeat = instance_double(Saboteur::Engine::Diagnostics::ProgressHeartbeat, tick: nil)
-    diagnostics = instance_double(Saboteur::Engine::Diagnostics, inform: nil)
+    diagnostics = instance_double(Saboteur::Engine::Diagnostics, inform: nil, detail: nil)
     allow(diagnostics).to receive(:progress_heartbeat).and_return(heartbeat)
     allow(heartbeat).to receive(:watch).and_return(heartbeat)
     allow(Saboteur::Execution::ForkReadiness).to receive(:prepare_heap)

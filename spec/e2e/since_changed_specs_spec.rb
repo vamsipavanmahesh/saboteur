@@ -50,7 +50,9 @@ RSpec.describe "saboteur run --since: specs changed in the diff", :e2e do
         it("reports an error") { expect(Serializer.status(1)).to eq("error") }
       end
     RUBY
-    run = saboteur(dir, "--since", "HEAD")
+    # --verbose: the paragraph with the changed-in-the-diff annotation is
+    # verbose-only since the quiet start (PR4) folds it into a count line.
+    run = saboteur(dir, "--since", "HEAD", "--verbose")
 
     statuses = mutants(run).map { |m| m["status"] }
     expect(statuses).not_to be_empty
@@ -61,7 +63,8 @@ RSpec.describe "saboteur run --since: specs changed in the diff", :e2e do
 
   it "names a spec the diff deletes instead of running it" do
     File.delete(File.join(dir, "spec", "stage_slow_spec.rb"))
-    run = saboteur(dir, "--since", "HEAD")
+    # --verbose: the inferred-specs paragraph is verbose-only since PR4.
+    run = saboteur(dir, "--since", "HEAD", "--verbose")
 
     expect(run.err).to include("inferred specs: not running spec files changed in the diff: " \
                                "spec/stage_slow_spec.rb (deleted in the diff)")

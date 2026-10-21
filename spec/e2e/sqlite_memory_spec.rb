@@ -42,6 +42,8 @@ RSpec.describe "sqlite :memory: schema loaded at require time (#387)", :e2e do
 
     run = saboteur(dir, "--all")
     expect(run.status).to eq(0)
-    expect(run.err).to include("baseline check 1 took")
+    # The quiet start (PR4) reports the baseline as one summary line; no
+    # glyph in the needle, so the assertion holds in both locale legs.
+    expect(run.err).to include("baseline green (2 passes,")
   end
 end

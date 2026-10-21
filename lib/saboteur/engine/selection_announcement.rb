@@ -27,8 +27,15 @@ module Saboteur
       end
 
       def announce_selection(guess)
-        if guess.changed.zero? || guess.specs.any?
+        if guess.changed.zero?
           @diagnostics.announce(selection_message(guess))
+        elsif guess.specs.any?
+          @quiet_spec_count = guess.specs.size
+          if @diagnostics.verbose || !@diagnostics.quiet_start
+            @diagnostics.announce(selection_message(guess))
+          else
+            @diagnostics.announce_demoted(selection_message(guess))
+          end
         else
           @diagnostics.inform(selection_message(guess))
         end
