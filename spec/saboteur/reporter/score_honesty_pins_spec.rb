@@ -11,6 +11,16 @@ require "json"
 # n/a, never a percentage; the closing lines say what the run found, how
 # long it took, and why it exits the way it does.
 RSpec.describe "score honesty" do
+  # The goldens pin the UTF-8 glyphs; force a UTF-8 locale so a
+  # C-locale CI leg does not downgrade them to their ASCII fallbacks.
+  around do |example|
+    saved = ENV.to_h.slice("LC_ALL", "LC_CTYPE", "LANG")
+    ENV["LC_ALL"] = "C.UTF-8"
+    example.run
+  ensure
+    keys = %w[LC_ALL LC_CTYPE LANG]
+    keys.each { |key| saved.key?(key) ? ENV[key] = saved[key] : ENV.delete(key) }
+  end
   after { FileUtils.rm_rf(dir) }
 
   let(:dir) { File.realpath(Dir.mktmpdir("saboteur-honesty-")) }
@@ -138,8 +148,8 @@ RSpec.describe "score honesty" do
 
       \e[33mNot scored - no tests exist (treat these as your biggest gaps):\e[0m
         \e[33m!\e[0m Calculator#shipping_cost (calculator.rb:6) · Cart#total (cart.rb:2) · Cart#biggest (cart.rb:6)
-      saboteur: \e[32m3 killed\e[0m, \e[31m1 survived\e[0m, \e[33m1 timeout\e[0m, 3 subjects untested in 1m02s - score 80.0%
-      \e[31m✗ exit 1 - 1 survivor\e[0m
+      saboteur: \e[32m3 killed\e[0m, \e[31;1m1 survived\e[0m, \e[33m1 timeout\e[0m, 3 subjects untested in 1m02s - score 80.0%
+      \e[31;1m✗ exit 1 - 1 survivor\e[0m
 
       \e[1mNext steps:\e[0m
         replay one survivor: saboteur run --id #{digest} --seed 7
@@ -279,7 +289,7 @@ RSpec.describe "score honesty" do
     end
 
     it "paints the score red below the threshold, green at or above it, plain without one" do
-      expect(render(band_report, color: :always, threshold: 80)).to include("\e[31m50.0%\e[0m")
+      expect(render(band_report, color: :always, threshold: 80)).to include("\e[31;1m50.0%\e[0m")
       clean = Saboteur::Report.new(results: [result(add, :killed)], subjects: [add], wall_time: 1.0, root: dir,
                                    seed: 1)
       expect(render(clean, color: :always, threshold: 80)).to include("\e[32m100.0%\e[0m")
@@ -290,10 +300,10 @@ RSpec.describe "score honesty" do
 
     it "has a yellow state only inside a wider (low, high) band" do
       terminal = Saboteur::Reporter::Terminal.new(out)
-      expect(terminal.send(:band_color, 70, 60, 80)).to eq(:yellow)
-      expect(terminal.send(:band_color, 50, 60, 80)).to eq(:red)
-      expect(terminal.send(:band_color, 80, 60, 80)).to eq(:green)
-      expect(terminal.send(:band_color, 75, 80, 80)).to eq(:red)
+      expect(terminal.send(:band_color, 70, 60, 80)).to eq(:warn)
+      expect(terminal.send(:band_color, 50, 60, 80)).to eq(:fail)
+      expect(terminal.send(:band_color, 80, 60, 80)).to eq(:pass)
+      expect(terminal.send(:band_color, 75, 80, 80)).to eq(:fail)
     end
   end
 
@@ -319,7 +329,7 @@ RSpec.describe "score honesty" do
 
     it "paints the echo red on a break and dim when met" do
       expect(headline_for(headline_report, color: :always, threshold: 80))
-        .to include("\e[31m · threshold 80 (break)\e[0m")
+        .to include("\e[31;1m · threshold 80 (break)\e[0m")
       expect(headline_for(headline_report, color: :always, threshold: 50))
         .to include("\e[2m · threshold 50\e[0m")
     end
@@ -439,6 +449,16 @@ RSpec.describe "score honesty" do
       expect(block.scan("Many#m").size).to eq(10)
       expect(block).to include("· ... 1 more")
       expect(block).not_to include("Many#m11")
+    end
+
+    it "counts the exact overflow past ten not-scored entries" do
+      methods = (1..23).map { |i| "  def m#{i}\n    #{i}\n  end\n" }.join
+      source = "class Many\n#{methods}end\n"
+      many = subjects_for("many.rb", source)
+      skipped = many.to_h { |subject| [subject, "no coverage"] }
+      text = render(honest_report([result(add, :killed)], skipped:, subjects: [add] + many), color: :never)
+      block = text.lines.find { |line| line.start_with?("  !") }
+      expect(block).to include(" · ... 13 more")
     end
 
     it "prints no count-off tail when the Not scored block exactly fills" do
@@ -566,10 +586,10 @@ RSpec.describe "score honesty" do
                  result(add, :killed, to: "== 1"), result(add, :survived, to: "!= 1")]
       text = render(honest_report(results), color: :always, exit_code: 1, threshold: 75.5)
       headline = text.lines.find { |line| line.start_with?("Score: ") }
-      expect(headline).to include("\e[31m75.0%\e[0m")
+      expect(headline).to include("\e[31;1m75.0%\e[0m")
       expect(headline).to include("(break)")
       expect(text.lines.find { |line| line.include?("\u2717") })
-        .to eq("\e[31m\u2717 exit 1 - score 75.0% below threshold 75.5, 1 survivor\e[0m\n")
+        .to eq("\e[31;1m\u2717 exit 1 - score 75.0% below threshold 75.5, 1 survivor\e[0m\n")
     end
 
     it "names an all-unreachable run on exit 3" do

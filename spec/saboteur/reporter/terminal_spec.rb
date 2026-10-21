@@ -314,7 +314,23 @@ RSpec.describe Saboteur::Reporter::Terminal do
   it "adds no colour codes when colour is off, and colours when it is on" do
     report = report_of(result_for(:survived))
     expect(render(report, color: :never)).not_to include("\e[")
-    expect(render(report, color: :always)).to include("\e[31m")
+    expect(render(report, color: :always)).to include("\e[31;1m")
+  end
+
+  it "repaints a token end to end through overrides" do
+    report = report_of(result_for(:survived))
+    expect(render(report, color: :always, overrides: { "fail" => :magenta })).to include("\e[35m")
+  end
+
+  it "paints the early-stop line warn when colour is on" do
+    stop = Saboteur::EarlyStop.new(reason: "fail_fast", unreached: ["Other#x"], truncated: [], unverified: [],
+                                   planned_mutants: 57)
+    stopped = Saboteur::Report.new(results: [result_for(:killed), result_for(:survived)],
+                                   subjects: [person_subject, person_subject], wall_time: 1.25,
+                                   root: File.dirname(person_subject.file), seed: 1, early_stop: stop)
+    text = render(stopped, color: :always)
+    expect(text).to include("\e[33mstopped early")
+    expect(text).to include("the score below covers only completed work")
   end
 
   it "lists ran-at-load and unreachable mutants apart, out of the score" do
