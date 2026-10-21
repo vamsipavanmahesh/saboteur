@@ -28,10 +28,10 @@ module ReportHelpers
   end
 
   def report_of(*results, warnings: [], live_announced: [], policy: nil, memory: nil, referenced: {},
-                skipped_subjects: {})
+                skipped_subjects: {}, reuse_label: nil)
     Saboteur::Report.new(results:, subjects: [person_subject], wall_time: 1.25,
                          root: File.dirname(person_subject.file), warnings:, live_announced:, seed: 1, memory:,
-                         referenced:, skipped_subjects:,
+                         referenced:, skipped_subjects:, reuse_label:,
                          operator_policy: policy || Saboteur::Config.new({}).operator_policy)
   end
 end

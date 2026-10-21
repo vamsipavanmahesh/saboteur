@@ -55,7 +55,8 @@ RSpec.describe Saboteur::Engine::ResultCache do
   it "pins the fingerprint format so a dropped separator or component changes the digest" do
     store = cache
     raw = +""
-    raw << [Saboteur::VERSION, "config-1", "", store.send(:source_set), person_subject.source].join("\0") << "\0"
+    raw << [Saboteur::VERSION, RUBY_ENGINE, RUBY_VERSION, RUBY_PATCHLEVEL, RUBY_PLATFORM, "config-1", "",
+            store.send(:source_set), person_subject.source].join("\0") << "\0"
     raw << Digest::SHA256.hexdigest(person_subject.file_source)
     tests.sort.each do |test|
       raw << test << "\0" << Digest::SHA256.file(File.join(@root, "spec/person_spec.rb")).hexdigest << "\0"
@@ -78,6 +79,19 @@ RSpec.describe Saboteur::Engine::ResultCache do
     stored
     reused = cache.lookup(person_subject, comparison_mutation, tests)
     expect(reused.values_at(:status, :killed_by, :kill_cause)).to eq([:killed, tests.first(1), "assertion"])
+  end
+
+  it "forgets it under a different Ruby runtime (engine, version, patchlevel, platform)" do
+    stored
+    originals = %w[RUBY_ENGINE RUBY_VERSION RUBY_PATCHLEVEL RUBY_PLATFORM].to_h do |constant|
+      [constant, Object.const_get(constant)]
+    end
+    originals.each do |constant, value|
+      stub_const(constant, "other")
+      expect(cache.lookup(person_subject, comparison_mutation, tests)).to be_nil, constant
+      stub_const(constant, value)
+    end
+    expect(cache.lookup(person_subject, comparison_mutation, tests)).not_to be_nil
   end
 
   it "forgets it when a covering test file changes" do
@@ -155,7 +169,9 @@ RSpec.describe Saboteur::Engine::ResultCache do
     store = described_class.new(path: path, root: @root, inputs: "config-1")
 
     expected = Digest::SHA256.new
-    expected << Saboteur::VERSION << "\0" << "config-1" << "\0" << "" << "\0" << store.send(:source_set) << "\0"
+    expected << Saboteur::VERSION << "\0" << RUBY_ENGINE << "\0" << RUBY_VERSION << "\0" \
+      << RUBY_PATCHLEVEL.to_s << "\0" << RUBY_PLATFORM << "\0" << "config-1" << "\0" \
+      << "" << "\0" << store.send(:source_set) << "\0"
     expected << person_subject.source << "\0"
     expected << Digest::SHA256.hexdigest(person_subject.file_source)
     tests.sort.each do |test|

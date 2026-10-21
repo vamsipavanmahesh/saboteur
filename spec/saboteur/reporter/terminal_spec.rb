@@ -717,6 +717,59 @@ RSpec.describe Saboteur::Reporter::Terminal, "details" do
                                       "reused 1 of 1 verdicts from earlier runs")
   end
 
+  it "names a full incremental invalidation instead of staying silent" do
+    report = report_of(result_for(:killed), reuse_label: "--incremental")
+    text = render(report)
+    expect(text).to include(
+      "no verdicts reused from earlier runs (--incremental): first --incremental run, " \
+      "or every mutant's inputs changed"
+    )
+    expect(text).not_to match(/reused 0 of/)
+    expect(render(report_of(result_for(:killed)))).not_to include("verdicts")
+  end
+
+  it "names the reuse flag that was passed, including --resume" do
+    resumed = report_of(result_for(:killed, reused: true), reuse_label: "--resume")
+    expect(render(resumed)).to include("reused 1 of 1 verdicts from earlier runs (--resume)")
+
+    cold_resume = report_of(result_for(:killed), reuse_label: "--resume")
+    expect(render(cold_resume)).to include("no verdicts reused from earlier runs (--resume): first --resume run")
+  end
+
+  it "says nothing about reuse for an empty incremental run" do
+    expect(render(report_of(reuse_label: "--incremental"))).not_to include("verdicts")
+  end
+
+  it "prints the reuse outcome on a clean run (all killed), where CI lives" do
+    clean = render(report_of(result_for(:killed, reused: true), reuse_label: "--incremental"), exit_code: 0)
+    expect(clean).to include("reused 1 of 1 verdicts from earlier runs (--incremental)")
+
+    cold = render(report_of(result_for(:killed), reuse_label: "--incremental"), exit_code: 0)
+    expect(cold).to include("no verdicts reused from earlier runs (--incremental): first --incremental run")
+
+    expect(render(report_of(result_for(:killed)), exit_code: 0)).not_to include("verdicts")
+  end
+
+  it "prints the reuse line for a partially reused non-incremental report" do
+    report = report_of(result_for(:killed, reused: true), result_for(:survived))
+    expect(render(report)).to include("reused 1 of 2 verdicts from earlier runs (--incremental)")
+  end
+
+  it "counts only storable verdicts in the reuse denominator and names the always-rerun rest" do
+    report = report_of(result_for(:killed, reused: true), result_for(:survived, reused: true),
+                       result_for(:skipped), reuse_label: "--incremental")
+    expect(render(report)).to include(
+      "reused 2 of 2 verdicts from earlier runs (--incremental); 1 skipped/errored mutant(s) always rerun"
+    )
+  end
+
+  it "omits the always-rerun suffix when every verdict is storable" do
+    report = report_of(result_for(:killed, reused: true), reuse_label: "--incremental")
+    text = render(report)
+    expect(text).to include("reused 1 of 1 verdicts from earlier runs (--incremental)")
+    expect(text).not_to include("always rerun")
+  end
+
   it "prints no kill line without kills, and no crash lines without crashes" do
     expect(verbose_render(report_of(result_for(:survived)))).not_to include("kills:")
     text = verbose_render(report_of(result_for(:killed, kill_cause: "assertion")))

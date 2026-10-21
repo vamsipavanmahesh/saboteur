@@ -11,6 +11,7 @@ require_relative "score_table"
 require_relative "survivor_list"
 require_relative "survivor_classification"
 require_relative "test_matrix"
+require_relative "reuse_note"
 
 module Saboteur
   module Reporter
@@ -184,6 +185,7 @@ module Saboteur
         @out.puts "#{@palette.paint(:pass, win)} #{total}"
         untested = untested_subjects(report)
         @out.puts "  #{@palette.paint(:warn, untested_win_note(untested))}" if untested.any?
+        ReuseNote.new(@out).print(report)
         clean_reports_line
       end
 
@@ -410,9 +412,7 @@ module Saboteur
 
       def details(report)
         report.skip_reasons.each { |reason, count| @out.puts skip_reason_line(reason, count) } if @verbose
-        reused = report.results.count(&:reused?)
-        @out.puts "reused #{reused} of #{report.results.size} verdicts from earlier runs (--incremental)" if
-          reused.positive?
+        ReuseNote.new(@out).print(report)
         @out.puts "invalid mutations dropped (did not parse): #{report.invalid_mutations}" if
           report.invalid_mutations.positive?
         hazard_suppressions(report)

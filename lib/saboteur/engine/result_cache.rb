@@ -16,7 +16,8 @@ module Saboteur
     # same: the method's source, the whole file the method lives in (so a
     # constant or helper changed elsewhere in that file is seen), the mutant,
     # the set of covering tests, the content of those tests' files, the
-    # lockfile, the run's inputs (config, saboteur version), and every source
+    # lockfile, the run's inputs (config, the saboteur version, the Ruby
+    # runtime's engine, version, patchlevel and platform), and every source
     # file a covering test touched (a method it calls, a constant defined
     # elsewhere - #197). Only killed, survived and timeout are stored;
     # errors and skips always run again.
@@ -162,7 +163,8 @@ module Saboteur
 
       def fingerprint(subject, tests)
         digest = Digest::SHA256.new
-        digest << [VERSION, @inputs, @suite_digest, source_set, subject.source].join("\0") << "\0"
+        digest << [VERSION, RUBY_ENGINE, RUBY_VERSION, RUBY_PATCHLEVEL, RUBY_PLATFORM, @inputs, @suite_digest,
+                   source_set, subject.source].join("\0") << "\0"
         # A hex digest has a fixed width, so it needs no separator after it.
         digest << Digest::SHA256.hexdigest(subject.file_source)
         digest_tests(digest, tests)

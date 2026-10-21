@@ -32,7 +32,9 @@ RSpec.describe "saboteur run with explicit files and a threshold (end to end)", 
   it "does not reuse verdicts from a run with other tests (--incremental)" do
     first = saboteur(dir, "lib/people.rb", "--test", "spec/person_spec.rb", "--incremental")
     second = saboteur(dir, "lib/people.rb", "--test", "spec/stage_spec.rb", "--incremental")
-    expect(first.out).not_to include("reused")
+    expect(first.out).to include("no verdicts reused from earlier runs (--incremental)")
+    # The other test set covers nothing here, so the run selects no mutants:
+    # nothing to reuse, and an empty run prints no reuse note at all.
     expect(second.out).not_to include("reused")
     expect(mutants(second).map { |m| m["status"] }).not_to include("Killed")
   end
