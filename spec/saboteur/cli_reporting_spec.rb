@@ -17,8 +17,9 @@ RSpec.describe "finished run reporting" do
       expect(cli).to receive(:survivor_replay_command).with(report, nil).and_return(->(digest) { "replay #{digest}" })
       expect(Saboteur::Reporter::Terminal).to receive(:new)
         .with(out, verbose: verbose || false, quiet: false, color: color || :auto, overrides: {},
-                   replay_command: kind_of(Proc),
-                   all_mutants: false, exit_code: 0, threshold: nil, previous_score: nil, baseline_gate: nil)
+                   replay_command: kind_of(Proc), all_mutants: false, exit_code: 0, threshold: nil,
+                   previous_score: nil, scope: "whole project", html_report: ".saboteur/report.html",
+                   baseline_gate: nil)
         .and_return(terminal)
       expect(terminal).to receive(:call).with(report)
       replay_report = instance_double(Saboteur::Reporter::Replay)
@@ -28,8 +29,8 @@ RSpec.describe "finished run reporting" do
       else
         expect(Saboteur::Reporter::Replay).not_to receive(:new)
       end
+      expect(cli).to receive(:write_html).with(report).ordered.and_return(".saboteur/report.html")
       expect(cli).to receive(:validate_history).ordered
-      expect(cli).to receive(:write_html).with(report).ordered
       expect(cli).to receive(:record_history).with(report).ordered
       expect(cli).to receive(:validate_history).ordered
       expect(cli).to receive(:write_json).with(report, "ok").ordered
