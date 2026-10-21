@@ -24,10 +24,37 @@ module Saboteur
       # free. A LoadError means the sandbox layers cannot work: REFUSE -
       # the error propagates, it is never downgraded to a warning.
       def self.require_fiddle!(with_import: false)
-        require "fiddle"
-        require "fiddle/import" if with_import
+        quietly do
+          require "fiddle"
+          require "fiddle/import" if with_import
+        end
       rescue LoadError
         raise Error, MESSAGE
+      end
+
+      # Ruby 3.4 prints "fiddle was loaded from the standard library, but
+      # will no longer be part of the default gems" on this require when the
+      # Gemfile does not name it. The notice is about the user's Gemfile, not
+      # a saboteur fault, and Ruby 4.0 refuses the load outright (MESSAGE
+      # says why), so only that one notice is dropped, only during this
+      # require (#1226).
+      NOTICE = "fiddle was loaded from the standard library"
+
+      module NoticeFilter
+        def warn(message, **)
+          return if Thread.current[:saboteur_fiddle_require] && message.include?(NOTICE)
+
+          super
+        end
+      end
+      Warning.singleton_class.prepend(NoticeFilter)
+
+      def self.quietly
+        previous = Thread.current[:saboteur_fiddle_require]
+        Thread.current[:saboteur_fiddle_require] = true
+        yield
+      ensure
+        Thread.current[:saboteur_fiddle_require] = previous
       end
     end
   end

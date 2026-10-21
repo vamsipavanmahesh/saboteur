@@ -25,6 +25,36 @@ RSpec.describe Saboteur::Execution::FiddleLoader, "#require_fiddle! (#639)" do
     expect { described_class.require_fiddle!(with_import: true) }.to raise_error(Saboteur::Error, /refuses to run/)
   end
 
+  describe "the Ruby 3.4 standard-library notice (#1226)" do
+    let(:notice) do
+      "x.rb:1: warning: fiddle was loaded from the standard library, but will no longer be part of the " \
+        "default gems starting from Ruby 4.0.0.\n"
+    end
+
+    it "drops that notice during the require and nothing else" do
+      allow(described_class).to receive(:require) do |_name|
+        Warning.warn(notice)
+        Warning.warn("some other warning\n")
+      end
+      expect { described_class.require_fiddle! }.to output("some other warning\n").to_stderr
+    end
+
+    it "does not filter the notice outside the require, and restores the flag after a refusal" do
+      allow(described_class).to receive(:require).and_raise(LoadError)
+      expect { described_class.require_fiddle! }.to raise_error(Saboteur::Error)
+      expect(Thread.current[:saboteur_fiddle_require]).to be_nil
+      expect { Warning.warn(notice) }.to output(notice).to_stderr
+    end
+
+    it "restores an outer quiet scope when nested" do
+      described_class.quietly do
+        described_class.quietly { nil }
+        expect(Thread.current[:saboteur_fiddle_require]).to be(true)
+      end
+      expect(Thread.current[:saboteur_fiddle_require]).to be_nil
+    end
+  end
+
   # The pin that matters: a sandbox layer must never turn the refusal into
   # a warn-and-continue (an unsandboxed run that only notes the fact).
   describe "sandbox layers fail closed on the refusal" do

@@ -17,10 +17,12 @@ module Saboteur
       # fork_mode, whose default is :both, i.e. attach (RUBY_DEBUG_FORK_MODE;
       # ruby/debug's config.rb and SESSION.activate on_fork: true in
       # session.rb).
+      REAPER = "AR Pool Reaper"
+
       KNOWN_FORK_THREADS = {
-        "AR Pool Reaper" => "ActiveRecord's connection-pool reaper: expected harmless when children " \
-                            "reconnect the database after fork (rails mode does) - it only maintains " \
-                            "the parent's pool",
+        REAPER => "ActiveRecord's connection-pool reaper: expected harmless when children " \
+                  "reconnect the database after fork (rails mode does) - it only maintains " \
+                  "the parent's pool",
         "DEBUGGER__::SESSION@server" => "the debug gem's remote-console server: what it does in " \
                                         "children depends on RUBY_DEBUG_FORK_MODE - with parent no " \
                                         "debugger runs in children; with child or both (the gem's " \
@@ -30,8 +32,11 @@ module Saboteur
                                         "RUBY_DEBUG_OPEN or require \"debug\" without :open"
       }.freeze
 
-      def self.warn(diagnostics)
+      # In rails mode the children reconnect the database, so the pool
+      # reaper is not worth a warning on every run (#1229).
+      def self.warn(diagnostics, rails: false)
         others = Thread.list - [Thread.current]
+        others = others.reject { |thread| thread.name == REAPER } if rails
         return if others.empty?
 
         unknown = false

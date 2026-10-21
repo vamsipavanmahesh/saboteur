@@ -314,7 +314,7 @@ module Saboteur
       else
         @diagnostics.inform("#{subjects.size} subjects, #{map.tests.size} tests in coverage map")
       end
-      ThreadWarnings.warn(@diagnostics)
+      ThreadWarnings.warn(@diagnostics, rails: config["rails"])
     end
 
     def coverage_store(integration, load_lines, load_methods = {})
