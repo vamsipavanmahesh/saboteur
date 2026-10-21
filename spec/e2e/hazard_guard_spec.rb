@@ -54,7 +54,7 @@ RSpec.describe "hazard guard and canary (issue #102)", :e2e do
     expect(run.status).to eq(3)
     expect(run.err).to include("vanished mid-run")
     expect(run.err).to match(/[0-9a-f]{16}/)
-    expect(run.err).to match(/^\.+$/)
+    expect(run.err).to match(%r{^\.+ {2}\d+/\d+ })
     expect(run.err).not_to include("killing test")
   end
 
@@ -80,7 +80,7 @@ RSpec.describe "hazard guard and canary (issue #102)", :e2e do
     expect(run.status).to eq(3)
     expect(run.err).to include("vanished mid-run")
     expect(run.err).to match(/[0-9a-f]{16}/)
-    expect(run.err).to match(/^\.+$/)
+    expect(run.err).to match(%r{^\.+ {2}\d+/\d+ })
     expect(run.err).not_to include("killing test")
   end
 

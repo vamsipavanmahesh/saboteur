@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require "io/console"
 require "tempfile"
 
 require_relative "../reporter/palette"
@@ -68,9 +69,19 @@ module Saboteur
       end
 
       MARKS = { killed: ".", survived: "S", timeout: "T", resource_limit: "L", error: "E" }.freeze
-      MARK_TOKENS = { "." => :dim, "S" => :fail, "T" => :warn, "E" => :fail }.freeze
-      LEGEND = ". killed  S survived  T timeout  L resource limit  E error"
-      LINE_WIDTH = 50
+      MARK_TOKENS = { "." => :dim, "S" => :fail, "T" => :warn, "E" => :fail, "L" => :fail }.freeze
+      # Readback whitelist: mutant children inherit the progress fd and can
+      # write arbitrary bytes, so only known mark letters come back out.
+      READBACK_GLYPHS = (MARK_TOKENS.keys + ["?"]).freeze
+      # s:skipped never prints a glyph: skipped mutants never reach
+      # progress (see start_progress); the letter is legend-only.
+      LEGEND = ".:killed S:survived T:timeout E:error s:skipped L:resource limit"
+
+      # Chunk sizing: leave room for the "  (n/total ...)" suffix, never
+      # below the floor.
+      CHUNK_MARGIN = 10
+      CHUNK_FLOOR = 40
+      DEFAULT_WIDTH = 80
 
       GenerationEvent = Data.define(:file, :subject, :source, :operator, :reason)
       Omission = Data.define(:subject, :count, :limit)
@@ -208,7 +219,8 @@ module Saboteur
         @progress_file = Tempfile.new("saboteur-progress")
         @progress_file.binmode
         @progress_file.sync = true
-        @err.puts("saboteur: progress #{@palette.paint(:dim, LEGEND)}") unless progress_on_terminal?
+        @glyphs = +""
+        @err.puts(@palette.paint(:dim, LEGEND))
       end
 
       def progress(result)
@@ -216,7 +228,12 @@ module Saboteur
         return plain_progress(painted_mark(mark)) unless @progress_file
 
         done = record_progress(mark)
-        progress_on_terminal? ? terminal_progress(done) : ci_progress(painted_mark(mark), done)
+        if progress_on_terminal?
+          @glyphs << mark
+          @glyphs.size >= chunk_width ? commit_chunk(done) : redraw_line(done)
+        elsif (done % chunk_width).zero?
+          commit_file_chunk(done - chunk_width, chunk_width, done)
+        end
         @err.flush
       end
 
@@ -226,8 +243,12 @@ module Saboteur
       end
 
       def finish_progress
-        @err.puts if @progress_file && (progress_on_terminal? || @progress_file.size % LINE_WIDTH != 0)
-        @progress_file&.close!
+        return unless @progress_file
+
+        size = @progress_file.size
+        pending = size % chunk_width
+        commit_file_chunk(size - pending, pending, size) if pending.positive?
+        @progress_file.close!
         @progress_file = nil
       end
 
@@ -254,13 +275,42 @@ module Saboteur
         @err.respond_to?(:tty?) && @err.tty?
       end
 
-      def terminal_progress(done)
-        @err.print("\r\e[Ksaboteur: #{progress_summary(done)}")
+      def chunk_width
+        columns = begin
+          @err.winsize[1] if @err.respond_to?(:winsize)
+        rescue SystemCallError
+          nil
+        end
+        [(columns || DEFAULT_WIDTH) - CHUNK_MARGIN, CHUNK_FLOOR].max
       end
 
-      def ci_progress(mark, done)
-        @err.print(mark)
-        @err.print(" #{progress_summary(done)}\n") if (done % LINE_WIDTH).zero?
+      def painted_glyphs
+        @glyphs.each_char.map { |glyph| painted_mark(glyph) }.join
+      end
+
+      def redraw_line(done)
+        @line_open = true
+        @err.print("\r\e[K#{painted_glyphs}  #{@palette.paint(:dim, progress_summary(done))}")
+      end
+
+      def commit_chunk(done)
+        @err.print("\r\e[K#{painted_glyphs}  #{@palette.paint(:dim, progress_summary(done))}\n")
+        @glyphs.clear
+      end
+
+      # Piped chunks and the final partial chunk come from the progress
+      # file, not the buffer: workers each buffer only their own marks,
+      # while the shared file the workers inherit holds every mark.
+      def commit_file_chunk(start, length, done)
+        @err.print("\r\e[K") if @line_open
+        @err.print("#{painted_file_glyphs(start, length)}  #{@palette.paint(:dim, progress_summary(done))}\n")
+      end
+
+      # binread caps at both +length+ (the recorded mark count) and EOF,
+      # so a short or padded file cannot leak extra glyphs.
+      def painted_file_glyphs(start, length)
+        bytes = File.binread(@progress_file.path, length, start)
+        bytes.each_char.filter_map { |glyph| painted_mark(glyph) if READBACK_GLYPHS.include?(glyph) }.join
       end
 
       def eta_text(done)

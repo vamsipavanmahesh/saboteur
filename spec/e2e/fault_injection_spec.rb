@@ -204,9 +204,9 @@ RSpec.describe "fault injection: hostile cache and log state", :e2e do
         stdin.close
         killed = false
         killer = Thread.new do
-          # The progress header marks the mutation phase; killing earlier
+          # The legend marks the mutation phase; killing earlier
           # would only re-cover the baseline-child path.
-          sleep 0.02 until err_lock.synchronize { err.include?(": progress") } || wait_thr.join(0)
+          sleep 0.02 until err_lock.synchronize { err.include?(".:killed") } || wait_thr.join(0)
           until wait_thr.join(0.05)
             `pgrep -P #{wait_thr.pid}`.lines.map(&:to_i).each do |child|
               Process.kill("KILL", child)
