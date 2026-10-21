@@ -28,7 +28,7 @@ RSpec.describe Saboteur::CLI::SurvivorsBrowser, "output pins (#520)" do
                             "mutants" => [mut("h" * 16, "literal_number", 7, []),
                                           mut("0" * 16, "comparison", 7, []),
                                           mut("e" * 16, "condition_true", 4, %w[t1], "order_dependent"),
-                                          mut("a" * 16, "sum_to_map_sum", 5, %w[t1 t2 t3 t4], "missing_test"),
+                                          mut("a" * 16, "sum_to_map_sum", 5, %w[t1 t2 t3 t4], "boundary"),
                                           mut("b" * 16, "and_to_or", 3, []),
                                           mut("c" * 16, "negation_removal", 6, %w[t1], status: "Killed")] },
         "lib/alpha.rb" => { "language" => "ruby",
@@ -55,7 +55,7 @@ RSpec.describe Saboteur::CLI::SurvivorsBrowser, "output pins (#520)" do
        "  1. lib/alpha.rb:9  body_nil                     ffffffffffffffff  -",
        "  2. lib/order.rb:3  and_to_or                    bbbbbbbbbbbbbbbb  -",
        "  3. lib/order.rb:4  condition_true               eeeeeeeeeeeeeeee  order_dependent",
-       "  4. lib/order.rb:5  sum_to_map_sum               aaaaaaaaaaaaaaaa  missing_test",
+       "  4. lib/order.rb:5  sum_to_map_sum               aaaaaaaaaaaaaaaa  boundary",
        "  5. lib/order.rb:7  comparison                   0000000000000000  -",
        "  6. lib/order.rb:7  literal_number               hhhhhhhhhhhhhhhh  -",
        "  7. lib/zeta.rb:1  literal_string               dddddddddddddddd  -"]
@@ -66,7 +66,7 @@ RSpec.describe Saboteur::CLI::SurvivorsBrowser, "output pins (#520)" do
     expect(browser.list(ranked: true)).to eq(
       ["7 survivors (the report's ranked findings name only the first 10)",
        "  1. lib/order.rb:4  condition_true               eeeeeeeeeeeeeeee  order_dependent",
-       "  2. lib/order.rb:5  sum_to_map_sum               aaaaaaaaaaaaaaaa  missing_test",
+       "  2. lib/order.rb:5  sum_to_map_sum               aaaaaaaaaaaaaaaa  boundary",
        "  3. lib/zeta.rb:1  literal_string               dddddddddddddddd  -",
        "  4. lib/alpha.rb:9  body_nil                     ffffffffffffffff  -",
        "  5. lib/order.rb:3  and_to_or                    bbbbbbbbbbbbbbbb  -",
@@ -76,9 +76,9 @@ RSpec.describe Saboteur::CLI::SurvivorsBrowser, "output pins (#520)" do
   end
 
   it "prints the singular header and triage note when a filter selects exactly one" do
-    expect(browser.list(triage: "missing_test")).to eq(
-      ["1 survivor (triage=missing_test) (the report's ranked findings name only the first 10)",
-       "  1. lib/order.rb:5  sum_to_map_sum               aaaaaaaaaaaaaaaa  missing_test"]
+    expect(browser.list(triage: "boundary")).to eq(
+      ["1 survivor (triage=boundary) (the report's ranked findings name only the first 10)",
+       "  1. lib/order.rb:5  sum_to_map_sum               aaaaaaaaaaaaaaaa  boundary"]
     )
   end
 

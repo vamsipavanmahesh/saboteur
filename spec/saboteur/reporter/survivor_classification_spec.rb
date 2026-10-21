@@ -4,11 +4,11 @@
 # Survivor classification labels (#192): why a survivor is worth looking at,
 # as a label only - scores and the exit code never change.
 RSpec.describe Saboteur::Reporter::SurvivorClassification do
-  def survivor_for(source, from:, to:, covered_by: ["spec/a_spec.rb:1"], coarse: false)
-    survivor_for_edits(source, [[from, to]], covered_by: covered_by, coarse: coarse)
+  def survivor_for(source, from:, to:, covered_by: ["spec/a_spec.rb:1"], coarse: false, operator: "test")
+    survivor_for_edits(source, [[from, to]], covered_by: covered_by, coarse: coarse, operator: operator)
   end
 
-  def survivor_for_edits(source, pairs, covered_by: ["spec/a_spec.rb:1"], coarse: false)
+  def survivor_for_edits(source, pairs, covered_by: ["spec/a_spec.rb:1"], coarse: false, operator: "test")
     dir = Dir.mktmpdir("saboteur-classify-")
     path = File.join(dir, "target.rb")
     File.write(path, source)
@@ -18,18 +18,58 @@ RSpec.describe Saboteur::Reporter::SurvivorClassification do
       Saboteur::MutationSource::Edit.new(file: subject.file, start_byte: at,
                                          end_byte: at + from.bytesize, replacement: to)
     end
-    mutation = Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: "test",
+    mutation = Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: operator,
                                                       edits: edits, coarse: coarse)
     Saboteur::MutantResult.new(subject:, mutation:, status: :survived,
                                mutated_source: subject.apply(mutation.edits), covered_by: covered_by)
   end
 
-  it "labels a covered survivor as a missing test" do
+  it "labels a covered survivor with the fallback kind when no rule matches" do
     result = survivor_for("class A\n  def adult?(age)\n    age >= 18\n  end\nend\n", from: ">=", to: ">")
-    expect(described_class.label(result)).to eq("missing_test")
+    expect(described_class.label(result)).to eq("result unchecked")
   end
 
-  it "labels a bytecode-identical mutant as likely equivalent, before missing test" do
+  # One pin per gap kind (D2): the kind names what sort of check is
+  # missing, from the operator and the edit shape only.
+  {
+    "comparison" => ["boundary", "class A\n  def adult?(age)\n    age >= 18\n  end\nend\n", ">=", ">"],
+    "condition_negation" => ["branch", "class A\n  def go(c)\n    m if c\n  end\nend\n", "if c", "unless c"],
+    "statement_removal" => ["effect", "class A\n  def go\n    call\n  end\nend\n", "call", "nil"],
+    "literal_number" => ["number", "class A\n  def n\n    41\n  end\nend\n", "41", "42"],
+    "rescue_removal" => ["error path", "class A\n  def go\n    m\n  rescue\n    nil\n  end\nend\n",
+                         "rescue\n    nil", "nil"],
+    "body_nil" => ["result unchecked", "class A\n  def n\n    41\n  end\nend\n", "41", "nil"]
+  }.each do |operator, (kind, source, from, to)|
+    it "labels a #{operator} survivor as #{kind}" do
+      expect(described_class.label(survivor_for(source, from: from, to: to, operator: operator))).to eq(kind)
+    end
+  end
+
+  it "labels operand_replacement on a comparison as boundary, from the edit shape" do
+    result = survivor_for("class A\n  def adult?(age)\n    age >= 18\n  end\nend\n",
+                          from: "age >= 18", to: "age", operator: "operand_replacement")
+    expect(described_class.label(result)).to eq("boundary")
+  end
+
+  it "labels operand_replacement on arithmetic as result unchecked" do
+    result = survivor_for("class A\n  def total(a, b)\n    a + b\n  end\nend\n",
+                          from: "a + b", to: "a", operator: "operand_replacement")
+    expect(described_class.label(result)).to eq("result unchecked")
+  end
+
+  it "maps every built-in operator to a kind exactly once, with no fallthrough" do
+    covered = Saboteur::Reporter::GapKinds::BY_OPERATOR.keys + Saboteur::Reporter::GapKinds::SHAPE_DECIDED
+    expect(covered.tally.values).to all(eq(1))
+    expect(covered.sort).to eq(Saboteur::MutationSource::OperatorRegistry::DESCRIPTIONS.keys.sort)
+  end
+
+  it "treats an operator missing from the table as result unchecked" do
+    result = survivor_for("class A\n  def n\n    41\n  end\nend\n", from: "41", to: "42",
+                                                                    operator: "future_operator")
+    expect(described_class.label(result)).to eq("result unchecked")
+  end
+
+  it "labels a bytecode-identical mutant as likely equivalent, before the gap kind" do
     result = survivor_for("class A\n  def adult?(age)\n    age >= 18\n  end\nend\n", from: "18", to: "18")
     expect(described_class.label(result)).to eq("likely_equivalent")
   end
@@ -64,7 +104,7 @@ RSpec.describe Saboteur::Reporter::SurvivorClassification do
     expect(described_class.label(result)).to eq("arid")
   end
 
-  it "labels a survivor on an arid line as arid, before missing test" do
+  it "labels a survivor on an arid line as arid, before the gap kind" do
     result = survivor_for("class A\n  def tell(msg)\n    puts msg\n  end\nend\n", from: "puts msg", to: "nil")
     expect(described_class.label(result)).to eq("arid")
   end
@@ -81,14 +121,14 @@ RSpec.describe Saboteur::Reporter::SurvivorClassification do
     expect(described_class.label(result)).to eq("tool_limit")
   end
 
-  it "labels a survivor missing_test when real coverage sits next to the pseudo id (#305)" do
+  it "labels a survivor with a gap kind when real coverage sits next to the pseudo id (#305)" do
     covered = [Saboteur::Execution::ExternalRunner::PSEUDO_TEST, "spec/a_spec.rb:1"]
     result = survivor_for("class A\n  def adult?(age)\n    age >= 18\n  end\nend\n", from: ">=", to: ">",
                                                                                      covered_by: covered)
-    expect(described_class.label(result)).to eq("missing_test")
+    expect(described_class.label(result)).to eq("result unchecked")
   end
 
-  it "withholds missing_test from coarse mutants: their covering list is a planned guess" do
+  it "withholds a gap kind from coarse mutants: their covering list is a planned guess" do
     result = survivor_for("class A\n  def adult?(age)\n    age >= 18\n  end\nend\n",
                           from: ">=", to: ">", coarse: true)
     expect(described_class.label(result)).to be_nil
@@ -369,7 +409,7 @@ RSpec.describe Saboteur::Reporter::SurvivorClassification do
     # and drops the bar line entirely.
     result = survivor_for("class A\n  def m\nfoo\nbar\n  end\nend\n",
                           from: "foo\nb", to: "nil")
-    expect(described_class.label(result, arid: ["\\Afoo\\z"])).to eq("missing_test")
+    expect(described_class.label(result, arid: ["\\Afoo\\z"])).to eq("result unchecked")
   end
 
   it "compiles with the subject's frozen-string-literal setting" do

@@ -374,7 +374,7 @@ RSpec.describe Saboteur::Reporter::Html do
   it "badges a survivor with its classification label (#192)" do
     page = described_class.build(report_of(result_for(:survived, covered_by: %w[t1])))
     badge_with_label = '<span class="status Survived">Survived</span> ' \
-                       '<span class="classification">missing_test</span>'
+                       '<span class="classification">boundary</span>'
     expect(page).to include(badge_with_label)
     page = described_class.build(report_of(result_for(:killed, covered_by: %w[t1])))
     expect(page).not_to include('<span class="classification">')
@@ -385,7 +385,7 @@ RSpec.describe Saboteur::Reporter::Html do
     accepted.ignored = "equivalent"
     page = described_class.build(report_of(accepted))
     badges = '<span class="status Survived">Survived</span> <span class="status Accepted">Accepted</span> ' \
-             '<span class="classification">missing_test</span>'
+             '<span class="classification">boundary</span>'
     expect(page).to include(badges)
   end
 

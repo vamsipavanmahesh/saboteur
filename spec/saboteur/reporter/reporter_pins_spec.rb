@@ -62,7 +62,7 @@ RSpec.describe "reporter pins" do
   describe Saboteur::Reporter::ReviewComments do
     def finding(**changes)
       { "digest" => "aabbccdd11223344", "path" => "lib/x.rb", "operator" => "comparison", "original" => "a",
-        "replacement" => "b", "classification" => "missing_test",
+        "replacement" => "b", "classification" => "boundary",
         "changedLines" => [12] }.merge(changes.transform_keys(&:to_s))
     end
 

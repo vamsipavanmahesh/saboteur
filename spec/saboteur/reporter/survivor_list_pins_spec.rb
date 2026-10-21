@@ -60,7 +60,7 @@ RSpec.describe Saboteur::Reporter::SurvivorList, "survivor blocks" do
     expect(render([operand])).to eq(<<~TEXT)
       Survivors (1) - changes your tests did not catch
 
-      1. calculator.rb:3 Calculator#compound [missing_test · #1 of 1: the covering specs pass without pinning this change]
+      1. calculator.rb:3 Calculator#compound [result unchecked · #1 of 1: the covering specs pass without pinning this result]
           2 def compound(principal, rate, years)
       -   3     principal * (1 + rate)**years
       +   3     principal * years   operand_replacement · #{operand.digest}
@@ -218,7 +218,7 @@ RSpec.describe Saboteur::Reporter::SurvivorList, "survivor blocks" do
   end
 
   describe "hint gating" do
-    it "prints the operator hint for a missing_test survivor, with the caveat" do
+    it "prints the operator hint for a gap-labeled survivor, with the caveat" do
       result = edited(PINS_CALCULATOR, "1 + rate", "1 - rate", operator: "arithmetic", dir:)
       text = render([result])
       expect(text).to include("\n  → try asserting the exact computed number\n")

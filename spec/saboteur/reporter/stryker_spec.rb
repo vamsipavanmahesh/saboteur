@@ -38,18 +38,18 @@ RSpec.describe Saboteur::Reporter::Stryker do
     expect(payload.fetch("saboteur")).not_to have_key("memory")
   end
 
-  it "never labels a --test-command survivor missing_test from pseudo evidence (#305)" do
+  it "never labels a --test-command survivor a gap kind from pseudo evidence (#305)" do
     external = result_for(:survived, covered_by: [Saboteur::Execution::ExternalRunner::PSEUDO_TEST])
     report = report_of(external, result_for(:survived, covered_by: %w[t1], replacement: "<="))
     mutants = JSON.parse(JSON.generate(described_class.build(report))).dig("files", "person.rb", "mutants")
-    expect(mutants.map { |m| m["classification"] }).to eq(%w[tool_limit missing_test])
+    expect(mutants.map { |m| m["classification"] }).to eq(%w[tool_limit boundary])
   end
 
   it "labels survivors with their classification, and only survivors (#192)" do
     covered = result_for(:survived, covered_by: %w[t1])
     report = report_of(covered, result_for(:killed, covered_by: %w[t1]))
     mutants = JSON.parse(JSON.generate(described_class.build(report))).dig("files", "person.rb", "mutants")
-    expect(mutants.map { |m| m["classification"] }).to eq(["missing_test", nil])
+    expect(mutants.map { |m| m["classification"] }).to eq(["boundary", nil])
   end
 
   it "builds valid JSON with multibyte source on and before the edited line (#192)" do

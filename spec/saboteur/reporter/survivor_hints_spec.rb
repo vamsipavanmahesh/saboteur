@@ -89,13 +89,13 @@ end
 RSpec.describe Saboteur::Reporter::SurvivorHints, "label gating and block prose" do
   it "hints every label except likely_equivalent" do
     expect(described_class.for_label("arithmetic",
-                                     label: "missing_test")).to eq("try asserting the exact computed number")
+                                     label: "boundary")).to eq("try asserting the exact computed number")
     expect(described_class.for_label("arithmetic", label: nil)).to eq("try asserting the exact computed number")
     expect(described_class.for_label("arithmetic", label: "likely_equivalent")).to be_nil
   end
 
   it "passes coarse through to the operator hint" do
-    expect(described_class.for_label("unknown_op", label: "missing_test", coarse: true))
+    expect(described_class.for_label("unknown_op", label: "boundary", coarse: true))
       .to eq(described_class.for("unknown_op", coarse: true))
   end
 

@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require_relative "gap_kinds"
+
 module Saboteur
   module Reporter
     # Pull-request review comments for surviving mutants (#246): decides what
@@ -25,11 +27,10 @@ module Saboteur
       # Labels whose survivors are probably noise: never worth a comment.
       QUIET = %w[likely_equivalent arid].freeze
 
-      HINTS = {
-        "missing_test" => "A test reaches this line and still passes with the change. " \
-                          "Add an assertion that pins this behaviour.",
-        "tool_limit" => "Saboteur could not observe this mutant faithfully. Check it by hand."
-      }.freeze
+      GAP_HINT = "A test reaches this line and still passes with the change. " \
+                 "Add an assertion that pins this behaviour."
+      TOOL_LIMIT_HINT = "Saboteur could not observe this mutant faithfully. Check it by hand."
+      HINTS = GapKinds::KINDS.to_h { |label| [label, GAP_HINT] }.merge("tool_limit" => TOOL_LIMIT_HINT).freeze
       DEFAULT_HINT = "No test fails with this change. Check whether a test should pin it."
 
       Plan = Struct.new(:post, :delete, :summary, keyword_init: true)
