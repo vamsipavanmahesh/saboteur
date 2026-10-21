@@ -10,6 +10,7 @@ require "saboteur/cli"
 # so the suite drops the key. Palette detection specs pass an explicit
 # environment: hash instead.
 ENV.delete("GITHUB_ACTIONS")
+ENV.delete("GITHUB_STEP_SUMMARY")
 
 # The specs call the sandbox layers (Sandbox, Seatbelt, LibC) directly and
 # run in any order, so a file can touch Fiddle before any code path has gone

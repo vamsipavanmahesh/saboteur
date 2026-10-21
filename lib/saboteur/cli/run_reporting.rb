@@ -35,7 +35,7 @@ module Saboteur
         validate_history
         json = write_json(report, exit_cause(report, code))
         announce_reports(json => "JSON", html => "HTML")
-        emit_github_annotations(report, engine)
+        emit_github_surface(report, engine)
         code
       end
 

@@ -1797,6 +1797,42 @@ RSpec.describe Saboteur::CLI, "details" do
       with_github_actions("true") { cli("run", "--format", "markdown").call }
       expect(out.string).not_to include("::warning", "::error")
     end
+
+    def with_step_summary(path)
+      saved = ENV.fetch("GITHUB_STEP_SUMMARY", nil)
+      path.nil? ? ENV.delete("GITHUB_STEP_SUMMARY") : ENV["GITHUB_STEP_SUMMARY"] = path
+      yield
+    ensure
+      saved.nil? ? ENV.delete("GITHUB_STEP_SUMMARY") : ENV["GITHUB_STEP_SUMMARY"] = saved
+    end
+
+    it "writes the step summary on GitHub Actions when the variable is set" do
+      stub_run(untested_report)
+      Dir.mktmpdir do |dir|
+        path = File.join(dir, "summary.md")
+        with_github_actions("true") { with_step_summary(path) { cli("run").call } }
+        expect(File.read(path)).to include("## Saboteur mutation report", "1: Person#adult?")
+      end
+    end
+
+    it "--format markdown writes only the step summary, off GitHub Actions" do
+      stub_run(untested_report)
+      Dir.mktmpdir do |dir|
+        path = File.join(dir, "summary.md")
+        with_github_actions(nil) { with_step_summary(path) { cli("run", "--format", "markdown").call } }
+        expect(File.read(path)).to include("## Saboteur mutation report")
+        expect(out.string).not_to include("::warning", "::error")
+      end
+    end
+
+    it "leaves the step summary alone off GitHub Actions without --format" do
+      stub_run(untested_report)
+      Dir.mktmpdir do |dir|
+        path = File.join(dir, "summary.md")
+        with_github_actions(nil) { with_step_summary(path) { cli("run").call } }
+        expect(File.exist?(path)).to be(false)
+      end
+    end
   end
 
   it "prints the summary and writes the JSON report it names" do
