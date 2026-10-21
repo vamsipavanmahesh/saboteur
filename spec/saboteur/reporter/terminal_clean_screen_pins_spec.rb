@@ -132,6 +132,14 @@ RSpec.describe Saboteur::Reporter::Terminal, "clean screen pins" do
     expect(render(report, **options)).not_to include("baseline green", "coverage map:")
   end
 
+  it "words the coverage map as built-with-cost or cached when the map says which (#312)" do
+    phases = { baseline: { examples: 6, seconds: 0.3 }, mutant_phase: { seconds: 1.8 } }
+    built = render(report, **options, **phases, coverage: { tests: 6, seconds: 14, cached: false })
+    cached = render(report, **options, **phases, coverage: { tests: 6, seconds: 0.2, cached: true })
+    expect(built).to include("✓ coverage map: built 6 tests (14s) - cached next run\n")
+    expect(cached).to include("✓ coverage map: 6 tests (cached)\n")
+  end
+
   it "skips the phase lines when only some phase data is present" do
     baseline = { examples: 6, seconds: 0.3 }
     coverage = { tests: 6, seconds: 0.2 }
