@@ -205,4 +205,55 @@ RSpec.describe Saboteur::ConfigFile do
       .to raise_error(RuntimeError, "boom")
     expect(described_class.instance_variable_get(:@settings)).to be_nil
   end
+
+  describe "message details" do
+    def load_error(body)
+      described_class.load(write_config(body))
+    rescue Saboteur::ConfigError => e
+      e.message
+    end
+
+    it "keeps only the first line of a LoadError message, after the path and a colon" do
+      path = write_config("raise LoadError, \"first part\\nsecond part\"\n")
+      expect { described_class.load(path) }.to raise_error(Saboteur::ConfigError, "#{path}: first part")
+    end
+
+    it "keeps an empty LoadError message empty" do
+      path = write_config("raise LoadError, \"\"\n")
+      expect { described_class.load(path) }.to raise_error(Saboteur::ConfigError, "#{path}: ")
+    end
+
+    it "suggests the closest key first when several are close" do
+      message = load_error("Saboteur.configure { |c| c.max_duration_ox = 1 }\n")
+      expect(message).to include("(did you mean \"max_duration_ok\"?)")
+    end
+
+    it "reports the config file line of an unknown setting set from another file" do
+      stub_const("SPEC_SETTER", ->(settings) { settings.bogus_setting = 1 })
+      path = write_config("Saboteur.configure do |c|\n  SPEC_SETTER.call(c)\nend\n")
+      expect { described_class.load(path) }.to raise_error(Saboteur::ConfigError, /\A#{Regexp.escape(path)}:2: unknown/)
+    end
+
+    it "reports the config file line of a NameError raised from another file" do
+      stub_const("SPEC_RAISER", -> { raise NameError, "first\nsecond" })
+      path = write_config("x = 1\nSPEC_RAISER.call\n")
+      expect { described_class.load(path) }.to raise_error(
+        Saboteur::ConfigError, "#{path}:2: first - this file loads before the app boots; use plain Ruby or ENV"
+      )
+    end
+
+    it "keeps an empty NameError message empty in the load-order hint" do
+      stub_const("SPEC_RAISER", -> { raise NameError, "" })
+      path = write_config("SPEC_RAISER.call\n")
+      expect { described_class.load(path) }.to raise_error(
+        Saboteur::ConfigError, "#{path}:1:  - this file loads before the app boots; use plain Ruby or ENV"
+      )
+    end
+
+    it "reports the config file line of a NoMethodError raised from another file" do
+      stub_const("SPEC_RAISER", -> { nil.no_such_method_here })
+      path = write_config("\nSPEC_RAISER.call\n")
+      expect { described_class.load(path) }.to raise_error(Saboteur::ConfigError, /\A#{Regexp.escape(path)}:2: /)
+    end
+  end
 end
