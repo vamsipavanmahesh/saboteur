@@ -145,6 +145,13 @@ RSpec.describe Saboteur::Execution::WorkerPool, "pins" do
       expect(results).to eq(5 => { "x" => 1 })
     end
 
+    it "reports nothing when no item is in flight, whatever sits under a nil key" do
+      worker.current = nil
+      allow(pool).to receive(:take) { |_worker, _line, rows| rows[nil] = { "x" => 1 } }
+      pool.send(:take_and_report, worker, "{}", {})
+      expect(seen).to be_empty
+    end
+
     it "reports nothing for a line that carries no result" do
       pool.send(:take_and_report, worker, '{"peak_rss_mb":5}', {})
       worker.current = nil
