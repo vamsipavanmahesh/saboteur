@@ -19,12 +19,12 @@ module Saboteur
       MAX_NOT_SCORED = 10
       MAX_PASSING_TESTS = SurvivorList::MAX_PASSING_TESTS
 
-      def initialize(out, verbose: false, color: :auto, replay_command: nil, all_mutants: false, exit_code: nil,
-                     threshold: nil, previous_score: nil)
+      def initialize(out, verbose: false, color: :auto, overrides: nil, replay_command: nil, all_mutants: false,
+                     exit_code: nil, threshold: nil, previous_score: nil)
         @out = SafeOut.new(out)
         @all_mutants = all_mutants
         @verbose = verbose
-        @palette = Palette.for(out, mode: color)
+        @palette = Palette.for(out, mode: color, overrides: overrides)
         @score_table = ScoreTable.new(@out, @palette)
         @next_steps = NextSteps.new(@out, @palette, replay_command: replay_command)
         # The CLI classifies the run: the closing verdict line names the
@@ -160,8 +160,8 @@ module Saboteur
                   "errors, resource limits and skips excluded"
         end
         if untested.any?
-          line << "  #{@palette.paint(:yellow, "#{untested.size} subject#{'s' unless untested.one?} " \
-                                               'not scored - no tests exist')}"
+          line << "  #{@palette.paint(:warn, "#{untested.size} subject#{'s' unless untested.one?} " \
+                                             'not scored - no tests exist')}"
         end
         @out.puts line
       end
@@ -180,7 +180,7 @@ module Saboteur
       def threshold_echo(value)
         broken = value && value * 100 < @threshold
         text = " · threshold #{format('%g', @threshold)}#{' (break)' if broken}"
-        broken ? @palette.paint(:red, text) : @palette.paint(:dim, text)
+        broken ? @palette.paint(:fail, text) : @palette.paint(:dim, text)
       end
 
       # No threshold, no colour. A single --threshold T is the band (T, T):
@@ -195,10 +195,10 @@ module Saboteur
       # Stryker band: red below low, green at or above high, yellow inside.
       # A single --threshold T passes (T, T), so yellow is unreachable there.
       def band_color(score, low, high)
-        return :red if score < low
-        return :green if score >= high
+        return :fail if score < low
+        return :pass if score >= high
 
-        :yellow
+        :warn
       end
 
       # The gaps the score cannot see, named with their location.
@@ -207,9 +207,9 @@ module Saboteur
         return if untested.empty?
 
         @out.puts
-        @out.puts @palette.paint(:yellow, "Not scored - no tests exist (treat these as your biggest gaps):")
+        @out.puts @palette.paint(:warn, "Not scored - no tests exist (treat these as your biggest gaps):")
         entries = untested.map { |subject| "#{subject.id} (#{subject.location(report.root)})" }
-        line = "  #{@palette.paint(:yellow, '!')} #{entries.first(MAX_NOT_SCORED).join(' · ')}"
+        line = "  #{@palette.paint(:warn, '!')} #{entries.first(MAX_NOT_SCORED).join(' · ')}"
         line << " · ... #{entries.size - MAX_NOT_SCORED} more" if entries.size > MAX_NOT_SCORED
         @out.puts line
       end
@@ -230,10 +230,10 @@ module Saboteur
         counts = report.counts
         live = report.unignored_survivors.size
         untested = untested_subjects(report).size
-        [counted(counts[:killed], "killed", plural: false, color: :green),
-         counted(live, "survived", plural: false, color: :red),
+        [counted(counts[:killed], "killed", plural: false, color: :pass),
+         counted(live, "survived", plural: false, color: :fail),
          counted(report.survivors.size - live, "accepted", plural: false),
-         counted(counts[:timeout], "timeout", color: :yellow), counted(counts[:resource_limit], "resource limit"),
+         counted(counts[:timeout], "timeout", color: :warn), counted(counts[:resource_limit], "resource limit"),
          error_part(report, counts[:error]), counted(counts[:unverified], "unverified", plural: false),
          ("#{untested} subject#{'s' unless untested == 1} untested" if untested.positive?)].compact
       end
@@ -266,12 +266,12 @@ module Saboteur
         return if @exit_code.nil? || @exit_code.zero?
 
         case @exit_code
-        when 1 then @out.puts @palette.paint(:red, failure_verdict(report))
+        when 1 then @out.puts @palette.paint(:fail, failure_verdict(report))
         when 4
-          @out.puts @palette.paint(:red, "\u2717 exit 4 - --max-duration budget spent; " \
-                                         "the score covers only completed work")
+          @out.puts @palette.paint(:fail, "#{@palette.glyph(:cross)} exit 4 - --max-duration budget spent; " \
+                                          "the score covers only completed work")
         else
-          @out.puts @palette.paint(:red, incomplete_verdict(report))
+          @out.puts @palette.paint(:fail, incomplete_verdict(report))
         end
       end
 
@@ -284,22 +284,23 @@ module Saboteur
         live = report.unignored_survivors.size
         reasons << "#{live} survivor#{'s' unless live == 1}" if live.positive?
         reasons << "gate limits exceeded" if reasons.empty?
-        "\u2717 exit 1 - #{reasons.join(', ')}"
+        "#{@palette.glyph(:cross)} exit 1 - #{reasons.join(', ')}"
       end
 
       def incomplete_verdict(report)
         if report.majority_errored?
-          "\u2717 exit 3 - most executed mutants errored; the run tested almost nothing"
+          "#{@palette.glyph(:cross)} exit 3 - most executed mutants errored; the run tested almost nothing"
         elsif unverifiable_change?(report)
           count = report.subjects.size
           reasons = report.skipped_subjects.values.uniq.join(", ")
-          "\u2717 exit 3 - #{count} change#{'s' unless count == 1} could not be verified (#{reasons})"
+          "#{@palette.glyph(:cross)} exit 3 - #{count} change#{'s' unless count == 1} could not be " \
+            "verified (#{reasons})"
         elsif report.executed.any? && report.executed.all? { |result| result.status == :unreachable }
-          "\u2717 exit 3 - the change could not be verified (all mutants unreachable)"
+          "#{@palette.glyph(:cross)} exit 3 - the change could not be verified (all mutants unreachable)"
         elsif report.early_stop && report.score_breakdown.tested.zero?
-          "\u2717 exit 3 - stopped before any mutant was tested; there is no score to judge"
+          "#{@palette.glyph(:cross)} exit 3 - stopped before any mutant was tested; there is no score to judge"
         else
-          "\u2717 exit 3 - run incomplete; the score is not a verified result"
+          "#{@palette.glyph(:cross)} exit 3 - run incomplete; the score is not a verified result"
         end
       end
 
@@ -445,8 +446,8 @@ module Saboteur
         return unless stop
 
         label = stop.reason == "fail_fast" ? "--fail-fast" : "--max-duration spent"
-        @out.puts @palette.paint(:yellow, "stopped early (#{label}): #{early_stop_summary(stop)}; the score below " \
-                                          "covers only completed work")
+        @out.puts @palette.paint(:warn, "stopped early (#{label}): #{early_stop_summary(stop)}; the score below " \
+                                        "covers only completed work")
         budget_shortfall(stop, report.results.size)
         list(stop.unreached) { |id| "  not run: #{id}" }
         list(stop.truncated) { |entry| "  stopped mid-way: #{entry[:subject]} (#{entry[:omitted]} mutants omitted)" }
@@ -464,15 +465,15 @@ module Saboteur
         # Exit 4 alone does not say whether anything was judged: headline
         # it when the baselines and coverage map ate the whole budget (#637).
         if completed.zero?
-          @out.puts @palette.paint(:yellow, "no mutants ran before the --max-duration budget was spent; " \
-                                            "there is no score to judge")
+          @out.puts @palette.paint(:warn, "no mutants ran before the --max-duration budget was spent; " \
+                                          "there is no score to judge")
         end
         line = if stop.planned_mutants
                  "partial: #{stop.planned_mutants - completed} of #{stop.planned_mutants} mutants not run"
                else
                  "partial: mutant count unknown; the budget was spent before planning finished"
                end
-        @out.puts @palette.paint(:yellow, line)
+        @out.puts @palette.paint(:warn, line)
       end
 
       def early_stop_summary(stop)

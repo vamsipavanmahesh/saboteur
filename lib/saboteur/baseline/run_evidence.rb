@@ -12,7 +12,7 @@ module Saboteur
     # This does not attest external database, network or environment state.
     class RunEvidence
       SAFE_DROPS = %w[unchanged duplicate].freeze
-      OUTPUT_SETTINGS = Config::OUTPUT_KEYS
+      OUTPUT_SETTINGS = Config::OUTPUT_KEYS + Config::PRESENTATION_KEYS
 
       def initialize(config:, extra_files: [])
         @config = config

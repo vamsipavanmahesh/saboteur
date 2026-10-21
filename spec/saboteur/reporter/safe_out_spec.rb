@@ -31,8 +31,13 @@ RSpec.describe Saboteur::Reporter::SafeOut do
   end
 
   it "escapes colour codes that Palette never writes" do
-    out.puts "\e[8mhidden\e[30;40mblack\e[31;1mx"
-    expect(io.string).to eq("\\x1b[8mhidden\\x1b[30;40mblack\\x1b[31;1mx\n")
+    out.puts "\e[8mhidden\e[30;40mblack\e[31;9mx"
+    expect(io.string).to eq("\\x1b[8mhidden\\x1b[30;40mblack\\x1b[31;9mx\n")
+  end
+
+  it "keeps the combined sequences Palette writes for one token" do
+    out.puts "\e[31;1m-\e[0m"
+    expect(io.string).to eq("\e[31;1m-\e[0m\n")
   end
 
   it "does not let colour codes hide a command at the start of the text" do

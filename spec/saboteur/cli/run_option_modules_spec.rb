@@ -49,7 +49,8 @@ RSpec.describe "run option modules (#334)" do
       "--format FORMAT" => "text, agent or json (--dry-run inventory)",
       "--agent" => "Same as --format agent",
       "--verbose" => "Text report: also print score split, timings and kill causes",
-      "--[no-]color" => "Colour the text report (default: on for a terminal unless NO_COLOR is set)",
+      "--color [MODE]" => "Colour the text report: always, never or auto (default: auto)",
+      "--no-color" => "Deprecated alias for --color=never",
       "--all-mutants" => "Text report: list every survived mutant;"
     }.each do |flag, help|
       expect(text).to match(/#{Regexp.escape(flag)}\s+#{Regexp.escape(help)}/), "no help text after #{flag}"
@@ -154,9 +155,12 @@ RSpec.describe "run option modules parsing (#334)" do
     expect(cli.options).to eq(verbose: true)
   end
 
-  it "parses --[no-]color into the color mode" do
+  it "parses --color modes and keeps --color/--no-color as deprecated aliases" do
     expect(parse_run("--color").instance_variable_get(:@color)).to eq(:always)
     expect(parse_run("--no-color").instance_variable_get(:@color)).to eq(:never)
+    expect(parse_run("--color=never").instance_variable_get(:@color)).to eq(:never)
+    expect(parse_run("--color", "auto").instance_variable_get(:@color)).to eq(:auto)
+    expect(parse_run("--color=always").instance_variable_get(:@color)).to eq(:always)
   end
 
   it "keeps the --verbose crash-backtrace help line" do

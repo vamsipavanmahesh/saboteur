@@ -84,8 +84,8 @@ module Saboteur
         shown = names.first(MAX_UNTESTED_NAMES)
         shown << "+#{names.size - MAX_UNTESTED_NAMES} more" if names.size > MAX_UNTESTED_NAMES
         count = untested.size
-        @palette.paint(:yellow, "n/a - #{count} subject#{'s' unless count == 1} " \
-                                "#{count == 1 ? 'has' : 'have'} no tests: #{shown.join(', ')}")
+        @palette.paint(:warn, "n/a - #{count} subject#{'s' unless count == 1} " \
+                              "#{count == 1 ? 'has' : 'have'} no tests: #{shown.join(', ')}")
       end
     end
   end

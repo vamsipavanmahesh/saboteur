@@ -24,7 +24,7 @@ module Saboteur
       def call(report, survivors)
         return if survivors.empty?
 
-        @out.puts "Survivors (#{survivors.size}):"
+        @out.puts @palette.paint(:head, "Survivors (#{survivors.size}):")
         survivors.group_by { |result| result.subject.file }.sort_by { |file, _| file }.each do |file, in_file|
           file_section(report, relative(file, report.root), in_file)
         end
@@ -34,7 +34,7 @@ module Saboteur
       private
 
       def file_section(report, path, in_file)
-        @out.puts "\n#{@palette.paint(:bold, path)}"
+        @out.puts "\n#{@palette.paint(:head, path)}"
         in_file.group_by { |result| result.subject.id }.each do |subject_id, in_subject|
           @out.puts "  #{subject_id}"
           lines(report, path, in_subject)
@@ -65,7 +65,7 @@ module Saboteur
                      .sort_by { |label, _| label }
                      .map { |label, group| "#{group.size} #{label}" }
                      .join(", ")
-        @out.puts "      #{@palette.paint(:red, '-')} #{count}: #{mix}"
+        @out.puts "      #{@palette.paint(:fail, '-')} #{count}: #{mix}"
         tests_line(on_line.flat_map(&:covered_by).uniq, on_line.first.reused?,
                    ran: on_line.flat_map { |result| result.executed || result.covered_by }.uniq)
         digests = on_line.map(&:digest)
@@ -102,12 +102,12 @@ module Saboteur
         change = if MutationText.removal?(result)
                    "removes #{MutationText.original(result)}"
                  else
-                   "#{MutationText.original(result)} -> #{@palette.paint(:green, MutationText.replacement(result))}"
+                   "#{MutationText.original(result)} -> #{@palette.paint(:pass, MutationText.replacement(result))}"
                  end
-        text = "      #{@palette.paint(:red, '-')} #{result.mutation.operator} " \
-               "#{change} #{result.digest}"
+        text = "      #{@palette.paint(:fail, '-')} #{result.mutation.operator} " \
+               "#{change} #{@palette.paint(:dim, result.digest)}"
         label = @classifier.label(result)
-        text += @palette.paint(:cyan, " [#{label}]") if label
+        text += @palette.paint(:info, " [#{label}]") if label
         text += " (ignored: #{result.ignored})" if result.ignored
         @out.puts text
         hint(result)
@@ -115,7 +115,7 @@ module Saboteur
 
       def hint(result)
         text = hint_for(result)
-        @out.puts "        #{@palette.paint(:cyan, 'hint:')} #{text}" if text
+        @out.puts "        #{@palette.paint(:dim, "hint: #{text}")}" if text
       end
 
       def hint_for(result)
@@ -141,24 +141,28 @@ module Saboteur
         unrun = tests - ran
         return ran_line(tests, unrun, reused) if unrun.any? && (ran - tests).empty?
 
-        @out.puts "      #{tests.size} #{tests.one? ? 'test' : 'tests'} covered this line and " \
+        covered = "      #{tests.size} #{tests.one? ? 'test' : 'tests'} covered this line and " \
                   "#{reused ? 'passed in an earlier run (--incremental)' : 'still passed'} " \
                   "(the missing check may belong in one of them):"
-        tests.first(MAX_PASSING_TESTS).each { |name| @out.puts "        #{name}" }
+        @out.puts @palette.paint(:dim, covered)
+        tests.first(MAX_PASSING_TESTS).each { |name| @out.puts @palette.paint(:dim, "        #{name}") }
         more = tests.size - MAX_PASSING_TESTS
-        @out.puts "        ... #{more} more in the JSON report (coveredBy)" if more.positive?
+        return unless more.positive?
+
+        @out.puts @palette.paint(:dim, "        ... #{more} more in the JSON report (coveredBy)")
       end
 
       def ran_line(tests, unrun, reused)
         ran = tests - unrun
-        @out.puts "      #{ran.size} of the #{tests.size} tests that covered this line " \
+        covered = "      #{ran.size} of the #{tests.size} tests that covered this line " \
                   "#{reused ? 'passed in an earlier run (--incremental)' : 'ran and still passed'} " \
                   "(the missing check may belong in one of them):"
-        ran.first(MAX_PASSING_TESTS).each { |name| @out.puts "        #{name}" }
+        @out.puts @palette.paint(:dim, covered)
+        ran.first(MAX_PASSING_TESTS).each { |name| @out.puts @palette.paint(:dim, "        #{name}") }
         more = ran.size - MAX_PASSING_TESTS
-        @out.puts "        ... #{more} more in the JSON report (executed)" if more.positive?
+        @out.puts @palette.paint(:dim, "        ... #{more} more in the JSON report (executed)") if more.positive?
         suffix = unrun.size > 3 ? " (+#{unrun.size - 3} more)" : ""
-        @out.puts "      did not run: #{unrun.first(3).join(', ')}#{suffix}"
+        @out.puts @palette.paint(:dim, "      did not run: #{unrun.first(3).join(', ')}#{suffix}")
       end
 
       # In diff mode: the changed lines this mutant touches.
@@ -168,7 +172,8 @@ module Saboteur
 
         shown = lines.first(3).map { |line| "#{path}:#{line}" }.join(", ")
         more = lines.size - 3
-        @out.puts "      changed #{lines.one? ? 'line' : 'lines'}: #{shown}#{" (+#{more} more)" if more.positive?}"
+        @out.puts @palette.paint(:dim, "      changed #{lines.one? ? 'line' : 'lines'}: " \
+                                       "#{shown}#{" (+#{more} more)" if more.positive?}")
       end
 
       def relative(file, root)

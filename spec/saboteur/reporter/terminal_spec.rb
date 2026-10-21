@@ -314,7 +314,7 @@ RSpec.describe Saboteur::Reporter::Terminal do
   it "adds no colour codes when colour is off, and colours when it is on" do
     report = report_of(result_for(:survived))
     expect(render(report, color: :never)).not_to include("\e[")
-    expect(render(report, color: :always)).to include("\e[31m")
+    expect(render(report, color: :always)).to include("\e[31;1m")
   end
 
   it "lists ran-at-load and unreachable mutants apart, out of the score" do

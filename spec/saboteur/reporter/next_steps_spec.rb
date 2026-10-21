@@ -63,7 +63,7 @@ RSpec.describe Saboteur::Reporter::NextSteps do
 
     described_class.new(out, colored).call(report_of(result_for(:survived)))
 
-    expect(out.string).to include(colored.paint(:bold, "Next steps:"))
+    expect(out.string).to include(colored.paint(:head, "Next steps:"))
     expect(out.string).not_to include("\nNext steps:")
   end
 

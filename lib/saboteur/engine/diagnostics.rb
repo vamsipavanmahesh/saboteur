@@ -3,6 +3,8 @@
 
 require "tempfile"
 
+require_relative "../reporter/palette"
+
 module Saboteur
   class Engine
     # What a run has to say besides results: warnings for the report, the
@@ -66,6 +68,7 @@ module Saboteur
       end
 
       MARKS = { killed: ".", survived: "S", timeout: "T", resource_limit: "L", error: "E" }.freeze
+      MARK_TOKENS = { "." => :dim, "S" => :fail, "T" => :warn, "E" => :fail }.freeze
       LEGEND = ". killed  S survived  T timeout  L resource limit  E error"
       LINE_WIDTH = 50
 
@@ -76,9 +79,10 @@ module Saboteur
       attr_reader :warnings, :live_announced, :invalid_mutations, :generation_events, :omissions, :discovery_failures,
                   :hazard_suppressions, :inline_suppressions, :verbose
 
-      def initialize(err, verbose: false)
+      def initialize(err, verbose: false, palette: nil)
         @err = err
         @verbose = verbose
+        @palette = palette || Reporter::Palette.for(err)
         @warnings = []
         @invalid_mutations = 0
         @generation_events = []
@@ -170,7 +174,7 @@ module Saboteur
         return unless @verbose
         return if results.empty?
 
-        marks = results.map { |result| MARKS.fetch(result.status, "?") }.join
+        marks = results.map { |result| painted_mark(MARKS.fetch(result.status, "?")) }.join
         inform("#{subject.id}  #{marks}")
       end
 
@@ -204,16 +208,21 @@ module Saboteur
         @progress_file = Tempfile.new("saboteur-progress")
         @progress_file.binmode
         @progress_file.sync = true
-        @err.puts("saboteur: progress #{LEGEND}") unless progress_on_terminal?
+        @err.puts("saboteur: progress #{@palette.paint(:dim, LEGEND)}") unless progress_on_terminal?
       end
 
       def progress(result)
         mark = MARKS.fetch(result.status, "?")
-        return plain_progress(mark) unless @progress_file
+        return plain_progress(painted_mark(mark)) unless @progress_file
 
         done = record_progress(mark)
-        progress_on_terminal? ? terminal_progress(done) : ci_progress(mark, done)
+        progress_on_terminal? ? terminal_progress(done) : ci_progress(painted_mark(mark), done)
         @err.flush
+      end
+
+      def painted_mark(mark)
+        token = MARK_TOKENS[mark]
+        token ? @palette.paint(token, mark) : mark
       end
 
       def finish_progress
