@@ -2699,4 +2699,11 @@ i.mutation "fdc4600f4e8e8625",
              subject: "Saboteur::CLI::SelectionOptions#define_selection_options",
              reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not " \
                      "position - hand-applied swap leaves run --help byte-identical"
+
+  # identical parser entry (same equivalence as 79a0a3ee707564ea above). Hand-probed:
+  # the swap leaves `run --help` byte-identical.
+  i.mutation "36843d3184cc0e07",
+             subject: "Saboteur::CLI::RunBudgetOptions#add_run_budget_options",
+             reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not " \
+                     "position - hand-applied swap leaves run --help byte-identical"
 end

@@ -8,8 +8,10 @@ require_relative "doctor"
 require_relative "help"
 require_relative "reporter/replay"
 require_relative "baseline/command"
+require_relative "baseline/run_gate"
 require_relative "cli/error_cause"
 require_relative "cli/exit_status"
+require_relative "cli/baseline_gate"
 require_relative "preview"
 require_relative "cli/run_reporting"
 require_relative "cli/survivors_command"
@@ -39,6 +41,7 @@ module Saboteur
   class CLI
     include Baseline::Command
     include ExitStatus
+    include BaselineGate
     include RunReporting
     include SurvivorsCommand
     include SourceSet

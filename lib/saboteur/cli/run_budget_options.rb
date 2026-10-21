@@ -22,6 +22,12 @@ module Saboteur
                                            "coverage map spend it too") do |v|
           set(:max_duration, parse_duration(v))
         end
+        opts.on("--baseline PATH", "Gate the run on an accepted baseline: only new survivors or a score " \
+                                   "drop beyond --epsilon fail (propose one with: saboteur baseline propose)") do |v|
+          set(:baseline, v)
+        end
+        opts.on("--epsilon POINTS", Float, "With --baseline: allowed score drop in percentage points " \
+                                           "(default 0: any drop fails)") { |v| set(:epsilon, v) }
         opts.on("--[no-]max-duration-ok", "An exhausted --max-duration budget does not fail the run") do |v|
           set(:max_duration_ok, v)
         end
