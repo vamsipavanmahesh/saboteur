@@ -2530,4 +2530,12 @@ i.mutation "fdc4600f4e8e8625",
       reason: "equivalent: node is nil only for a nil start, where found is nil too, " \
               "so both returns give nil"
 
+
+  # engine/candidates.rb. Replayed by id with the candidates, selection, since
+  # scope, preview and replay specs (survived) and hand-applied green.
+  i.mutation "75dae99069503875",
+      subject: "Saboteur::Engine::Candidates#for",
+      reason: "The sort key only needs coarse mutations before the rest, and the key 0 or -1 both " \
+              "sort ahead of 1, so the order is the same."
+
 end
