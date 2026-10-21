@@ -77,6 +77,9 @@ module Saboteur
       # cache miss and compares it with the full map, which the run still uses.
       # "use" uses the partial map when it is safe and builds the full map otherwise.
       "partial_coverage" => "off",
+      # Total seconds survivor confirmation may spend per run when
+      # partial_coverage=use (#1063); the per-survivor spec cap is a constant.
+      "confirmation_budget" => 300.0,
       # coverage (default) reads Coverage around every test; trace gets lines and
       # methods from a TracePoint and reads branches once per spec file (#725).
       "coverage_recorder" => "coverage",
@@ -108,7 +111,7 @@ module Saboteur
 
     INTEGER_KEYS = %w[jobs max_memory_mb max_processes max_mutants_per_method seed baseline_passes
                       coverage_parts].freeze
-    FLOAT_KEYS = %w[timeout_factor timeout_min baseline_timeout coverage_timeout].freeze
+    FLOAT_KEYS = %w[timeout_factor timeout_min baseline_timeout coverage_timeout confirmation_budget].freeze
     STRING_KEYS = %w[test_selection partial_coverage coverage_recorder].freeze
     NILABLE_FLOAT_KEYS = %w[threshold max_duration].freeze
     THRESHOLD_RANGE = (0.0..100.0)

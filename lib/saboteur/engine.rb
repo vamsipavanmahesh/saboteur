@@ -12,6 +12,7 @@ require_relative "engine/load_coverage"
 require_relative "engine/out_of_scope_guard"
 require_relative "engine/run_budget"
 require_relative "engine/selection_announcement"
+require_relative "engine/survivor_confirmation"
 require_relative "engine/thread_warnings"
 
 require_relative "engine/pipelines"
@@ -217,11 +218,29 @@ module Saboteur
       # mutant when serial. Pack the heap now that the map and candidates
       # are retained, to reduce later copying of shared pages.
       Execution::ForkReadiness.prepare_heap
-      results = run_candidates(runnable_subjects, runnable_lists, scheduler, cache, ignore_list)
+      results = run_and_confirm(runnable_subjects, runnable_lists, scheduler, cache, ignore_list)
       cache&.save
       results
     rescue BudgetPhaseTimeout => e
       budget_phase_stop(e, subjects)
+    end
+
+    # The candidate run plus the opt-in post-run confirmation pass (#1063):
+    # confirmation runs after the last result, before the verdict cache is
+    # written, so a confirmed kill overwrites the survivor verdict the run
+    # cached (#1079). BudgetPhaseTimeout is not raised from the pass:
+    # post-run its rescue would discard every result, so a spent budget
+    # marks the remaining survivors unconfirmed instead.
+    def run_and_confirm(subjects, lists, scheduler, cache, ignore_list)
+      confirm_survivors(run_candidates(subjects, lists, scheduler, cache, ignore_list), scheduler, cache, ignore_list)
+    end
+
+    def confirm_survivors(results, scheduler, cache, ignore_list)
+      return results unless CoveragePartial.use?(config, config["coverage_parts"])
+
+      SurvivorConfirmation.new(config: config, map: scheduler.map, scheduler: scheduler, diagnostics: @diagnostics,
+                               budget_exceeded: method(:budget_exceeded?), cache: cache)
+                          .call(results, ignore_list: ignore_list, early_stop: @early_stop)
     end
 
     def run_candidates(subjects, lists, scheduler, cache, ignore_list)
