@@ -101,6 +101,66 @@ RSpec.describe Saboteur::MutantResult do
   end
 end
 
+RSpec.describe Saboteur::MutantResult, "pinned details" do
+  it "names the rejected status in the error message" do
+    expect { result_for(:passed) }.to raise_error(ArgumentError, "unknown status :passed")
+  end
+
+  it "has no ignore reason until one is set" do
+    expect(result_for(:survived).ignored).to be_nil
+    expect(result_for(:survived)).to be_unignored_survivor
+  end
+
+  it "carries the killed_by and runtime of the result into its error copy" do
+    result = result_for(:killed, runtime: 0.5, killed_by: ["t1"], covered_by: %w[t1 t2], executed: true)
+    errored = result.as_error("boom")
+    expect([errored.runtime, errored.killed_by, errored.covered_by, errored.executed, errored.reason])
+      .to eq([0.5, ["t1"], %w[t1 t2], true, "boom"])
+  end
+
+  it "computes the digest once and returns the same string afterwards" do
+    result = result_for(:survived)
+    expect(result.digest).to be(result.digest)
+  end
+
+  it "calls only a killed mutant with a non-assertion cause a crash kill" do
+    expect(result_for(:survived, kill_cause: "NoMethodError").crash_kill?).to be(false)
+    expect(result_for(:timeout, kill_cause: "NoMethodError").crash_kill?).to be(false)
+    expect(result_for(:killed, kill_cause: "NoMethodError").crash_kill?).to be(true)
+    expect(result_for(:killed, kill_cause: "assertion").crash_kill?).to be(false)
+    expect(result_for(:killed).crash_kill?).to be(false)
+  end
+
+  describe "#diff" do
+    let(:subject_double) do
+      instance_double(Saboteur::Subject, file: "/proj/lib/a.rb", start_line: 7, source: "def a; 1; end",
+                                         surrounding_text: ["  ", " # tail"])
+    end
+    let(:result) do
+      described_class.new(subject: subject_double, mutation: comparison_mutation, status: :survived,
+                          mutated_source: "def a; 2; end")
+    end
+
+    it "keeps the text around the subject on both sides of the diff and starts at the subject line" do
+      expect(result.diff(root: "/proj")).to eq(
+        "--- a/lib/a.rb\n+++ b/lib/a.rb\n@@ -7 +7 @@\n-  def a; 1; end # tail\n+  def a; 2; end # tail\n"
+      )
+    end
+
+    it "uses the file path as it is without a root" do
+      expect(result.diff).to start_with("--- a//proj/lib/a.rb\n")
+    end
+
+    it "keeps the path when the file is not below the root, even when the root is a name prefix" do
+      expect(result.diff(root: "/pro")).to start_with("--- a//proj/lib/a.rb\n+++ b//proj/lib/a.rb\n")
+    end
+
+    it "keeps the path when the root merely appears inside the file name" do
+      expect(result.diff(root: "/proj/lib/a")).to start_with("--- a//proj/lib/a.rb\n")
+    end
+  end
+end
+
 RSpec.describe Saboteur::MutantResult, "#assertion_kill?" do
   it "is true only for a killed mutant whose cause is an assertion" do
     expect(result_for(:killed, kill_cause: "assertion").assertion_kill?).to be(true)
