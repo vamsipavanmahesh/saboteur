@@ -35,6 +35,24 @@ RSpec.describe Saboteur::Engine, "report wiring" do
     expect(engine.send(:reuse_label)).to be_nil
   end
 
+  it "flows the reuse label into the report" do
+    engine = described_class.new(Saboteur::Config.new({ "incremental" => true }), err: StringIO.new)
+    report = engine.send(:build_report, [], [], nil, engine.send(:monotonic))
+    expect(report.reuse_label).to eq("--incremental")
+
+    resumed = described_class.new(Saboteur::Config.new({ "resume" => "state" }), err: StringIO.new)
+    report = resumed.send(:build_report, [], [], nil, resumed.send(:monotonic))
+    expect(report.reuse_label).to eq("--resume")
+
+    plain = described_class.new(Saboteur::Config.new({}), err: StringIO.new)
+    report = plain.send(:build_report, [], [], nil, plain.send(:monotonic))
+    expect(report.reuse_label).to be_nil
+
+    engine.instance_variable_set(:@replay, Object.new)
+    report = engine.send(:build_report, [], [], nil, engine.send(:monotonic))
+    expect(report.reuse_label).to be_nil
+  end
+
   it "flows the configured --test-command into the report (#641)" do
     config = Saboteur::Config.new({ "test_command" => "bin/rails test" })
     engine = described_class.new(config, err: StringIO.new)
