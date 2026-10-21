@@ -35,10 +35,11 @@ module Saboteur
 
     def call(error, verbose:, agent:, err:, out:, log_path: nil, color: :auto)
       summary = "internal error (#{error.class}: #{one_line(error.message)})"
-      line = "saboteur: #{summary} - please report it: #{ISSUES_URL}"
       written = write_log(log_path, error)
-      line = "#{line}; full backtrace: #{display_path(written)}" if written
-      err.puts(line)
+      err.puts("error: the run crashed (#{error.class}: #{one_line(error.message)})")
+      help = "please report it: #{ISSUES_URL}"
+      help = "the full backtrace is in #{display_path(written)} - #{help}" if written
+      err.puts("help: #{help}")
       err.puts(Reporter::Palette.for(err, mode: color).paint(:fail, VERDICT_LINE))
       err.puts(full_text(error)) if verbose
       out.print(agent_json(summary)) if agent

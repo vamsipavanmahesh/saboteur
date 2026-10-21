@@ -20,8 +20,8 @@ RSpec.describe "exe/saboteur fallback rescue" do
     Dir.mktmpdir do |dir|
       _out, err, status = run_exe("raise_in_constructor.rb", dir:)
       expect(status.exitstatus).to eq(70)
-      expect(err).to include("saboteur: internal error (StandardError: injected constructor failure)")
-      expect(err).to include("full backtrace: .saboteur/internal-error.log")
+      expect(err).to include("error: the run crashed (StandardError: injected constructor failure)")
+      expect(err).to include("the full backtrace is in .saboteur/internal-error.log")
       expect(File.read(File.join(dir, ".saboteur", "internal-error.log"))).to include("injected constructor failure")
     end
   end
@@ -41,7 +41,7 @@ RSpec.describe "exe/saboteur fallback rescue" do
       payload = JSON.parse(out)
       expect(payload).to include("status" => "error", "verdict" => "tool_failure", "exitCode" => 70)
       expect(payload["message"]).to include("injected constructor failure")
-      expect(err).to include("internal error")
+      expect(err).to include("error: the run crashed")
     end
   end
 
@@ -49,8 +49,8 @@ RSpec.describe "exe/saboteur fallback rescue" do
     Dir.mktmpdir do |dir|
       _out, err, status = run_exe("raise_on_cli_require.rb", dir:)
       expect(status.exitstatus).to eq(70)
-      expect(err).to include("saboteur: internal error (StandardError: injected require failure)")
-      expect(err).to include("full backtrace: .saboteur/internal-error.log")
+      expect(err).to include("error: the run crashed (StandardError: injected require failure)")
+      expect(err).to include("the full backtrace is in .saboteur/internal-error.log")
       expect(File.read(File.join(dir, ".saboteur", "internal-error.log"))).to include("injected require failure")
     end
   end
@@ -61,7 +61,7 @@ RSpec.describe "exe/saboteur fallback rescue" do
               "SABOTEUR_EXE_SPEC_MESSAGE" => "first line\nsecond line" }
       _out, err, status = run_exe("raise_on_cli_require.rb", dir:, env:)
       expect(status.exitstatus).to eq(70)
-      expect(err).to include("saboteur: internal error (StandardError: first line second line)")
+      expect(err).to include("error: the run crashed (StandardError: first line second line)")
       expect(err).not_to include("second line\n")
       expect(err).not_to include("full backtrace")
       expect(File).not_to exist(File.join(dir, ".saboteur", "internal-error.log"))
@@ -84,7 +84,7 @@ RSpec.describe "exe/saboteur fallback rescue" do
     Dir.mktmpdir do |dir|
       _out, err, status = run_exe("raise_in_constructor.rb", dir:, env: { "SABOTEUR_EXE_SPEC_RAISE" => "multiline" })
       expect(status.exitstatus).to eq(70)
-      expect(err).to include("internal error (StandardError: first line second line)")
+      expect(err).to include("error: the run crashed (StandardError: first line second line)")
       expect(File.read(File.join(dir, ".saboteur", "internal-error.log"))).to include("first line\nsecond line")
     end
   end

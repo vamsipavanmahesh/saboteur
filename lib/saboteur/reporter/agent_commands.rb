@@ -82,8 +82,14 @@ module Saboteur
               value = provenance.settings[key]
               next [] if value == [] && !provenance.typed_settings.include?(key)
 
-              [flag, value.is_a?(Array) ? value.join(",") : value.to_s]
+              [flag, value.is_a?(Array) ? value.join(",") : setting_value(value)]
             end
+          end
+
+          # A parsed duration is a Float ("10m" -> 600.0); echo it the way
+          # the CLI accepts it ("600"), never with a ".0" tail.
+          def setting_value(value)
+            value.is_a?(Float) && value == value.to_i ? value.to_i.to_s : value.to_s
           end
 
           # Whole-suite scope is a bare --all, only when no tests resolved;

@@ -72,9 +72,14 @@ module Saboteur
       def degraded_note(abi)
         gap = self.class.sandbox_gap(abi)
         tail = "children run with the hazard guard and canary only"
-        return "sandbox is on but #{gap}; #{tail}" unless Execution::Seatbelt.darwin?
+        unless Execution::Seatbelt.darwin?
+          return "sandbox is on but #{gap}; #{tail}\n  " \
+                 "Fix: run on Linux 6.2+ (Landlock ABI 3) for full confinement, " \
+                 "or set c.sandbox = false to run unsandboxed"
+        end
 
-        "sandbox is on but #{gap}; #{tail} - opt into the macOS sandbox with c.sandbox = \"seatbelt\" " \
+        "sandbox is on but #{gap}; #{tail}\n  " \
+          "Fix: opt into the macOS sandbox with c.sandbox = \"seatbelt\" " \
           "(docs/guides/macos-seatbelt-sandbox.md), or set c.sandbox = false to silence this"
       end
 
@@ -117,7 +122,9 @@ module Saboteur
         return if @sandbox_note_given
 
         @sandbox_note_given = true
-        @diagnostics.warn(%(sandbox is "seatbelt" but #{reason}; children run with the hazard guard and canary only))
+        @diagnostics.warn("sandbox is \"seatbelt\" but #{reason}; children run with the hazard guard and " \
+                          "canary only\n  Fix: set c.sandbox = true to use Landlock instead, " \
+                          "or c.sandbox = false to opt out")
       end
 
       # c.sandbox_writable adds the dirs a suite genuinely needs (db/, log/,

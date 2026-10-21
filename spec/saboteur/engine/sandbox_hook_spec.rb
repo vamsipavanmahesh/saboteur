@@ -266,8 +266,9 @@ RSpec.describe Saboteur::Engine, 'sandbox hook with c.sandbox = "seatbelt"' do
     expect(engine.send(:sandbox_hook)).to be_nil
     warnings = engine.instance_variable_get(:@diagnostics).warnings
     expect(warnings.size).to eq(1)
-    expect(warnings.first).to eq('sandbox is "seatbelt" but this macOS lacks Seatbelt; children run with the ' \
-                                 "hazard guard and canary only")
+    expect(warnings.first).to eq("sandbox is \"seatbelt\" but this macOS lacks Seatbelt; children run with the " \
+                                 "hazard guard and canary only\n  " \
+                                 "Fix: set c.sandbox = true to use Landlock instead, or c.sandbox = false to opt out")
   end
 
   # Pinned against the Landlock sibling (#178): a probe that errors or

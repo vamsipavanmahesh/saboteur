@@ -154,7 +154,8 @@ RSpec.describe Saboteur::Engine::SandboxPolicy, "pins" do
       expect(subject_policy.hook).to be_nil
       expect(subject_policy.hook).to be_nil
       expect(diagnostics.warnings).to eq(
-        ["sandbox is on but #{gap2}; children run with the hazard guard and canary only"]
+        ["sandbox is on but #{gap2}; children run with the hazard guard and canary only\n  " \
+         "Fix: run on Linux 6.2+ (Landlock ABI 3) for full confinement, or set c.sandbox = false to run unsandboxed"]
       )
     end
 
@@ -200,7 +201,8 @@ RSpec.describe Saboteur::Engine::SandboxPolicy, "pins" do
       seatbelt = policy("sandbox" => "seatbelt")
       2.times { expect(seatbelt.hook).to be_nil }
       expect(diagnostics.warnings).to eq(
-        ['sandbox is "seatbelt" but this macOS lacks Seatbelt; children run with the hazard guard and canary only']
+        ["sandbox is \"seatbelt\" but this macOS lacks Seatbelt; children run with the hazard guard and " \
+         "canary only\n  Fix: set c.sandbox = true to use Landlock instead, or c.sandbox = false to opt out"]
       )
     end
   end

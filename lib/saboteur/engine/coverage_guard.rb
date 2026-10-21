@@ -22,7 +22,9 @@ module Saboteur
       def resume
         Coverage.resume if @was_running && Coverage.state == :suspended
       rescue StandardError => e
-        @diagnostics.warn("coverage resume failed: #{e.class}: #{e.message}")
+        @diagnostics.warn("coverage resume failed: #{e.class}: #{e.message}\n  " \
+                          "Fix: remove whatever suspends Ruby's Coverage mid-run " \
+                          "(another coverage tool such as SimpleCov)")
       end
     end
   end

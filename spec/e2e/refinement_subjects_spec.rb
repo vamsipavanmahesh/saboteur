@@ -71,8 +71,9 @@ RSpec.describe "saboteur run --since: subjects skipped for refinements", :e2e do
     run = saboteur(dir, "--since", "HEAD")
 
     expect(run.status).to eq(3)
-    expect(run.err).to include("Greeter#greet (lib/greeter.rb:5) was skipped (refinements), " \
-                               "so the change under test was not verified")
+    expect(run.err).to include("error: Greeter#greet (lib/greeter.rb:5) was skipped (refinements), " \
+                               "so the change under test was not verified\n" \
+                               "help: run the specs that exercise it, or narrow the scope past it")
   end
 
   it "runs the verifiable part of a partially skipped diff, with a loud warning" do

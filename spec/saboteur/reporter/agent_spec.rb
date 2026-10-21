@@ -89,7 +89,7 @@ RSpec.describe Saboteur::Reporter::Agent do
     commands = described_class::Commands
     [commands.rerun(source), commands.replay(source, "abc")].each do |command|
       words = Shellwords.split(command)
-      expect(words.each_cons(2)).to include(["--max-duration", "600.0"], ["--baseline-passes", "3"])
+      expect(words.each_cons(2)).to include(["--max-duration", "600"], ["--baseline-passes", "3"])
       expect(words).to include("--max-duration-ok")
     end
   end

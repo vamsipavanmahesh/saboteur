@@ -23,8 +23,8 @@ RSpec.describe Saboteur::Engine::SandboxPolicy do
     it "pins the complete degraded macOS note, including the explicit opt-out" do
       allow(Saboteur::Execution::Seatbelt).to receive(:darwin?).and_return(true)
       expect(policy({}).degraded_note(0)).to eq(
-        "sandbox is on but macOS has no Landlock; children run with the hazard guard and canary only - " \
-        'opt into the macOS sandbox with c.sandbox = "seatbelt" ' \
+        "sandbox is on but macOS has no Landlock; children run with the hazard guard and canary only\n  " \
+        'Fix: opt into the macOS sandbox with c.sandbox = "seatbelt" ' \
         "(docs/guides/macos-seatbelt-sandbox.md), or set c.sandbox = false to silence this"
       )
     end
@@ -43,7 +43,8 @@ RSpec.describe Saboteur::Engine::SandboxPolicy do
       expect(policy("sandbox" => "seatbelt").hook).to be_nil
       expect(diagnostics.warnings).to include(
         'sandbox is "seatbelt" but this macOS lacks Seatbelt; ' \
-        "children run with the hazard guard and canary only"
+        "children run with the hazard guard and canary only\n  " \
+        "Fix: set c.sandbox = true to use Landlock instead, or c.sandbox = false to opt out"
       )
     end
 
@@ -90,7 +91,9 @@ RSpec.describe Saboteur::Engine::SandboxPolicy do
       allow(Saboteur::Execution::Sandbox).to receive(:abi_version).and_return(0)
       expect(policy("sandbox" => true).hook).to be_nil
       expect(diagnostics.warnings).to include("sandbox is on but this kernel lacks Landlock (needs Linux 6.2+); " \
-                                              "children run with the hazard guard and canary only")
+                                              "children run with the hazard guard and canary only\n  " \
+                                              "Fix: run on Linux 6.2+ (Landlock ABI 3) for full confinement, " \
+                                              "or set c.sandbox = false to run unsandboxed")
     end
 
     it "keeps the ABI wording on a kernel with Landlock below ABI 3 (#667)" do

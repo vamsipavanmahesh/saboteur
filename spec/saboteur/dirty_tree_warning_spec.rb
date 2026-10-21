@@ -38,8 +38,8 @@ RSpec.describe Saboteur::DirtyTreeWarning do
                                "1 saboteur setup file(s) (0 tracked, 1 untracked).")
     expect(text).to include("\n  inside the mutation scope: lib/a.rb, lib/new.rb\n")
     expect(text).to include("\n  setup files: config/saboteur.rb\n")
-    expect(text).to end_with("\n  Mutants run your code and could alter or delete files; " \
-                             "run on a clean, committed tree or a CI checkout.")
+    expect(text).to end_with("\n  Fix: commit or stash your changes first, or run on a CI checkout - " \
+                             "mutants run your code and could alter or delete files.")
   end
 
   it "says uncommitted or untracked so a tree of only scratch files is not read as edits (#604)" do

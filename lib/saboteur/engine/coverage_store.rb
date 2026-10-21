@@ -385,9 +385,9 @@ module Saboteur
                        "build. No test in the suite may exercise these files, or the setup hid the app " \
                        "from Coverage#{bootsnap_note}. Run `saboteur doctor`."
         end
-        @diagnostics.warn("name the specs that exercise them in --test, or drop --test to run the whole suite\n  " \
-                          "Coverage recorded nothing in #{files.size} included files; " \
-                          "the selected specs may not exercise them.")
+        @diagnostics.warn("Coverage recorded nothing in #{files.size} included files; " \
+                          "the selected specs may not exercise them.\n  " \
+                          "Fix: name the specs that exercise them in --test, or drop --test to run the whole suite")
         map
       end
 
@@ -396,7 +396,7 @@ module Saboteur
         "#{names} can never be covered: loaded before saboteur started coverage\n  " \
           "a require ran before the executable's Coverage.start, commonly the gemspec requiring the " \
           "library while bundler/setup evaluates it, or RUBYOPT -r\n  " \
-          "Let the test suite load these files; a gemspec should require only its version file."
+          "Fix: let the test suite load these files; a gemspec should require only its version file."
       end
 
       # Bootsnap is named only when it is loaded: blaming a library the app

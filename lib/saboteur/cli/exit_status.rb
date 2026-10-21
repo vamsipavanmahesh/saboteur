@@ -67,7 +67,7 @@ module Saboteur
         end
         return false unless unverifiable_unreachable?(report)
 
-        @err.puts("saboteur: all mutants ran unreachable, so the change under test was not verified")
+        @err.puts(ErrorCause.unreachable)
         true
       end
 

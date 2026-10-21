@@ -41,7 +41,7 @@ RSpec.describe Saboteur::CrashReport do
 
   it "prints the one-line diagnostic with the report URL" do
     report(error)
-    expect(err.string).to include("saboteur: internal error (RuntimeError: boom)")
+    expect(err.string).to include("error: the run crashed (RuntimeError: boom)")
     expect(err.string).to include("please report it: https://github.com/vamsipavanmahesh/saboteur/issues")
   end
 
@@ -49,7 +49,7 @@ RSpec.describe Saboteur::CrashReport do
     Dir.mktmpdir do |root|
       log_path = File.join(root, ".saboteur", "internal-error.log")
       report(error, log_path:)
-      expect(err.string).to include("full backtrace: #{log_path}")
+      expect(err.string).to include("the full backtrace is in #{log_path}")
       expect(File.read(log_path)).to eq(
         "RuntimeError: boom\napp/models/thing.rb:10:in `explode'\napp/models/thing.rb:20:in `run'\n"
       )
@@ -64,7 +64,7 @@ RSpec.describe Saboteur::CrashReport do
       fallback = described_class.tmp_log_path
       FileUtils.rm_f(fallback)
       report(error, log_path:)
-      expect(err.string).to include("full backtrace: #{fallback}")
+      expect(err.string).to include("the full backtrace is in #{fallback}")
       expect(File).to be_symlink(log_path)
       expect(File).not_to exist(File.join(root, "target"))
     ensure
@@ -80,7 +80,7 @@ RSpec.describe Saboteur::CrashReport do
       fallback = described_class.tmp_log_path
       FileUtils.rm_f(fallback)
       Timeout.timeout(10) { report(error, log_path:) }
-      expect(err.string).to include("full backtrace: #{fallback}")
+      expect(err.string).to include("the full backtrace is in #{fallback}")
       expect(File).to be_pipe(log_path)
     ensure
       FileUtils.rm_f(fallback)
@@ -126,7 +126,7 @@ RSpec.describe Saboteur::CrashReport do
       fallback = described_class.tmp_log_path
       FileUtils.rm_f(fallback)
       report(error, log_path: File.join(root, ".saboteur", "internal-error.log"))
-      expect(err.string).to include("full backtrace: #{fallback}")
+      expect(err.string).to include("the full backtrace is in #{fallback}")
       expect(File.read(fallback)).to eq(
         "RuntimeError: boom\napp/models/thing.rb:10:in `explode'\napp/models/thing.rb:20:in `run'\n"
       )
@@ -139,7 +139,7 @@ RSpec.describe Saboteur::CrashReport do
       log_path = File.join(root, ".saboteur", "internal-error.log")
       allow(described_class).to receive(:tmp_log_path).and_raise(ArgumentError, "no tmpdir")
       report(error, log_path:)
-      expect(err.string).to include("full backtrace: #{log_path}")
+      expect(err.string).to include("the full backtrace is in #{log_path}")
       expect(File.read(log_path)).to include("RuntimeError: boom")
     end
   end
@@ -152,7 +152,7 @@ RSpec.describe Saboteur::CrashReport do
       allow(described_class).to receive(:safe_log_io?).and_return(false)
       report(error, log_path:)
       expect(File).not_to exist(log_path)
-      expect(err.string).to include("full backtrace: #{fallback}")
+      expect(err.string).to include("the full backtrace is in #{fallback}")
       expect(File.read(fallback)).to include("RuntimeError: boom")
     ensure
       FileUtils.rm_f(fallback)
@@ -190,7 +190,7 @@ RSpec.describe Saboteur::CrashReport do
     Dir.mktmpdir do |root|
       File.write(File.join(root, ".saboteur"), "a file, not a directory")
       report(error, log_path: File.join(root, ".saboteur", "internal-error.log"))
-      expect(err.string).to include("full backtrace: #{fallback}")
+      expect(err.string).to include("the full backtrace is in #{fallback}")
       expect(File.stat(fallback).mode & 0o777).to eq(0o600)
     end
   ensure
@@ -232,7 +232,7 @@ RSpec.describe Saboteur::CrashReport do
       blocked = File.join(root, ".saboteur", "internal-error.log")
       allow(described_class).to receive(:tmp_log_path).and_return(blocked)
       report(error, log_path: blocked)
-      expect(err.string).to include("internal error (RuntimeError: boom)")
+      expect(err.string).to include("error: the run crashed (RuntimeError: boom)")
       expect(err.string).not_to include("full backtrace")
     end
   end
@@ -272,7 +272,7 @@ RSpec.describe Saboteur::CrashReport do
       "exitCode" => 70, "next" => { "help" => "saboteur help run" }
     )
     expect(payload["message"]).to include("internal error (RuntimeError: boom)")
-    expect(err.string).to include("internal error (RuntimeError: boom)")
+    expect(err.string).to include("error: the run crashed (RuntimeError: boom)")
   end
 
   it "keeps agent mode silent on stdout when not an agent" do
@@ -296,7 +296,7 @@ RSpec.describe Saboteur::CrashReport do
     Dir.mktmpdir do |root|
       log_path = File.join(root, ".saboteur", "internal-error.log")
       report(multi, log_path:)
-      expect(err.string).to include("internal error (RuntimeError: first line second line)")
+      expect(err.string).to include("error: the run crashed (RuntimeError: first line second line)")
       expect(File.read(log_path)).to include("first line\nsecond line")
     end
   end

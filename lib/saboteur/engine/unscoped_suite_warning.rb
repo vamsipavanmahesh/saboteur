@@ -24,8 +24,8 @@ module Saboteur
         message = "running the loaded suite unscoped: #{examples} examples in #{integration.test_files.size} " \
                   "spec files; #{full_passes} full passes (#{checks_label(config)}#{coverage})."
         if examples >= COSTLY_SUITE_EXAMPLES
-          message += " Pass --test to run only the specs you name: faster, but a mutant of a changed method is then " \
-                     "killed only by those specs, so specs elsewhere that call this code are not run. " \
+          message += "\n  Fix: pass --test to run only the specs you name: faster, but a mutant of a changed " \
+                     "method is then killed only by those specs, so specs elsewhere that call this code are not run. " \
                      "The default inferred selection runs the specs named after the mutated files, " \
                      "a guess that can miss specs elsewhere."
         end

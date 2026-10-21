@@ -127,7 +127,9 @@ RSpec.describe Saboteur::Engine::CoverageGuard, "resume pins" do
     allow(Coverage).to receive(:state).and_return(:suspended)
     allow(Coverage).to receive(:resume).and_raise(RuntimeError, "boom")
     guard.resume
-    expect(diagnostics).to have_received(:warn).with("coverage resume failed: RuntimeError: boom")
+    expect(diagnostics).to have_received(:warn).with("coverage resume failed: RuntimeError: boom\n  " \
+                                                     "Fix: remove whatever suspends Ruby's Coverage mid-run " \
+                                                     "(another coverage tool such as SimpleCov)")
   end
 end
 

@@ -17,8 +17,8 @@ begin
 rescue LoadError, StandardError => e
   message = e.message.to_s.dup.force_encoding(Encoding::UTF_8).scrub("?").gsub(/\s+/, " ").strip
   message = "#{message[0...160]}..." if message.length > 160
-  warn "saboteur: internal error (#{e.class}: #{message}) - please report it: " \
-       "https://github.com/vamsipavanmahesh/saboteur/issues"
+  warn "error: the run crashed (#{e.class}: #{message})"
+  warn "help: please report it: https://github.com/vamsipavanmahesh/saboteur/issues"
   exit 70
 end
 

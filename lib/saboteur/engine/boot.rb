@@ -48,7 +48,8 @@ module Saboteur
         return if ::SimpleCov.singleton_class.include?(SimpleCovOff)
 
         ::SimpleCov.singleton_class.prepend(SimpleCovOff)
-        warn "saboteur: SimpleCov.start ignored for this run (saboteur needs Ruby's Coverage itself)"
+        warn "saboteur: SimpleCov.start ignored for this run (saboteur needs Ruby's Coverage itself)\n  " \
+             "Fix: start SimpleCov only when saboteur is not driving the suite"
       end
 
       # The Rails profile when rails: true, else nil (set by load_target).

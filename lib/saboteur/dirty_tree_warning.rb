@@ -19,8 +19,8 @@ module Saboteur
   class DirtyTreeWarning
     SHOWN_PATHS = 5
     MATCH_FLAGS = File::FNM_PATHNAME | File::FNM_EXTGLOB
-    ADVICE = "Mutants run your code and could alter or delete files; " \
-             "run on a clean, committed tree or a CI checkout."
+    ADVICE = "Fix: commit or stash your changes first, or run on a CI checkout - " \
+             "mutants run your code and could alter or delete files."
 
     # The warning text for the run's working tree, or nil on a clean or
     # unknown tree. The root is physical (realpath), like the paths

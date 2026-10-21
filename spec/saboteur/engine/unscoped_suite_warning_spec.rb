@@ -44,7 +44,7 @@ RSpec.describe Saboteur::Engine::UnscopedSuiteWarning do
 
   it "adds the full --test advice at the costly-suite threshold (#260)" do
     text = warn({ "all" => true }, full_passes: 3, integration: integration(examples: 1_000))
-    expect(text).to include("Pass --test to run only the specs you name: faster, but a mutant of a changed " \
+    expect(text).to include("\n  Fix: pass --test to run only the specs you name: faster, but a mutant of a changed " \
                             "method is then killed only by those specs, so specs elsewhere that call this " \
                             "code are not run. The default inferred selection runs the specs named after " \
                             "the mutated files, a guess that can miss specs elsewhere.")

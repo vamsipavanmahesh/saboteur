@@ -23,14 +23,14 @@ RSpec.describe Saboteur::CLI do
   it "reports an unexpected failure as an internal error and exits 70" do
     allow(Saboteur::Engine).to receive(:new).and_raise(NoMethodError, "undefined method `boom'")
     expect(cli("run").call).to eq(70)
-    expect(err.string).to include("saboteur: internal error (NoMethodError: undefined method `boom'")
+    expect(err.string).to include("error: the run crashed (NoMethodError: undefined method `boom'")
     expect(err.string).to include("please report it: https://github.com/vamsipavanmahesh/saboteur/issues")
   end
 
   it "collapses a multiline crash message into the one-line diagnostic" do
     allow(Saboteur::Engine).to receive(:new).and_raise(RuntimeError, "first line\nsecond line")
     expect(cli("run").call).to eq(70)
-    expect(err.string).to include("internal error (RuntimeError: first line second line)")
+    expect(err.string).to include("error: the run crashed (RuntimeError: first line second line)")
     expect(err.string).not_to include("second line\n")
   end
 
@@ -38,33 +38,33 @@ RSpec.describe Saboteur::CLI do
     allow(Saboteur::Engine).to receive(:new)
       .and_raise(RuntimeError, "broken \xFF byte".dup.force_encoding(Encoding::UTF_8))
     expect(cli("run").call).to eq(70)
-    expect(err.string).to include("internal error (RuntimeError: broken ? byte)")
+    expect(err.string).to include("error: the run crashed (RuntimeError: broken ? byte)")
   end
 
   it "leaves a crash message at the length cap untouched" do
     allow(Saboteur::Engine).to receive(:new).and_raise(RuntimeError, "x" * 160)
     expect(cli("run").call).to eq(70)
-    expect(err.string).to include("internal error (RuntimeError: #{'x' * 160})")
+    expect(err.string).to include("error: the run crashed (RuntimeError: #{'x' * 160})")
     expect(err.string).not_to include("...")
   end
 
   it "truncates a crash message one character past the cap" do
     allow(Saboteur::Engine).to receive(:new).and_raise(RuntimeError, "x" * 161)
     expect(cli("run").call).to eq(70)
-    expect(err.string).to include("internal error (RuntimeError: #{'x' * 160}...)")
+    expect(err.string).to include("error: the run crashed (RuntimeError: #{'x' * 160}...)")
   end
 
   it "re-reads a byte-tagged crash message as UTF-8" do
     allow(Saboteur::Engine).to receive(:new).and_raise(RuntimeError, "caf\xC3\xA9\xFF".b)
     expect(cli("run").call).to eq(70)
-    expect(err.string).to include("internal error (RuntimeError: caf\u00E9?)")
+    expect(err.string).to include("error: the run crashed (RuntimeError: caf\u00E9?)")
   end
 
   it "renders a crash whose message is not a String" do
     weird = stub_const("WeirdError", Class.new(StandardError) { def message = 42 })
     allow(Saboteur::Engine).to receive(:new).and_raise(weird)
     expect(cli("run").call).to eq(70)
-    expect(err.string).to include("internal error (WeirdError: 42)")
+    expect(err.string).to include("error: the run crashed (WeirdError: 42)")
   end
 
   it "writes the crash backtrace to .saboteur/internal-error.log and names the path" do
@@ -73,7 +73,7 @@ RSpec.describe Saboteur::CLI do
       stub_source_fixture(root)
       Dir.chdir(root) do
         expect(cli("run").call).to eq(70)
-        expect(err.string).to include("full backtrace: .saboteur/internal-error.log")
+        expect(err.string).to include("the full backtrace is in .saboteur/internal-error.log")
         expect(File.read(File.join(root, ".saboteur", "internal-error.log"))).to include("RuntimeError")
       end
     end
@@ -86,7 +86,7 @@ RSpec.describe Saboteur::CLI do
       File.write(File.join(root, "custom.rb"), "Saboteur.configure { |c| c.cache_dir = '.custom-cache' }\n")
       Dir.chdir(root) do
         expect(cli("run", "--config", "custom.rb").call).to eq(70)
-        expect(err.string).to include("full backtrace: .custom-cache/internal-error.log")
+        expect(err.string).to include("the full backtrace is in .custom-cache/internal-error.log")
         expect(File.read(File.join(root, ".custom-cache", "internal-error.log"))).to include("RuntimeError")
       end
     end
@@ -99,7 +99,7 @@ RSpec.describe Saboteur::CLI do
       File.write(File.join(root, "custom.rb"), "Saboteur.configure { |c| c.cache_dir = nil }\n")
       Dir.chdir(root) do
         expect(cli("run", "--config", "custom.rb").call).to eq(70)
-        expect(err.string).to include("internal error (RuntimeError: boom)")
+        expect(err.string).to include("error: the run crashed (RuntimeError: boom)")
         expect(err.string).not_to include("full backtrace")
       end
     end
@@ -677,7 +677,7 @@ RSpec.describe Saboteur::CLI do
       run_on_tree(Saboteur::WorkingTree::State.new(head: "abc", dirty: true, changed_files: 3))
 
       expect(err.string).to include("saboteur: warning: 3 uncommitted or untracked change(s) in the working tree")
-      expect(err.string).to include("clean, committed tree or a CI checkout")
+      expect(err.string).to include("Fix: commit or stash your changes first, or run on a CI checkout")
     end
 
     it "excludes saboteur's own output paths from the changes it counts" do

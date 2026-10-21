@@ -31,6 +31,14 @@ module Saboteur
 
       def self.verdict_line(code) = "exit #{code} - #{CAUSE_LINES.fetch(code).last}"
 
+      # The exit-3 "change not verified" message when every mutant ran
+      # unreachable: error:/help: voice, one cause per run (#574, #597).
+      def self.unreachable
+        "error: all mutants ran unreachable, so the change under test was not verified\n" \
+          "help: stop whatever re-loads mutated source files before the suite ends " \
+          "(a preloader such as spring), then re-run"
+      end
+
       # "" when no result carries a reason.
       def self.line(errored)
         reasons = errored.filter_map { |result| first_line(result.reason) }.reject(&:empty?)

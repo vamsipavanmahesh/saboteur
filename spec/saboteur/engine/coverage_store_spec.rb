@@ -382,7 +382,7 @@ RSpec.describe Saboteur::Engine::CoverageStore do
       "a.rb, b.rb, c.rb, d.rb, e.rb and 1 more can never be covered: loaded before saboteur started coverage\n  " \
       "a require ran before the executable's Coverage.start, commonly the gemspec requiring the " \
       "library while bundler/setup evaluates it, or RUBYOPT -r\n  " \
-      "Let the test suite load these files; a gemspec should require only its version file."
+      "Fix: let the test suite load these files; a gemspec should require only its version file."
     )
   end
 
@@ -398,7 +398,7 @@ RSpec.describe Saboteur::Engine::CoverageStore do
       "a.rb, b.rb, c.rb, d.rb, e.rb can never be covered: loaded before saboteur started coverage\n  " \
       "a require ran before the executable's Coverage.start, commonly the gemspec requiring the " \
       "library while bundler/setup evaluates it, or RUBYOPT -r\n  " \
-      "Let the test suite load these files; a gemspec should require only its version file."
+      "Fix: let the test suite load these files; a gemspec should require only its version file."
     )
   end
 
@@ -413,7 +413,7 @@ RSpec.describe Saboteur::Engine::CoverageStore do
       "a.rb can never be covered: loaded before saboteur started coverage\n  " \
       "a require ran before the executable's Coverage.start, commonly the gemspec requiring the " \
       "library while bundler/setup evaluates it, or RUBYOPT -r\n  " \
-      "Let the test suite load these files; a gemspec should require only its version file."
+      "Fix: let the test suite load these files; a gemspec should require only its version file."
     )
   end
 
@@ -484,8 +484,8 @@ RSpec.describe Saboteur::Engine::CoverageStore do
                                 diagnostics: Saboteur::Engine::Diagnostics.new(err))
     expect(store.fetch([file]).tests).to eq(["t1"])
     expect(store.instance_variable_get(:@diagnostics).warnings.last).to eq(
-      "name the specs that exercise them in --test, or drop --test to run the whole suite\n  " \
-      "Coverage recorded nothing in 1 included files; the selected specs may not exercise them."
+      "Coverage recorded nothing in 1 included files; the selected specs may not exercise them.\n  " \
+      "Fix: name the specs that exercise them in --test, or drop --test to run the whole suite"
     )
   end
 

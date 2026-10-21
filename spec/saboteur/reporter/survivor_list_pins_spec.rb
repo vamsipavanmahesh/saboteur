@@ -342,6 +342,16 @@ RSpec.describe Saboteur::Reporter::SurvivorList, "survivor blocks" do
     expect(text).to include("@v4 = 4", "@v5 = 6", "@v6 = 6")
   end
 
+  it "prints one covered-by block per survivor group, not per mutant (PR4b)" do
+    source = "class K\n  def a\n    1 >= 1\n  end\nend\n"
+    trio = [[">", "comparison"], ["<=", "comparison"], ["!=", "comparison"]].map do |to, op|
+      edited(source, ">=", to, operator: op, dir:, name: "k.rb",
+                               covered_by: ["./spec/a_spec.rb[1:1]"])
+    end
+    text = render(trio)
+    expect(text.scan("covered by").size).to eq(1)
+  end
+
   it "attributes the covering-test phrase to the group member that owns the test" do
     source = "class K\n  def a\n    1 >= 1\n  end\nend\n"
     reused = edited(source, ">=", ">", operator: "comparison", dir:, name: "k.rb",

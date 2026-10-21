@@ -126,20 +126,20 @@ RSpec.describe Saboteur::Engine, "test selection" do
   it "suggests --test from the example-count threshold up" do
     allow(integration).to receive(:all_tests).and_return(Array.new(1_000) { |i| double(id: "t#{i}") })
     run_engine("since" => "origin/main", "all" => true)
-    expect(err.string).to include("1000 examples in 3 spec files", "Pass --test to run only the specs you name")
+    expect(err.string).to include("1000 examples in 3 spec files", "Fix: pass --test to run only the specs you name")
   end
 
   it "skips the --test suggestion just under the threshold" do
     allow(integration).to receive(:all_tests).and_return(Array.new(999) { |i| double(id: "t#{i}") })
     run_engine("since" => "origin/main", "all" => true)
     expect(err.string).to include("running the loaded suite unscoped")
-    expect(err.string).not_to include("Pass --test to run only the specs you name")
+    expect(err.string).not_to include("Fix: pass --test to run only the specs you name")
   end
 
   it "suggests --test past the example-count threshold" do
     allow(integration).to receive(:all_tests).and_return(Array.new(1_001) { |i| double(id: "t#{i}") })
     run_engine("since" => "origin/main", "all" => true)
-    expect(err.string).to include("1001 examples in 3 spec files", "Pass --test to run only the specs you name")
+    expect(err.string).to include("1001 examples in 3 spec files", "Fix: pass --test to run only the specs you name")
   end
 
   it "does not nag a single-mutant replay about the whole suite's cost (#260)" do
@@ -169,7 +169,7 @@ RSpec.describe Saboteur::Engine, "test selection" do
   it "skips the --test suggestion below the example-count threshold" do
     run_engine("since" => "origin/main", "all" => true)
     expect(err.string).to include("running the loaded suite unscoped")
-    expect(err.string).not_to include("Pass --test to run only the specs you name")
+    expect(err.string).not_to include("Fix: pass --test to run only the specs you name")
   end
 
   it "says something while the application loads, before any pass starts" do
