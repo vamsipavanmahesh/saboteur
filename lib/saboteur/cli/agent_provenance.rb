@@ -54,6 +54,18 @@ module Saboteur
 
         @sources&.any? ? "files" : "full"
       end
+
+      # The ignore ratchet's scope stamp: "full" only for a whole-project
+      # run that judged the full mutant inventory - named subjects/tests,
+      # a --survivors re-run (14b) or a narrowed operator selection
+      # (CLI flag or checked-in config) all leave mutants unobserved, and a
+      # ratchet that pruned on their absence would delete live entries.
+      def ratchet_scope
+        return "partial" if config["subjects"]&.any? || config["tests"]&.any? || options[:survivors] ||
+                            config["operators"]&.any? || config["exclude_operators"]&.any?
+
+        { "full" => "full", "diff" => "diff" }.fetch(agent_mode, "partial")
+      end
     end
   end
 end

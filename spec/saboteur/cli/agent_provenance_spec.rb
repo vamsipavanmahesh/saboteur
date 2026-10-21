@@ -124,6 +124,23 @@ RSpec.describe "Saboteur::CLI::AgentProvenance execution (#334)" do
     expect(both.send(:agent_mode)).to eq("replay")
   end
 
+  # RED pins for the false-prune blocker: a narrowed run must never stamp
+  # "full", or ignore --prune would delete entries it never judged.
+  it "narrows the ratchet scope for any operator selection, flag or config" do
+    expect(run_with("Saboteur.configure { |c| c.operators = %w[comparison] }").send(:ratchet_scope))
+      .to eq("partial")
+    expect(run_with("Saboteur.configure { |c| c.exclude_operators = %w[range] }").send(:ratchet_scope))
+      .to eq("partial")
+    expect(run_with(empty_config, "--operators", "comparison").send(:ratchet_scope)).to eq("partial")
+    expect(run_with(empty_config).send(:ratchet_scope)).to eq("full")
+  end
+
+  it "narrows the ratchet scope for a --survivors re-run (14b, pinned against options)" do
+    command = run_with(empty_config)
+    allow(command).to receive(:options).and_return(survivors: true)
+    expect(command.send(:ratchet_scope)).to eq("partial")
+  end
+
   it "labels replay and diff modes ahead of files or full" do
     replay = run_with(empty_config, "--id", "abc123", "lib/foo.rb")
     expect(replay.send(:agent_mode)).to eq("replay")

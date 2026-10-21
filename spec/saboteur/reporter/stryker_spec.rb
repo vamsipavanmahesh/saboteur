@@ -313,6 +313,13 @@ RSpec.describe Saboteur::Reporter::Stryker do
       expect(document.fetch("saboteur")).not_to have_key("scoreGates")
     end
 
+    it "stamps the CLI's selection scope for the ignore ratchet, omitting it when none is supplied" do
+      scoped = JSON.parse(JSON.generate(described_class.build(report, scope: "full")))
+      expect(scoped.fetch("saboteur").fetch("scope")).to eq("full")
+      plain = JSON.parse(JSON.generate(described_class.build(report)))
+      expect(plain.fetch("saboteur")).not_to have_key("scope")
+    end
+
     it "passes the CLI's exit cause through the instance call into the written file" do
       Dir.mktmpdir do |dir|
         path = File.join(dir, "out", "report.json")

@@ -17,14 +17,16 @@ module Saboteur
         @path = path
       end
 
-      def call(report, exit_cause: nil, score_gates: nil)
+      def call(report, exit_cause: nil, score_gates: nil, scope: nil)
         FileUtils.mkdir_p(File.dirname(@path))
-        File.write(@path, JSON.generate(self.class.build(report, exit_cause: exit_cause, score_gates: score_gates)))
+        File.write(@path,
+                   JSON.generate(self.class.build(report, exit_cause: exit_cause, score_gates: score_gates,
+                                                          scope: scope)))
       end
 
       # Tests are listed once under testFiles with short ids; mutants refer to
       # them by id in killedBy/coveredBy instead of repeating full test names.
-      def self.build(report, exit_cause: nil, score_gates: nil)
+      def self.build(report, exit_cause: nil, score_gates: nil, scope: nil)
         test_ids = test_index(report.results)
         files = report.results.group_by { |result| result.subject.file }.to_h do |file, results|
           [relative(file, report.root), file_entry(results, test_ids)]
@@ -40,15 +42,16 @@ module Saboteur
           rejectedKills: report.rejected_kills,
           warnings: report.warnings,
           framework: { name: "saboteur", version: VERSION },
-          saboteur: saboteur_enrichment(report, exit_cause, score_gates)
+          saboteur: saboteur_enrichment(report, exit_cause, score_gates, scope)
         }.merge(report.seed ? { config: { seed: report.seed } } : {})
       end
 
       # saboteur-namespaced keys beyond Stryker's schema: findings and
       # scores, then the optional policy, shard, exit-cause and memory keys.
-      def self.saboteur_enrichment(report, exit_cause, score_gates = nil)
+      def self.saboteur_enrichment(report, exit_cause, score_gates = nil, scope = nil)
         { findings: Findings.build(report), complete: Agent::Incomplete.complete?(report), scores: scores(report),
           inlineSuppressions: inline_audit(report) }
+          .merge(scope ? { scope: scope } : {})
           .merge(operatorPolicy: report.operator_policy).merge(shard(report))
           .merge(exit_cause ? { exitCause: exit_cause } : {})
           .merge(report.memory ? { memory: report.memory } : {})
