@@ -535,8 +535,12 @@ RSpec.describe Saboteur::Execution::ExternalRunner do
         saved = ENV.fetch("BUNDLE_PATH", nil)
         ENV["BUNDLE_PATH"] = "/ci/gems"
         base = Bundler::ORIGINAL_ENV
+        # The ambient shell may itself export BUNDLE_PATH (a CI sandbox with a
+        # gem path configured); a base.dup would carry it into the stubbed
+        # ORIGINAL_ENV and the child-env passthrough would re-add it, failing
+        # the original:false specs on machines whose shells export it.
         stub_const("Bundler::ORIGINAL_ENV", # unfrozen, like the real one
-                   original ? base.merge("BUNDLE_PATH" => "/ci/gems") : base.dup)
+                   original ? base.merge("BUNDLE_PATH" => "/ci/gems") : base.except("BUNDLE_PATH"))
         yield
       ensure
         saved ? ENV["BUNDLE_PATH"] = saved : ENV.delete("BUNDLE_PATH")
