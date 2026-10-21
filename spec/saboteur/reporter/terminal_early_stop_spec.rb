@@ -40,6 +40,16 @@ RSpec.describe Saboteur::Reporter::Terminal, "early stop and rejected kills" do
                                       "the score below covers only completed work")
   end
 
+  it "names the flaky check, not a budget, for unverified verdicts (#1167)" do
+    lines = lines_for([result_for(:killed)], early_stop: stop(reason: "unverified", unverified: %w[E#v]))
+    expect(lines).to include(
+      "unverified verdicts (flaky-check rerun disagreed): 1 subject left with unverified results; the score " \
+      "below covers only the verified work",
+      "  unverified: E#v"
+    )
+    expect(lines.grep(/max-duration/)).to be_empty
+  end
+
   it "names the budget for a max-duration stop and caps each list at ten" do
     many = Array.new(11) { |index| "S#{index}#m" }
     lines = lines_for([result_for(:killed)], early_stop: stop(reason: "max_duration", unreached: many, planned: 5))

@@ -516,9 +516,16 @@ module Saboteur
         stop = report.early_stop
         return unless stop
 
-        label = stop.reason == "fail_fast" ? "--fail-fast" : "--max-duration spent"
-        @out.puts @palette.paint(:warn, "stopped early (#{label}): #{early_stop_summary(stop)}; the score below " \
-                                        "covers only completed work")
+        if stop.reason == "unverified"
+          # Nothing stopped early: a flaky-check rerun disagreed (#1167).
+          @out.puts @palette.paint(:warn, "unverified verdicts (flaky-check rerun disagreed): " \
+                                          "#{early_stop_summary(stop)}; the score below covers " \
+                                          "only the verified work")
+        else
+          label = stop.reason == "fail_fast" ? "--fail-fast" : "--max-duration spent"
+          @out.puts @palette.paint(:warn, "stopped early (#{label}): #{early_stop_summary(stop)}; the score below " \
+                                          "covers only completed work")
+        end
         budget_shortfall(stop, report.results.size)
         list(stop.unreached) { |id| "  not run: #{id}" }
         list(stop.truncated) { |entry| "  stopped mid-way: #{entry[:subject]} (#{entry[:omitted]} mutants omitted)" }

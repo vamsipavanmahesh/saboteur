@@ -19,10 +19,15 @@ module Saboteur
                                     planned_mutants: planned_mutants)
       end
 
-      # Mid-subject omissions and skipped checks are budget work: only a
-      # stop that left whole subjects unreached can be fail_fast's.
+      # Mid-subject omissions are budget work. Unverified checks are budget
+      # work only when the budget is actually spent (#296); without a spent
+      # budget they come from a flaky-check rerun disagreement (#476), and
+      # blaming --max-duration would be a lie (#1167). Only a stop that left
+      # whole subjects unreached can be fail_fast's.
       def stop_reason(distribution)
-        return "max_duration" if distribution.truncated.any? || distribution.unverified.any?
+        return "max_duration" if distribution.truncated.any?
+        return "max_duration" if distribution.unverified.any? && budget_exceeded?
+        return "unverified" if distribution.unverified.any? && distribution.unreached.empty?
 
         run_early_stop_reason
       end

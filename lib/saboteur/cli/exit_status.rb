@@ -13,6 +13,8 @@ module Saboteur
 
         return EXIT_OK if ignore_empty_diff?(report)
 
+        return EXIT_TOOL if unverified_verdicts?(report)
+
         return EXIT_TOOL if untested_partial?(report)
 
         return EXIT_TOOL if unverifiable_scope?(report)
@@ -41,6 +43,18 @@ module Saboteur
       # the plain verdict.
       def budget_exhausted?(report)
         report.early_stop&.reason == "max_duration" && !config["max_duration_ok"]
+      end
+
+      # A flaky-check rerun that disagreed leaves its subject unverified
+      # (#476): the run completed, but the change was not fully verified -
+      # exit 3, like the other incomplete shapes. Not a budget stop (#1167).
+      def unverified_verdicts?(report)
+        return false unless report.early_stop&.reason == "unverified"
+
+        ids = report.early_stop.unverified
+        @err.puts("saboteur: #{ids.size} subject#{'s' unless ids.one?} unverified after a flaky-check " \
+                  "confirmation rerun disagreed: #{ids.join(', ')}")
+        true
       end
 
       # A run stopped before any mutant was tested has no verdict to fall
@@ -117,7 +131,8 @@ module Saboteur
           if report.majority_errored?
             "errorMajority"
           elsif unverifiable_review?(report) || unverifiable_unreachable?(report) ||
-                (report.early_stop && report.score_breakdown.tested.zero?)
+                (report.early_stop && report.score_breakdown.tested.zero?) ||
+                (report.early_stop&.reason == "unverified")
             "incomplete"
           else
             "incompleteUnderThreshold"

@@ -672,8 +672,9 @@ RSpec.describe Saboteur::Engine::Scheduler, "budget-spent verdict checks (#296)"
 end
 
 RSpec.describe Saboteur::Engine, "budget-left checks (#296)" do
-  it "records an unverified-only stop as budget-partial even when every candidate ran" do
-    engine = described_class.new(Saboteur::Config.new({}), err: StringIO.new)
+  it "records an unverified-only stop with a spent budget as budget-partial (#296)" do
+    engine = described_class.new(Saboteur::Config.new({ "max_duration" => 1 }), err: StringIO.new)
+    engine.instance_variable_set(:@run_started, Process.clock_gettime(Process::CLOCK_MONOTONIC) - 100)
     subject = subject_named("class K\n  def m\n    1\n  end\nend\n", "K#m")
     distribution = instance_double(Saboteur::Engine::Distribution, memory_report: nil, unreached: [], truncated: [],
                                                                    unverified: [subject])
@@ -682,6 +683,15 @@ RSpec.describe Saboteur::Engine, "budget-left checks (#296)" do
     expect(stop.reason).to eq("max_duration")
     expect(stop.unreached).to eq([])
     expect(stop.unverified).to eq([subject.id])
+  end
+
+  it "records an unverified-only stop without a budget as a flaky-check disagreement (#1167)" do
+    engine = described_class.new(Saboteur::Config.new({}), err: StringIO.new)
+    subject = subject_named("class K\n  def m\n    1\n  end\nend\n", "K#m")
+    distribution = instance_double(Saboteur::Engine::Distribution, memory_report: nil, unreached: [], truncated: [],
+                                                                   unverified: [subject])
+    engine.send(:record_early_stop, distribution)
+    expect(engine.instance_variable_get(:@early_stop).reason).to eq("unverified")
   end
 
   it "names the budget stop even when fail_fast also fired: a truncated list is budget work (#296)" do

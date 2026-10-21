@@ -41,7 +41,8 @@ module Saboteur
             add(reasons, "errors", report.counts[:error], "mutants errored; their verdict did not hold up")
             add(reasons, "resource_limit", report.counts[:resource_limit], "mutants hit the memory or process cap")
             add(reasons, "unverified", report.counts[:unverified],
-                "mutants the --max-duration budget left unverified; their kills are not confirmed")
+                "mutants left unverified by a spent --max-duration budget or a flaky-check " \
+                "disagreement; their kills are not confirmed")
             discovery_failures(reasons, report)
             early_stop_reason(reasons, report)
             inline_scope(reasons, report)

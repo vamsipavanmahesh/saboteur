@@ -7,8 +7,10 @@ RSpec.describe Saboteur::Engine::EarlyStopRecording, "pins" do
                                                     unverified: unverified)
   end
 
-  def recorder
-    Object.new.extend(described_class)
+  def recorder(budget_exceeded: false)
+    rec = Object.new.extend(described_class)
+    rec.define_singleton_method(:budget_exceeded?) { budget_exceeded }
+    rec
   end
 
   it "is a no-op when the stop left nothing unreached, truncated or unverified" do
@@ -27,14 +29,21 @@ RSpec.describe Saboteur::Engine::EarlyStopRecording, "pins" do
     expect(stop.truncated).to eq([{ subject: "Foo#bar", omitted: 2 }])
   end
 
-  it "records a stop that left only unverified checks" do
+  it "records a flaky-check disagreement as unverified, not as a budget stop (#1167)" do
     subject = Struct.new(:id).new("Foo#bar")
-    rec = recorder
+    rec = recorder(budget_exceeded: false)
     rec.instance_variable_set(:@budget_announced, false)
     rec.send(:record_early_stop, distribution(unverified: [subject]))
     stop = rec.instance_variable_get(:@early_stop)
-    expect(stop.reason).to eq("max_duration")
+    expect(stop.reason).to eq("unverified")
     expect(stop.unverified).to eq(["Foo#bar"])
+  end
+
+  it "records unverified checks left by a spent budget as max_duration (#296)" do
+    subject = Struct.new(:id).new("Foo#bar")
+    rec = recorder(budget_exceeded: true)
+    rec.send(:record_early_stop, distribution(unverified: [subject]))
+    expect(rec.instance_variable_get(:@early_stop).reason).to eq("max_duration")
   end
 
   it "records a stop that left anything behind, with the ids" do
@@ -52,9 +61,16 @@ RSpec.describe Saboteur::Engine::EarlyStopRecording, "pins" do
     expect(rec.send(:stop_reason, distribution(truncated: [["s", 1]]))).to eq("max_duration")
   end
 
-  it "calls the reason max_duration when any check was unverified, even with none truncated" do
+  it "calls the reason unverified when a check was unverified without a spent budget (#1167)" do
+    expect(recorder.send(:stop_reason, distribution(unverified: ["s"]))).to eq("unverified")
+    expect(recorder(budget_exceeded: true).send(:stop_reason, distribution(unverified: ["s"])))
+      .to eq("max_duration")
+  end
+
+  it "keeps the run stop reason when unverified checks and unreached subjects mix (#1167)" do
     rec = recorder
-    expect(rec.send(:stop_reason, distribution(unverified: ["s"]))).to eq("max_duration")
+    rec.instance_variable_set(:@budget_announced, false)
+    expect(rec.send(:stop_reason, distribution(unreached: ["s"], unverified: ["t"]))).to eq("fail_fast")
   end
 
   it "falls back to the run stop reason only when nothing was truncated or unverified" do

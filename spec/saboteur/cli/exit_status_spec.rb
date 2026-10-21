@@ -188,6 +188,39 @@ RSpec.describe Saboteur::CLI::ExitStatus do
     end
   end
 
+  describe "a run left unverified by a flaky-check disagreement (#1167)" do
+    let(:config) { {} }
+
+    def flip_report(tested: 18)
+      instance_double(
+        Saboteur::Report,
+        early_stop: Saboteur::EarlyStop.new(reason: "unverified", unreached: [], truncated: [],
+                                            unverified: %w[Meter.over?]),
+        score_breakdown: instance_double(Saboteur::Score, tested: tested),
+        majority_errored?: false,
+        review?: false,
+        subjects: [],
+        executed: []
+      )
+    end
+
+    it "exits 3, not 4, and names the flaky check instead of a budget" do
+      expect(harness.code(flip_report)).to eq(Saboteur::CLI::EXIT_TOOL)
+      expect(harness.err.string).to include("1 subject unverified after a flaky-check confirmation rerun " \
+                                            "disagreed: Meter.over?")
+    end
+
+    it "records the incomplete cause, not budgetExhausted" do
+      expect(harness.cause(flip_report, Saboteur::CLI::EXIT_TOOL)).to eq("incomplete")
+      expect(harness.agent_cause(flip_report, "incomplete")).to eq("incomplete")
+    end
+
+    it "exits 3 with the same honesty when nothing else was tested" do
+      expect(harness.code(flip_report(tested: 0))).to eq(Saboteur::CLI::EXIT_TOOL)
+      expect(harness.err.string).to include("flaky-check")
+    end
+  end
+
   describe "fail-fast vs other early-stop reasons (#296)" do
     let(:config) { {} }
 
