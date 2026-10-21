@@ -362,6 +362,22 @@ RSpec.describe Saboteur::Config do
     expect(described_class.new({},
                                root: @root).path("ignore_file")).to eq(File.join(@root, "config/saboteur_ignore.rb"))
   end
+
+  it "rejects an explicitly set ignore_file that does not exist, with the fix" do
+    expect { described_class.new({ "ignore_file" => "config/nope.rb" }, root: @root) }
+      .to raise_error(Saboteur::ConfigError,
+                      %r{ignore_file "config/nope.rb" does not exist; create it or remove the setting})
+  end
+
+  it "stays silent about the default ignore_file path being absent" do
+    expect(described_class.new({}, root: @root).explicit?("ignore_file")).to be(false)
+  end
+
+  it "accepts an explicitly set ignore_file that exists" do
+    write("config/my_ignore.rb", "# entries\n")
+    config = described_class.new({ "ignore_file" => "config/my_ignore.rb" }, root: @root)
+    expect(config.path("ignore_file")).to eq(File.join(@root, "config/my_ignore.rb"))
+  end
 end
 
 RSpec.describe Saboteur::Config, "details" do
