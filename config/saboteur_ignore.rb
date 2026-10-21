@@ -1345,6 +1345,12 @@ i.mutation "fdc4600f4e8e8625",
                      "description strings builds the identical switch - " \
                      "hand-applied mutant leaves all 24 run_option_modules " \
                      "examples green"
+  i.mutation "5352380af5a812e5",
+             subject: "Saboteur::Reporter::Palette#initialize",
+             reason: "equivalent: an empty overrides hash passes validate_overrides! " \
+                     "unchanged and merges to the same @tokens, so returning on " \
+                     "nil alone and on nil-or-empty agree - hand-applied mutant " \
+                     "leaves all 114 palette, colour-contract and config examples green"
 
   # agent_provenance.rb:54 - any? vs all? is equivalent here: @sources is nil or a
   # non-empty array of path strings (use_explicit_sources returns before assigning
