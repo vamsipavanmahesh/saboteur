@@ -63,7 +63,7 @@ module Saboteur
           <h1>saboteur report</h1>
           #{summary(report, data)}#{inline_suppressions(report)}#{warnings(data[:warnings])}#{skipped_subjects(data[:skippedSubjects])}
           <h2>Files</h2>
-          #{data[:files].map { |file, entry| file_section(file, entry, names, results) }.join("\n")}
+          #{data[:files].map { |file, entry| file_section(file, entry, names, results, report) }.join("\n")}
           </body></html>
         HTML
       end
@@ -156,10 +156,10 @@ module Saboteur
         data[:testFiles].values.flat_map { |group| group[:tests] }.to_h { |test| [test[:id], test[:name]] }
       end
 
-      def file_section(file, entry, names, results)
+      def file_section(file, entry, names, results, report)
         open = entry[:mutants].any? { |mutant| mutant[:status] == "Survived" } ? " open" : ""
         ordered = entry[:mutants].sort_by { |mutant| position_key(mutant) }
-        rows = ordered.map { |mutant| mutant_row(mutant, names, results[[file, mutant[:id]]]) }
+        rows = ordered.map { |mutant| mutant_row(mutant, names, results[[file, mutant[:id]]], report) }
         "<details#{open}><summary>#{escape(file)} (#{entry[:mutants].size} mutants)</summary>\n" \
           "<div class=\"scroll\"><table><thead><tr><th>Location</th><th>Status</th><th>Operator</th><th>Change</th>" \
           "<th>Id</th><th>Notes</th></tr></thead>\n#{rows.join("\n")}</table></div></details>"
@@ -170,15 +170,25 @@ module Saboteur
         [start[:line], start[:column], mutant[:id]]
       end
 
-      def mutant_row(mutant, names, result)
-        start = mutant[:location][:start]
+      def mutant_row(mutant, names, result, report)
         tests = Array(mutant[:killedBy]).map { |id| names.fetch(id) }.join(", ")
         notes = [mutant[:statusReason], tests.empty? ? nil : "killed by #{tests}",
                  passing_tests_note(mutant, names, result)].compact.join("; ")
-        "<tr><td class=\"fit\">line #{start[:line]}, column #{start[:column]}</td><td>#{row_status(mutant,
-                                                                                                   result)}</td>" \
+        "<tr><td class=\"fit\">#{location_cell(mutant[:location][:start], result, report)}</td>" \
+          "<td>#{row_status(mutant, result)}</td>" \
           "<td>#{escape(mutant[:mutatorName])}</td><td class=\"wide\">#{change(mutant, result)}</td>" \
           "<td class=\"fit\"><code>#{escape(mutant[:id])}</code></td><td class=\"wide\">#{escape(notes)}</td></tr>"
+      end
+
+      # In diff mode, the changed lines the mutant touches, under its own
+      # location: the mutated statement can start a line or two above the
+      # changed line, so the first line alone can point at the wrong place.
+      def location_cell(start, result, report)
+        cell = "line #{start[:line]}, column #{start[:column]}"
+        lines = report.changed_lines_for(result)
+        return cell if lines.empty?
+
+        "#{cell}<br>changed #{lines.one? ? 'line' : 'lines'} #{lines.join(', ')}"
       end
 
       # A survivor's covering tests all passed with the mutant applied, or, for
