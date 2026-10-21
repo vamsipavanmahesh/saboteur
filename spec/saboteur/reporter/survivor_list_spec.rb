@@ -71,12 +71,12 @@ RSpec.describe Saboteur::Reporter::SurvivorList do
     expect(text).to include("\n\nHints are suggestions")
   end
 
-  def mutant_on(subject, at, replacement, covered_by: [], reused: false)
+  def mutant_on(subject, at, replacement, covered_by: [], reused: false, executed: nil)
     edit = Saboteur::MutationSource::Edit.new(file: subject.file, start_byte: at, end_byte: at + 2, replacement:)
     mutation = Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: "comparison", edits: [edit],
                                                       coarse: false)
     Saboteur::MutantResult.new(subject:, mutation:, status: :survived,
-                               mutated_source: subject.apply(mutation.edits), covered_by:, reused:)
+                               mutated_source: subject.apply(mutation.edits), covered_by:, reused:, executed:)
   end
 
   def render_collapsed(*results)
@@ -109,6 +109,106 @@ RSpec.describe Saboteur::Reporter::SurvivorList do
     text = render_collapsed(first, second)
     expect(text).to include("      2 tests covered this line and still passed")
     expect(text).to include("./spec/a_spec.rb[1:1]", "./spec/b_spec.rb[1:2]")
+  end
+
+  it "names the tests that ran when fewer ran than covered the line" do
+    subject = subjects_in("class K\n  def a; @x >= 1; end\nend\n", name: "m.rb").first
+    at = subject.file_source.index(">=", subject.start_byte)
+    result = mutant_on(subject, at, ">", covered_by: ["./spec/a_spec.rb[1:1]", "./spec/b_spec.rb[1:2]"],
+                                         executed: ["./spec/a_spec.rb[1:1]"])
+    text = render_collapsed(result)
+    expect(text).to include("      1 of the 2 tests that covered this line ran and still passed " \
+                            "(the missing check may belong in one of them):\n")
+    expect(text).to include("        ./spec/a_spec.rb[1:1]\n")
+    expect(text).to include("      did not run: ./spec/b_spec.rb[1:2]\n")
+    expect(text).not_to include("2 tests covered this line")
+  end
+
+  it "keeps the covered-and-passed line when every covering test ran" do
+    subject = subjects_in("class K\n  def a; @x >= 1; end\nend\n", name: "m.rb").first
+    at = subject.file_source.index(">=", subject.start_byte)
+    result = mutant_on(subject, at, ">", covered_by: ["./spec/a_spec.rb[1:1]"], executed: ["./spec/a_spec.rb[1:1]"])
+    text = render_collapsed(result)
+    expect(text).to include("      1 test covered this line and still passed")
+    expect(text).not_to include("did not run")
+  end
+
+  it "caps the did-not-run list at three names" do
+    subject = subjects_in("class K\n  def a; @x >= 1; end\nend\n", name: "m.rb").first
+    at = subject.file_source.index(">=", subject.start_byte)
+    covered = ["./spec/a_spec.rb[1:1]", "./spec/b_spec.rb[1:1]", "./spec/c_spec.rb[1:1]",
+               "./spec/d_spec.rb[1:1]", "./spec/e_spec.rb[1:1]"]
+    result = mutant_on(subject, at, ">", covered_by: covered, executed: ["./spec/a_spec.rb[1:1]"])
+    text = render_collapsed(result)
+    expect(text).to include("      did not run: ./spec/b_spec.rb[1:1], ./spec/c_spec.rb[1:1], " \
+                            "./spec/d_spec.rb[1:1] (+1 more)\n")
+    expect(text).not_to include("./spec/e_spec.rb[1:1]")
+  end
+
+  def covered_survivor(covered:, executed:, reused: false)
+    subject = subjects_in("class K\n  def a; @x >= 1; end\nend\n", name: "m.rb").first
+    at = subject.file_source.index(">=", subject.start_byte)
+    mutant_on(subject, at, ">", covered_by: covered, executed:, reused:)
+  end
+
+  it "caps the ran list at five and counts the rest" do
+    covered = ("a".."h").map { |n| "./spec/#{n}_spec.rb[1:1]" }
+    text = render_collapsed(covered_survivor(covered:, executed: covered.first(7)))
+    expect(text).to include("      7 of the 8 tests that covered this line ran and still passed " \
+                            "(the missing check may belong in one of them):\n")
+    expect(text).to include("        ... 2 more in the JSON report (executed)\n")
+    expect(text).not_to include("./spec/f_spec.rb", "./spec/g_spec.rb")
+    expect(text).to include("      did not run: ./spec/h_spec.rb[1:1]\n")
+  end
+
+  it "prints no more-line when five or fewer tests ran" do
+    covered = ("a".."f").map { |n| "./spec/#{n}_spec.rb[1:1]" }
+    text = render_collapsed(covered_survivor(covered:, executed: covered.first(5)))
+    expect(text).to include("      5 of the 6 tests that covered this line ran and still passed")
+    expect(text).not_to include("more in the JSON report (executed)")
+    expect(text).to include("      did not run: ./spec/f_spec.rb[1:1]\n")
+  end
+
+  it "prints no suffix when exactly three tests did not run" do
+    covered = ("a".."d").map { |n| "./spec/#{n}_spec.rb[1:1]" }
+    text = render_collapsed(covered_survivor(covered:, executed: covered.first(1)))
+    expect(text).to include("      did not run: ./spec/b_spec.rb[1:1], ./spec/c_spec.rb[1:1], " \
+                            "./spec/d_spec.rb[1:1]\n")
+    expect(text).not_to include("+0 more")
+  end
+
+  it "words a reused survivor's ran line as an earlier run" do
+    covered = ("a".."c").map { |n| "./spec/#{n}_spec.rb[1:1]" }
+    text = render_collapsed(covered_survivor(covered:, executed: covered.first(2), reused: true))
+    expect(text).to include("      2 of the 3 tests that covered this line " \
+                            "passed in an earlier run (--incremental)")
+    expect(text).to include("      did not run: ./spec/c_spec.rb[1:1]\n")
+  end
+
+  it "keeps the covered line when the run recorded tests outside the covering set" do
+    text = render_collapsed(covered_survivor(covered: ["./spec/a_spec.rb[1:1]", "./spec/b_spec.rb[1:1]"],
+                                             executed: ["./spec/a_spec.rb[1:1]", "./spec/c_spec.rb[1:1]"]))
+    expect(text).to include("      2 tests covered this line and still passed")
+    expect(text).not_to include("of the 2 tests", "did not run")
+  end
+
+  it "falls back to covering tests for a mutant with no recorded executed tests" do
+    subject = subjects_in("class K\n  def a; @x >= 1; end\nend\n", name: "m.rb").first
+    at = subject.file_source.index(">=", subject.start_byte)
+    first = mutant_on(subject, at, ">", covered_by: ["./spec/a_spec.rb[1:1]"])
+    second = mutant_on(subject, at, "<", covered_by: ["./spec/x_spec.rb[1:1]", "./spec/y_spec.rb[1:1]"],
+                                         executed: ["./spec/x_spec.rb[1:1]"])
+    text = render_collapsed(first, second)
+    expect(text).to include("      2 of the 3 tests that covered this line ran and still passed")
+    expect(text).to include("      did not run: ./spec/y_spec.rb[1:1]\n")
+  end
+
+  it "marks unrun selected tests in the per-mutant evidence too" do
+    text = render(survivor_in("p.rb", covered_by: ["./spec/p_spec.rb[1:1]", "./spec/q_spec.rb[1:1]"],
+                                      executed: ["./spec/q_spec.rb[1:1]"]))
+    expect(text).to include("      1 of the 2 tests that covered this line ran and still passed")
+    expect(text).to include("        ./spec/q_spec.rb[1:1]\n")
+    expect(text).to include("      did not run: ./spec/p_spec.rb[1:1]\n")
   end
 
   it "abbreviates a statement's digest list after three" do

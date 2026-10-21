@@ -106,6 +106,27 @@ RSpec.describe Saboteur::Reporter::Stryker do
     expect(statuses).to eq(%w[NoCoverage Ignored])
   end
 
+  it "records the tests that ran as executed ids, absent when the run did not record them" do
+    report = report_of(result_for(:survived, covered_by: %w[t1 t2], executed: %w[t2]),
+                       result_for(:killed, covered_by: %w[t1], killed_by: %w[t1]))
+    mutants = JSON.parse(JSON.generate(described_class.build(report))).dig("files", "person.rb", "mutants")
+    expect(mutants.map { |m| m["coveredBy"] }).to eq([%w[0 1], ["0"]])
+    expect(mutants.map { |m| m["executed"] }).to eq([["1"], nil])
+  end
+
+  it "indexes executed-only test names so executed ids resolve" do
+    report = report_of(result_for(:survived, covered_by: %w[t1], executed: %w[t1 tX]))
+    mutant = JSON.parse(JSON.generate(described_class.build(report))).dig("files", "person.rb", "mutants").first
+    expect(mutant["coveredBy"]).to eq(["0"])
+    expect(mutant["executed"]).to eq(%w[0 1])
+  end
+
+  it "indexes killed-only test names so killedBy ids resolve" do
+    report = report_of(result_for(:killed, covered_by: %w[t1], killed_by: %w[t9]))
+    mutant = JSON.parse(JSON.generate(described_class.build(report))).dig("files", "person.rb", "mutants").first
+    expect(mutant["killedBy"]).to eq(["1"])
+  end
+
   it "records the seed, so the run can be repeated" do
     expect(json["config"]).to eq("seed" => 1)
   end
