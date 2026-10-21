@@ -30,7 +30,10 @@ module Saboteur
            "resource-limited mutant.",
       4 => "Time budget spent: --max-duration stopped the run before the next subject, so the score is " \
            "partial. --max-duration-ok leaves the exit to the plain verdict: 0, 1, or 3 when the budget " \
-           "stopped the run before any mutant was tested."
+           "stopped the run before any mutant was tested.",
+      5 => "Baseline suite red: the unchanged suite failed its check, so no mutant ran. Fix your tests first.",
+      70 => "Internal crash: a saboteur bug, never your code. The error line names a log with the full " \
+            "backtrace; please report it."
     }.freeze
 
     DOCTOR_EXIT_CODE_MEANINGS = {

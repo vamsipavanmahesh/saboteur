@@ -14,7 +14,7 @@ RSpec.describe "baseline stability guard", :e2e do
       end
     RUBY
     run = saboteur(directory, "--all", "--seed", "42")
-    expect(run.status).to eq(3)
+    expect(run.status).to eq(5)
     expect(run.json).to be_nil
     expect(run.err).to include("baseline check 1 failed at seed 42", "Fix the suite", "No mutants were started")
     log = File.read(File.join(directory, ".saboteur/baseline-1.log"))
@@ -30,7 +30,7 @@ RSpec.describe "baseline stability guard", :e2e do
       end
     RUBY
     run = saboteur(directory, "--all", "--seed", "42")
-    expect(run.status).to eq(3)
+    expect(run.status).to eq(5)
     log = File.read(File.join(directory, ".saboteur/baseline-1.log"))
     expect(log).to include("hook exploded")
   end
@@ -48,7 +48,7 @@ RSpec.describe "baseline stability guard", :e2e do
       end
     RUBY
     run = saboteur(directory, "--all", "--seed", "17")
-    expect(run.status).to eq(3)
+    expect(run.status).to eq(5)
     expect(run.err).to include("baseline check 2 failed at seed 17")
     expect(File.read(File.join(directory, "baseline-counter"))).to eq("2")
     expect(run.json).to be_nil
@@ -72,7 +72,7 @@ RSpec.describe "baseline stability guard", :e2e do
     expect(original_bytes.transform_values { |bytes| bytes }).to eq(
       cached_paths.to_h { |path| [path, File.binread(path)] }
     )
-    expect(run.status).to eq(3)
+    expect(run.status).to eq(5)
     expect(run.json).to be_nil
     expect(run.err).to include("baseline check 1 failed at seed 19")
   end
@@ -90,6 +90,8 @@ RSpec.describe "baseline stability guard", :e2e do
       end
     RUBY
     run = saboteur(directory, "--all", "--seed", "23")
+    # Coverage-build failures still exit 3; routing them to 5 via a
+    # BaselineRedError subclass is a tracked follow-up.
     expect(run.status).to eq(3)
     expect(run.json).to be_nil
     expect(run.err).to include("unchanged suite failed while building coverage", "Fix the suite", "seed 23")

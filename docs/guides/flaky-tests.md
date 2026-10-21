@@ -11,7 +11,7 @@ with a deliberately flaky spec added.
 
 - **Two baseline passes before any mutant runs.** The unchanged suite runs
   twice (config `c.baseline_passes`, preset-dependent). A suite that cannot
-  pass twice in a row stops the run at exit 3, before a single mutant is
+  pass twice in a row stops the run at exit 5, before a single mutant is
   attributed to it.
 - **An unchanged-method check per kill.** A mutant whose killing test also
   fails against the *unchanged* method is rejected - the kill was the

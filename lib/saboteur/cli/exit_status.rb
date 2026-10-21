@@ -8,19 +8,6 @@ module Saboteur
     module ExitStatus
       private
 
-      # Last resort: a bug must not escape as a bare stack trace and an accidental exit 1.
-      def internal_error(error)
-        CrashReport.call(error, verbose: @verbose, agent: agent?, err: @err, out: @out, log_path: crash_log_path)
-      end
-
-      # The crash log lives with the other run state. A broken config (or a
-      # nil cache_dir) must not swallow the crash report itself: no log.
-      def crash_log_path
-        config.path("cache_dir")&.then { |dir| File.join(dir, CrashReport::LOG_NAME) }
-      rescue StandardError
-        nil
-      end
-
       def exit_code(report)
         return EXIT_BUDGET if budget_exhausted?(report)
 
@@ -112,6 +99,7 @@ module Saboteur
         when EXIT_OK then "ok"
         when EXIT_BUDGET then "budgetExhausted"
         when EXIT_SURVIVORS then survivors_cause(report)
+        when EXIT_BASELINE_RED, EXIT_CRASH then ErrorCause.cause(code)
         else
           if report.majority_errored?
             "errorMajority"

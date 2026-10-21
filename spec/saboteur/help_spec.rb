@@ -150,7 +150,7 @@ RSpec.describe Saboteur::Help do
   end
 
   it "lists every exit code" do
-    %w[EXIT_OK EXIT_SURVIVORS EXIT_USAGE EXIT_TOOL].each do |name|
+    %w[EXIT_OK EXIT_SURVIVORS EXIT_USAGE EXIT_TOOL EXIT_BASELINE_RED EXIT_CRASH].each do |name|
       expect(overview).to match(/^  #{Saboteur::CLI.const_get(name)}  \S/)
     end
   end

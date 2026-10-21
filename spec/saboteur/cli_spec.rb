@@ -19,17 +19,17 @@ RSpec.describe Saboteur::CLI do
   end
 
   # B3: an unexpected failure must not escape as a bare stack trace and
-  # an accidental exit 1; it is reported as ours and exits 3.
-  it "reports an unexpected failure as an internal error and exits 3" do
+  # an accidental exit 1; it is reported as ours and exits 70.
+  it "reports an unexpected failure as an internal error and exits 70" do
     allow(Saboteur::Engine).to receive(:new).and_raise(NoMethodError, "undefined method `boom'")
-    expect(cli("run").call).to eq(3)
+    expect(cli("run").call).to eq(70)
     expect(err.string).to include("saboteur: internal error (NoMethodError: undefined method `boom'")
     expect(err.string).to include("please report it: https://github.com/vamsipavanmahesh/saboteur/issues")
   end
 
   it "collapses a multiline crash message into the one-line diagnostic" do
     allow(Saboteur::Engine).to receive(:new).and_raise(RuntimeError, "first line\nsecond line")
-    expect(cli("run").call).to eq(3)
+    expect(cli("run").call).to eq(70)
     expect(err.string).to include("internal error (RuntimeError: first line second line)")
     expect(err.string).not_to include("second line\n")
   end
@@ -37,33 +37,33 @@ RSpec.describe Saboteur::CLI do
   it "scrubs locale-invalid bytes out of a crash message" do
     allow(Saboteur::Engine).to receive(:new)
       .and_raise(RuntimeError, "broken \xFF byte".dup.force_encoding(Encoding::UTF_8))
-    expect(cli("run").call).to eq(3)
+    expect(cli("run").call).to eq(70)
     expect(err.string).to include("internal error (RuntimeError: broken ? byte)")
   end
 
   it "leaves a crash message at the length cap untouched" do
     allow(Saboteur::Engine).to receive(:new).and_raise(RuntimeError, "x" * 160)
-    expect(cli("run").call).to eq(3)
+    expect(cli("run").call).to eq(70)
     expect(err.string).to include("internal error (RuntimeError: #{'x' * 160})")
     expect(err.string).not_to include("...")
   end
 
   it "truncates a crash message one character past the cap" do
     allow(Saboteur::Engine).to receive(:new).and_raise(RuntimeError, "x" * 161)
-    expect(cli("run").call).to eq(3)
+    expect(cli("run").call).to eq(70)
     expect(err.string).to include("internal error (RuntimeError: #{'x' * 160}...)")
   end
 
   it "re-reads a byte-tagged crash message as UTF-8" do
     allow(Saboteur::Engine).to receive(:new).and_raise(RuntimeError, "caf\xC3\xA9\xFF".b)
-    expect(cli("run").call).to eq(3)
+    expect(cli("run").call).to eq(70)
     expect(err.string).to include("internal error (RuntimeError: caf\u00E9?)")
   end
 
   it "renders a crash whose message is not a String" do
     weird = stub_const("WeirdError", Class.new(StandardError) { def message = 42 })
     allow(Saboteur::Engine).to receive(:new).and_raise(weird)
-    expect(cli("run").call).to eq(3)
+    expect(cli("run").call).to eq(70)
     expect(err.string).to include("internal error (WeirdError: 42)")
   end
 
@@ -72,7 +72,7 @@ RSpec.describe Saboteur::CLI do
     Dir.mktmpdir do |root|
       stub_source_fixture(root)
       Dir.chdir(root) do
-        expect(cli("run").call).to eq(3)
+        expect(cli("run").call).to eq(70)
         expect(err.string).to include("full backtrace: .saboteur/internal-error.log")
         expect(File.read(File.join(root, ".saboteur", "internal-error.log"))).to include("RuntimeError")
       end
@@ -85,7 +85,7 @@ RSpec.describe Saboteur::CLI do
       stub_source_fixture(root)
       File.write(File.join(root, "custom.rb"), "Saboteur.configure { |c| c.cache_dir = '.custom-cache' }\n")
       Dir.chdir(root) do
-        expect(cli("run", "--config", "custom.rb").call).to eq(3)
+        expect(cli("run", "--config", "custom.rb").call).to eq(70)
         expect(err.string).to include("full backtrace: .custom-cache/internal-error.log")
         expect(File.read(File.join(root, ".custom-cache", "internal-error.log"))).to include("RuntimeError")
       end
@@ -98,7 +98,7 @@ RSpec.describe Saboteur::CLI do
       stub_source_fixture(root)
       File.write(File.join(root, "custom.rb"), "Saboteur.configure { |c| c.cache_dir = nil }\n")
       Dir.chdir(root) do
-        expect(cli("run", "--config", "custom.rb").call).to eq(3)
+        expect(cli("run", "--config", "custom.rb").call).to eq(70)
         expect(err.string).to include("internal error (RuntimeError: boom)")
         expect(err.string).not_to include("full backtrace")
       end
@@ -117,7 +117,7 @@ RSpec.describe Saboteur::CLI do
     error = RuntimeError.new("boom")
     error.set_backtrace(["app/models/thing.rb:10:in `explode'"])
     allow(Saboteur::Engine).to receive(:new).and_raise(error)
-    expect(cli("run", "--verbose").call).to eq(3)
+    expect(cli("run", "--verbose").call).to eq(70)
     expect(err.string).to include("app/models/thing.rb:10:in `explode'")
   end
 
@@ -125,14 +125,16 @@ RSpec.describe Saboteur::CLI do
     error = RuntimeError.new("boom")
     error.set_backtrace(["app/models/thing.rb:10:in `explode'"])
     allow(Saboteur::Engine).to receive(:new).and_raise(error)
-    expect(cli("run").call).to eq(3)
+    expect(cli("run").call).to eq(70)
     expect(err.string).not_to include("app/models/thing.rb:10")
   end
 
-  it "reports an unexpected failure in agent mode as an agent failure and exits 3" do
+  it "reports an unexpected failure in agent mode as an agent failure and exits 70" do
     allow(Saboteur::Engine).to receive(:new).and_raise(RuntimeError, "boom")
-    expect(cli("run", "--agent").call).to eq(3)
-    expect(out.string).to include("internal error (RuntimeError: boom)")
+    expect(cli("run", "--agent").call).to eq(70)
+    payload = JSON.parse(out.string)
+    expect(payload).to include("status" => "error", "verdict" => "tool_failure", "exitCode" => 70)
+    expect(payload["message"]).to include("internal error (RuntimeError: boom)")
   end
 
   it "parses run options into config overrides" do
@@ -496,6 +498,103 @@ RSpec.describe Saboteur::CLI do
     allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "boot failed")
     expect(cli("run").call).to eq(3)
     expect(err.string).to include("saboteur: boot failed")
+  end
+
+  it "classifies a baseline refusal by its message as a string, never by to_s" do
+    shouty = Class.new(String) do
+      def match?(*) = true
+
+      def to_s = "boot failed"
+    end
+    stringy = Class.new(Saboteur::Error) { define_method(:message) { shouty.new("boot failed") } }
+    allow(Saboteur::Engine).to receive(:new).and_raise(stringy)
+    expect(cli("run").call).to eq(3)
+
+    dressed = Class.new(Saboteur::Error) do
+      def message = "boot failed"
+
+      def to_s = "baseline check 1 failed at seed 1: the suite failed"
+    end
+    allow(Saboteur::Engine).to receive(:new).and_raise(dressed, "boot failed")
+    expect(cli("run").call).to eq(3)
+    expect(err.string).to include("saboteur: boot failed")
+  end
+
+  it "paints the red-baseline verdict with the resolved mode, :auto without a flag" do
+    allow(Saboteur::Engine).to receive(:new)
+      .and_raise(Saboteur::Error, "baseline check 1 failed at seed 42: the suite failed: spec/a_spec.rb")
+    expect(Saboteur::Reporter::Palette).to receive(:for)
+      .with(anything, mode: :auto).and_call_original
+    expect(cli("run").call).to eq(5)
+
+    allow(Saboteur::Engine).to receive(:new)
+      .and_raise(Saboteur::Error, "baseline check 1 failed at seed 42: the suite failed: spec/a_spec.rb")
+    expect(Saboteur::Reporter::Palette).to receive(:for)
+      .with(anything, mode: :always).and_call_original
+    expect(cli("run", "--color").call).to eq(5)
+  end
+
+  it "exits 5 with a verdict line when the baseline suite is red" do
+    allow(Saboteur::Engine).to receive(:new)
+      .and_raise(Saboteur::Error, "baseline check 1 failed at seed 42: the suite failed: spec/a_spec.rb. " \
+                                  "Fix the suite or its setup, then run saboteur again with the same seed. " \
+                                  "No mutants were started.")
+    expect(cli("run").call).to eq(5)
+    expect(err.string).to include("saboteur: baseline check 1 failed at seed 42")
+    expect(err.string).to include("exit 5 - baseline suite red: fix your tests first")
+  end
+
+  it "exits 5 for every baseline-red message shape the engine raises" do
+    ["baseline check 2 failed at seed 1: the suite errored outside any example; see the log tail",
+     "baseline has no tests. Check rspec_args and the suite filters before running saboteur again.",
+     "the unchanged suite failed while building coverage. Fix the suite, then run again with seed 1.",
+     "the test command fails on the unchanged tree (exit 1); fix the suite before mutating"].each do |message|
+      allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, message)
+      expect(cli("run").call).to eq(5), "expected exit 5 for: #{message}"
+    end
+  end
+
+  it "answers a red baseline with agent JSON carrying exit 5" do
+    allow(Saboteur::Engine).to receive(:new)
+      .and_raise(Saboteur::Error, "baseline check 1 failed at seed 42: the suite failed: spec/a_spec.rb")
+    expect(cli("run", "--agent").call).to eq(5)
+    expect(JSON.parse(out.string)).to include("status" => "error", "exitCode" => 5)
+  end
+
+  it "paints the verdict lines red only when colour is on" do
+    allow(Saboteur::Engine).to receive(:new)
+      .and_raise(Saboteur::Error, "baseline check 1 failed at seed 42: the suite failed: spec/a_spec.rb")
+    expect(cli("run", "--color").call).to eq(5)
+    expect(err.string).to include("\e[31mexit 5 - baseline suite red: fix your tests first\e[0m")
+
+    allow(Saboteur::Engine).to receive(:new).and_raise(RuntimeError, "boom")
+    expect(cli("run", "--color").call).to eq(70)
+    expect(err.string).to include("\e[31mexit 70 - internal crash (a saboteur bug, never your code)\e[0m")
+
+    err.truncate(0)
+    err.rewind
+    allow(Saboteur::Engine).to receive(:new).and_raise(RuntimeError, "boom")
+    expect(cli("run", "--no-color").call).to eq(70)
+    expect(err.string).to include("exit 70 - internal crash (a saboteur bug, never your code)")
+    expect(err.string).not_to include("\e[")
+  end
+
+  it "hands the crash reporter the resolved colour mode, :auto without a flag" do
+    allow(Saboteur::Engine).to receive(:new).and_raise(RuntimeError, "boom")
+    expect(Saboteur::CrashReport).to receive(:call)
+      .with(anything, hash_including(color: :auto)).and_call_original
+    expect(cli("run").call).to eq(70)
+
+    allow(Saboteur::Engine).to receive(:new).and_raise(RuntimeError, "boom")
+    expect(Saboteur::CrashReport).to receive(:call)
+      .with(anything, hash_including(color: :never)).and_call_original
+    expect(cli("run", "--no-color").call).to eq(70)
+  end
+
+  it "names the crash reason on the verdict line" do
+    allow(Saboteur::Engine).to receive(:new).and_raise(NoMethodError, "undefined method `boom'")
+    expect(cli("run").call).to eq(70)
+    expect(err.string).to include("exit 70 - internal crash (a saboteur bug, never your code)")
   end
 
   it "prints usage and exits 2 for an unknown command" do

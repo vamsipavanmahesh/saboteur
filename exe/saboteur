@@ -8,7 +8,7 @@
 # is being required, gets the full report (the bounded one-liner, the log
 # file, the --verbose backtrace and agent JSON when the CLI loaded far
 # enough). If even the reporter cannot load, a bare normalized one-liner
-# (one line, invalid bytes scrubbed, bounded length) still exits 3.
+# (one line, invalid bytes scrubbed, bounded length) still exits 70.
 begin
   require "coverage"
   Coverage.setup(lines: true, branches: true) if Coverage.state == :idle
@@ -19,7 +19,7 @@ rescue LoadError, StandardError => e
   message = "#{message[0...160]}..." if message.length > 160
   warn "saboteur: internal error (#{e.class}: #{message}) - please report it: " \
        "https://github.com/vamsipavanmahesh/saboteur/issues"
-  exit 3
+  exit 70
 end
 
 # For `run` coverage counts from here: what executes while the app and

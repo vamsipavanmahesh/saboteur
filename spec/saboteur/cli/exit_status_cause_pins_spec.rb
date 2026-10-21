@@ -8,6 +8,7 @@ RSpec.describe Saboteur::CLI::ExitStatus do
   let(:harness) do
     Class.new do
       include Saboteur::CLI::ExitStatus
+      include Saboteur::CLI::FailureOutput
 
       attr_reader :config
 
@@ -30,6 +31,28 @@ RSpec.describe Saboteur::CLI::ExitStatus do
       report = instance_double(Saboteur::Report, majority_errored?: false)
 
       expect(harness.cause(report, Saboteur::CLI::EXIT_BUDGET)).to eq("budgetExhausted")
+    end
+  end
+
+  describe "#exit_cause for the exits no report can describe" do
+    let(:config) { {} }
+
+    it "names baselineRed and crash" do
+      report = instance_double(Saboteur::Report)
+
+      expect(harness.cause(report, Saboteur::CLI::EXIT_BASELINE_RED)).to eq("baselineRed")
+      expect(harness.cause(report, Saboteur::CLI::EXIT_CRASH)).to eq("crash")
+    end
+
+    it "round-trips each machine cause to the human verdict line" do
+      expect(Saboteur::CLI::ErrorCause.verdict_line(5)).to eq("exit 5 - baseline suite red: fix your tests first")
+      expect(Saboteur::CLI::ErrorCause.verdict_line(70))
+        .to eq("exit 70 - internal crash (a saboteur bug, never your code)")
+      expect(Saboteur::CLI::ErrorCause::CAUSE_LINES.keys)
+        .to eq([Saboteur::CLI::EXIT_BASELINE_RED, Saboteur::CLI::EXIT_CRASH])
+      expect(Saboteur::CLI::ErrorCause.cause(5)).to eq("baselineRed")
+      expect(Saboteur::CLI::ErrorCause.cause(70)).to eq("crash")
+      expect(Saboteur::CrashReport::VERDICT_LINE).to eq(Saboteur::CLI::ErrorCause.verdict_line(70))
     end
   end
 

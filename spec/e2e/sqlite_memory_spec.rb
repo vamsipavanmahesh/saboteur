@@ -11,7 +11,7 @@ RSpec.describe "sqlite :memory: schema loaded at require time (#387)", :e2e do
 
   it "refuses the baseline with the fork-empty-database cause and the remedies" do
     run = saboteur(dir, "--all")
-    expect(run.status).to eq(3)
+    expect(run.status).to eq(5)
     expect(run.err).to include("baseline check")
     expect(run.err).to include(":memory:")
     expect(run.err).to include("before(:suite)")
