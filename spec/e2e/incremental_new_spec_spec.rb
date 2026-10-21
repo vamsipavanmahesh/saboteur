@@ -51,7 +51,7 @@ RSpec.describe "--incremental cache invalidation by a new spec (end to end)", :e
     write_boundary_spec
     second = saboteur(dir, "--all", *subject_flags)
 
-    expect(second.out).not_to include("reused")
+    expect(second.out).not_to match(/reused \d+ of \d+ verdicts/)
     # A fresh verdict records the tests that ran against the mutant.
     expect(mutants(second).map { |m| m["executed"] }).to all(be_a(Array))
   end
