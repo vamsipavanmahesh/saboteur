@@ -7,7 +7,7 @@ RSpec.describe Saboteur::Reporter::Terminal do
   let(:out) { StringIO.new }
 
   def render(report, **options)
-    described_class.new(out, all_mutants: true, **options).call(report)
+    described_class.new(out, **options).call(report)
     out.string
   end
 
@@ -23,8 +23,9 @@ RSpec.describe Saboteur::Reporter::Terminal do
       "Score: 50.0% (1/2 killed, tested subjects)",
       "saboteur: 1 killed, 1 survived in 1s - score 50.0%",
       "mean time per executed mutant 0.500 s",
-      "person.rb:2 in Person#adult?",
-      "- comparison >= -> > "
+      "1. person.rb:2 Person#adult?",
+      "-   2 def adult?; @age >= 18; end",
+      "+   2 def adult?; @age > 18; end"
     )
   end
 
@@ -177,7 +178,7 @@ RSpec.describe Saboteur::Reporter::Terminal do
 
   it "appends the equivalence-confirmation hint to a chain_removal survivor (#264)" do
     text = render(report_of(result_for(:survived, operator: "chain_removal")))
-    expect(text).to include("hint: try the shorter chain's value against the longer one; if you confirm the " \
+    expect(text).to include("→ try the shorter chain's value against the longer one; if you confirm the " \
                             "shorter chain is equivalent across the intended inputs")
   end
 
@@ -187,23 +188,31 @@ RSpec.describe Saboteur::Reporter::Terminal do
 
   it "prints survivors before the summary, and keeps debug statistics out of the default report" do
     text = render(report_of(result_for(:killed, runtime: 0.5), result_for(:survived, runtime: 0.5)))
-    expect(text.index("Survivors (1):")).to be < text.index("saboteur ")
+    expect(text.index("Survivors (1) ")).to be < text.index("saboteur ")
     expect(text).not_to include("mean time per executed mutant", "kills rejected", "(killed+timeout)/")
   end
 
-  it "prints the survivor's source line and a hint once per line, with one compact line per mutation" do
-    text = render(report_of(result_for(:survived), result_for(:survived, replacement: "<=")))
-    expect(text.scan("      2: def adult?; @age >= 18; end").size).to eq(1)
-    expect(text).to include("- comparison >= -> > ", "- comparison >= -> <= ", "hint: try an example at the boundary",
-                            "Hints are suggestions, not diagnoses")
+  it "shows the mutated line in a fence, one block per statement, with a hint and the caveat" do
+    results = [result_for(:survived), result_for(:survived, replacement: "<=")]
+    text = render(report_of(*results))
+    expect(text.scan(/^\d+\. person\.rb:2 Person#adult\?/).size).to eq(1)
+    expect(text).to include("-   2 def adult?; @age >= 18; end", "+   2 def adult?; @age ",
+                            "→ try an example at the boundary", "Hints are suggestions, not diagnoses",
+                            "1 more mutant here:")
+    results.each { |result| expect(text).to include(result.digest) }
   end
 
-  it "collapses survivors to one finding per statement unless --all-mutants (#1065)" do
-    report = report_of(result_for(:survived, covered_by: ["./spec/person_spec.rb[1:1]"]))
-    collapsed = render(report, all_mutants: false)
-    expect(collapsed).to include("- 1 mutant: 1 missing_test")
-    expect(collapsed).not_to include("- comparison >= -> >")
-    expect(render(report)).to include("- comparison >= -> > ", "[missing_test]")
+  it "collapses survivors to one block per statement unless --all-mutants (#1065)" do
+    results = [result_for(:survived, covered_by: ["./spec/person_spec.rb[1:1]"]),
+               result_for(:survived, replacement: "<=", covered_by: ["./spec/person_spec.rb[1:1]"])]
+    collapsed = render(report_of(*results))
+    expect(collapsed.scan(/^\d+\. person\.rb:2 Person#adult\?/).size).to eq(1)
+    expect(collapsed).to include("1 more mutant here:", "expand: saboteur run --all-mutants")
+    out.truncate(0)
+    out.rewind
+    expanded = render(report_of(*results), all_mutants: true)
+    expect(expanded.scan(/^\d+\. person\.rb:2 Person#adult\?/).size).to eq(2)
+    expect(expanded).not_to include("more mutant here")
   end
 
   it "words the timeout legend as an exceeded deadline, not a hang" do
@@ -224,30 +233,24 @@ RSpec.describe Saboteur::Reporter::Terminal do
     expect(render(report_of(ignored))).not_to include("Hints are suggestions")
   end
 
-  it "prints same-set covering tests once per line and keeps distinct evidence apart (#502)" do
+  it "collapses same-line survivors into one block with the representative's covering tests (#502)" do
     a = result_for(:survived, replacement: ">", covered_by: ["./spec/a_spec.rb[1:1]", "./spec/a_spec.rb[1:2]"])
     b = result_for(:survived, replacement: "<=", covered_by: ["./spec/a_spec.rb[1:2]", "./spec/a_spec.rb[1:1]"])
     c = result_for(:survived, replacement: "==", covered_by: ["./spec/c_spec.rb[1:1]"], reused: true)
     same = result_for(:survived, replacement: "!=", covered_by: ["./spec/c_spec.rb[1:1]"], reused: true)
     d = result_for(:survived, replacement: "!=", covered_by: ["./spec/d_spec.rb[1:1]"])
     text = render(report_of(a, b, c, same, d))
-    # a and b name the same two tests; only the run's measured order differed,
-    # so the block prints once for both instead of repeating per mutant.
-    expect(text.scan(/tests? covered this line and still passed/).size).to eq(2)
-    expect(text.scan("2 tests covered this line and still passed").size).to eq(1)
-    expect(text.scan("covered this line and passed in an earlier run").size).to eq(1)
-    # Same-line mutants are ranked (docs/survivor-ranking.md), so their
-    # relative order is not fixed; both print under the one shared block.
-    expect(text.index("-> > ")).to be < text.index("c_spec.rb[1:1]")
-    expect(text.index("-> <= ")).to be < text.index("c_spec.rb[1:1]")
-    # d names a different test set, so it keeps its own block.
-    expect(text.scan("1 test covered this line and still passed").size).to eq(1)
+    expect(text.scan(/^\d+\. person\.rb/).size).to eq(1)
+    expect(text.scan("covered by ").size).to eq(1)
+    expect(text).to include("+3 more covered, all passed", "4 more mutants here:")
+    expect(text).to include("(+1 more)")
+    [a, b, c, same, d].each { |result| expect(text).to include(result.digest) }
   end
 
-  it "renders a removal-only mutant as 'removes X', not 'X -> ' with a blank side (#502)" do
+  it "renders a removal edit as a -/+ pair with the deleted text gone (#502)" do
     removal = result_for(:survived, replacement: "", operator: "element_removal")
     text = render(report_of(removal))
-    expect(text).to include("- element_removal removes >= ")
+    expect(text).to include("-   2 def adult?; @age >= 18; end", "+   2 def adult?; @age  18; end")
     expect(text).not_to include("-> ")
   end
 
@@ -295,7 +298,7 @@ RSpec.describe Saboteur::Reporter::Terminal do
     result = Saboteur::MutantResult.new(subject:, mutation:, status: :survived, mutated_source: subject.apply([edit]))
     report = Saboteur::Report.new(results: [result], subjects: [subject], wall_time: 1.0,
                                   root: File.dirname(subject.file))
-    expect(render(report)).to include("#{File.basename(subject.file)}:3 in Kyc#check")
+    expect(render(report)).to include("#{File.basename(subject.file)}:3 Kyc#check")
   end
 
   it "lists a per-file score table, worst first" do
@@ -387,7 +390,7 @@ RSpec.describe Saboteur::Reporter::Terminal do
     text = render(report_of(survivor, result_for(:skipped, reason: "no coverage"), warnings: ["stale entry"]),
                   verbose: true)
     expect(text).to include("1 accepted", "mutant locations not reached: 1", "warning: stale entry",
-                            "ignored: equivalent: ages are integers")
+                            %(Accepted (1, not scored): person.rb:2 comparison - "equivalent: ages are integers"))
   end
 
   it "prints other mutant skip reasons with the generic wording (#1087)" do
@@ -443,40 +446,43 @@ RSpec.describe Saboteur::Reporter::Terminal do
     expect(text).to include("crash kills by operator: insert 1 of 1, comparison 2 of 2\n")
   end
 
-  it "lists the tests that covered a survivor's line and still passed, top 5" do
+  it "names the first covering test and counts the rest" do
     tests = (1..7).map { |n| "./spec/person_spec.rb[1:#{n}]" }
     text = render(report_of(result_for(:survived, covered_by: tests)))
-    expect(text).to include("7 tests covered this line and still passed",
-                            "  ./spec/person_spec.rb[1:1]", "  ./spec/person_spec.rb[1:5]",
-                            "... 2 more in the JSON report (coveredBy)")
-    expect(text).not_to include("person_spec.rb[1:6]")
+    expect(text).to include("covered by ./spec/person_spec.rb[1:1] - ran, still passed",
+                            "+6 more covered, all passed")
+    expect(text).not_to include("person_spec.rb[1:2]")
   end
 
-  it "lists exactly five covering tests with no 'more' line, and six with one" do
+  it "counts every covering test beyond the first" do
     five = (1..5).map { |n| "./spec/person_spec.rb[1:#{n}]" }
-    expect(render(report_of(result_for(:survived, covered_by: five)))).to include("5 tests covered", "[1:5]")
-      .and(satisfy { |text| !text.include?("more in the JSON report (coveredBy)") })
+    five_text = render(report_of(result_for(:survived, covered_by: five)))
+    expect(five_text.scan("covered by ").size).to eq(1)
+    expect(five_text).to include("+4 more covered, all passed")
     six = render(report_of(result_for(:survived, covered_by: five + ["./spec/person_spec.rb[1:6]"])))
-    expect(six).to include("6 tests covered", "... 1 more in the JSON report (coveredBy)")
-    expect(six).not_to include("[1:6]\n")
+    expect(six).to include("+5 more covered, all passed")
+    expect(six).not_to include("[1:2]")
   end
 
   it "groups same-line survivors whose covering-test sets differ only by duplicates (#539)" do
     a = result_for(:survived, replacement: ">", covered_by: ["./spec/a_spec.rb[1:1]", "./spec/a_spec.rb[1:1]"])
     b = result_for(:survived, replacement: "<=", covered_by: ["./spec/a_spec.rb[1:1]"])
     text = render(report_of(a, b))
-    expect(text.scan(/tests? covered this line and still passed/).size).to eq(1)
+    expect(text.scan(/^\d+\. person\.rb/).size).to eq(1)
+    expect(text.scan("covered by ").size).to eq(1)
+    expect(text).to include("1 more mutant here:")
   end
 
-  it "keeps same-line survivors apart when only their reuse differs (#539)" do
+  it "collapses same-line survivors even when only their reuse differs (#539)" do
     a = result_for(:survived, replacement: ">", covered_by: ["./spec/a_spec.rb[1:1]"], reused: true)
     b = result_for(:survived, replacement: "<=", covered_by: ["./spec/a_spec.rb[1:1]"])
     text = render(report_of(a, b))
-    expect(text.scan("covered this line and passed in an earlier run").size).to eq(1)
-    expect(text.scan("covered this line and still passed").size).to eq(1)
+    expect(text.scan(/^\d+\. person\.rb/).size).to eq(1)
+    expect(text.scan("covered by ").size).to eq(1)
+    expect(text).to include("1 more mutant here:")
   end
 
-  it "keeps same-line survivors apart when they touch different changed lines (#539)" do
+  it "shows the representative's changed lines for a collapsed same-line block (#539)" do
     subject = subjects_in("class K\n  def m(a)\n    a +\n      1\n  end\nend\n").first
     plus = subject.file_source.index("+")
     edit_a = Saboteur::MutationSource::Edit.new(file: subject.file, start_byte: plus, end_byte: plus + 1,
@@ -496,24 +502,24 @@ RSpec.describe Saboteur::Reporter::Terminal do
                                   root: File.dirname(subject.file), review: true, diff_scope: scope)
     name = File.basename(subject.file)
     text = render(report)
-    expect(text).to include("changed line: #{name}:3")
+    expect(text.scan(/changed lines?:/).size).to eq(1)
     expect(text).to include("changed lines: #{name}:3, #{name}:4")
+    expect(text).to include("1 more mutant here:")
   end
 
   it "says tests for two covering tests and test for one" do
     two = render(report_of(result_for(:survived, covered_by: ["./a_spec.rb[1:1]", "./a_spec.rb[1:2]"])))
-    expect(two).to include("2 tests covered this line")
-    expect(two).not_to include("2 test covered")
+    expect(two).to include("covered by ./a_spec.rb[1:1] - ran, still passed", "+1 more covered, all passed")
   end
 
   it "says a reused survivor's tests passed in an earlier run" do
     text = render(report_of(result_for(:survived, reused: true, covered_by: ["./spec/person_spec.rb[1:1]"])))
-    expect(text).to include("1 test covered this line and passed in an earlier run (--incremental)")
+    expect(text).to include("covered by ./spec/person_spec.rb[1:1] - passed in an earlier run (--incremental)")
   end
 
   it "says test, not tests, for one covering test" do
     text = render(report_of(result_for(:survived, covered_by: ["./spec/person_spec.rb[1:1]"])))
-    expect(text).to include("1 test covered this line and still passed")
+    expect(text).to include("covered by ./spec/person_spec.rb[1:1] - ran, still passed")
     expect(text).not_to include("more in the JSON report (coveredBy)")
   end
 
@@ -589,8 +595,9 @@ RSpec.describe Saboteur::Reporter::Terminal do
     report = Saboteur::Report.new(results: survivors, subjects: [person_subject], wall_time: 1.0,
                                   root: File.dirname(person_subject.file), review: true)
     text = render(report)
-    expect(text.scan("- comparison").size).to eq(2)
-    expect(text).not_to include("more survivor", "in the JSON report\n")
+    expect(text.scan(/^\d+\. person\.rb/).size).to eq(1)
+    expect(text).to include("1 more mutant here:")
+    survivors.each { |result| expect(text).to include(result.digest) }
   end
 
   it "shows an ignored survivor next to a live one on the same line in review mode" do
@@ -600,7 +607,9 @@ RSpec.describe Saboteur::Reporter::Terminal do
     report = Saboteur::Report.new(results: [ignored, live], subjects: [person_subject], wall_time: 1.0,
                                   root: File.dirname(person_subject.file), review: true)
     text = render(report)
-    expect(text).to include("- comparison >= -> <= ", "- comparison >= -> > ", "(ignored: equivalent)")
+    expect(text.scan(/^\d+\. person\.rb/).size).to eq(1)
+    expect(text).to include(live.digest, %(Accepted (1, not scored): person.rb:2 comparison - "equivalent"))
+    expect(text).not_to include(ignored.digest)
   end
 
   it "shows resource-limit stops as their own status" do
@@ -623,7 +632,7 @@ end
 
 RSpec.describe Saboteur::Reporter::Terminal, "details" do
   def render(report, **options)
-    StringIO.new.tap { |out| described_class.new(out, all_mutants: true, **options).call(report) }.string
+    StringIO.new.tap { |out| described_class.new(out, **options).call(report) }.string
   end
 
   # A mutant of the person fixture's body, at the given text.
@@ -732,21 +741,26 @@ RSpec.describe Saboteur::Reporter::Terminal, "details" do
 
   it "prints the survivors section only when there are survivors" do
     expect(render(report_of(result_for(:killed)))).not_to include("Survivors (")
-    expect(render(report_of(result_for(:survived)))).to include("Survivors (1):\n")
+    expect(render(report_of(result_for(:survived)))).to include("Survivors (1) - changes your tests did not catch\n")
   end
 
-  it "shows three survivors on one line in review mode, in ranked order (ties by digest)" do
+  it "collapses same-line survivors into one block, siblings in ranked order (ties by digest)" do
     results = [">", "<=", "=="].map { |replacement| result_for(:survived, replacement: replacement) }
     text = render(review(*results))
-    expect(text.scan("- comparison").size).to eq(3)
-    expect(text.scan(/ >= -> (\S+) /).flatten)
-      .to eq(results.sort_by(&:digest).map { |result| result.mutation.edits.first.replacement })
+    ordered = results.sort_by(&:digest)
+    expect(text.scan(/^\d+\. person\.rb/).size).to eq(1)
+    expect(text).to include(ordered[0].digest)
+    sibling = text.lines.find { |line| line.include?("more mutants here") }
+    expect(sibling).to include("2 more mutants here: #{ordered[1].digest} (comparison), " \
+                               "#{ordered[2].digest} (comparison)")
   end
 
-  it "shows every survivor, with no 'more' note, outside review mode" do
-    text = render(report_of(result_for(:survived), result_for(:survived, replacement: "<=")))
-    expect(text.scan("- comparison").size).to eq(2)
-    expect(text).not_to include("more survivor")
+  it "collapses same-line survivors into one block outside review mode too" do
+    results = [result_for(:survived), result_for(:survived, replacement: "<=")]
+    text = render(report_of(*results))
+    expect(text.scan(/^\d+\. person\.rb/).size).to eq(1)
+    expect(text).to include("1 more mutant here:")
+    results.each { |result| expect(text).to include(result.digest) }
   end
 
   it "prints no errors section and no ignored note when there is nothing to say" do
@@ -765,7 +779,7 @@ RSpec.describe Saboteur::Reporter::Terminal, "details" do
     end
     report = Saboteur::Report.new(results:, subjects: [subject], wall_time: 1.0,
                                   root: File.dirname(subject.file), review: true)
-    expect(render(report).scan("- arithmetic").size).to eq(2)
+    expect(render(report).scan(/^\d+\. \S+:\d+ Two#m/).size).to eq(2)
   end
   it "omits absent out-of-score counts, sections and hints" do
     text = render(report_of(result_for(:killed)))

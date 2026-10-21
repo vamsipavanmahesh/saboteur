@@ -361,7 +361,7 @@ RSpec.describe "saboteur run: diff mode, ignore list, exit codes", :e2e do
 
       run = saboteur(dir, "--all", "--subject", "People::Person#adult?")
       expect(run.status).to eq(0)
-      expect(run.out).to include("#{digests.size} accepted", "ignored: boundary covered elsewhere")
+      expect(run.out).to include("Accepted (#{digests.size}, not scored):", %(- "boundary covered elsewhere"))
       expect(mutants(run).select { |m| m["status"] == "Survived" }.map { |m| m["statusReason"] }.uniq)
         .to eq(["ignored: boundary covered elsewhere"])
     end

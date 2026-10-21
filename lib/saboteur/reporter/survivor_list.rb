@@ -1,17 +1,30 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require_relative "diff"
 require_relative "mutation_text"
-require_relative "survivor_hints"
 require_relative "survivor_classification"
+require_relative "survivor_hints"
 
 module Saboteur
   module Reporter
-    # Survivors grouped by file, then method, then line. The source line and
-    # the tests that covered it are printed once; each mutation is one compact
-    # line: operator, original -> replacement, digest.
+    # Survivors as per-statement blocks: the finding is the code. Each block
+    # is numbered and headed by file:line and subject, shows the enclosing
+    # def with the changed line as a -/+ pair (a ^^^ marker under the exact
+    # changed span), a per-operator "why it matters" sentence, the tests that
+    # covered the line and still passed, and an optional hint. Sibling
+    # mutants on the same statement collapse onto one dim line;
+    # --all-mutants gives every survivor its own block. Accepted
+    # (ignored) survivors get one quoted dim line each, never a block.
     class SurvivorList
-      MAX_PASSING_TESTS = 5
+      # Rendered rows in the method fence, elision markers included.
+      FENCE_CAP = 10
+
+      # "- " + three right-aligned line-number columns + " ".
+      GUTTER_WIDTH = 6
+
+      # Sibling digests named on the collapse line; the rest are a count.
+      SIBLING_DIGEST_CAP = 3
 
       def initialize(out, palette, all_mutants: false, classifier: SurvivorClassification)
         @out = out
@@ -20,151 +33,136 @@ module Saboteur
         @classifier = classifier
       end
 
-      # Every survivor, in report order; the grouping keeps them readable.
+      # Survivors in report (ranked) order; accepted ones trail as dim lines.
       def call(report, survivors)
         return if survivors.empty?
 
-        @out.puts @palette.paint(:head, "Survivors (#{survivors.size}):")
-        survivors.group_by { |result| result.subject.file }.sort_by { |file, _| file }.each do |file, in_file|
-          file_section(report, relative(file, report.root), in_file)
-        end
-        @out.puts "\n#{@palette.paint(:dim, SurvivorHints::CAVEAT)}" if survivors.any? { |result| hint_for(result) }
+        live, accepted = survivors.partition(&:unignored_survivor?)
+        @out.puts @palette.paint(:head, "Survivors (#{live.size}) - changes your tests did not catch")
+        groups(live).each_with_index { |group, index| block(report, group, index + 1, live.size) }
+        accepted_section(report, accepted)
+        hinted = live.select { |result| hint_for(result) }
+        @out.puts "\n#{@palette.paint(:dim, SurvivorHints::CAVEAT)}" if hinted.any?
       end
 
       private
 
-      def file_section(report, path, in_file)
-        @out.puts "\n#{@palette.paint(:head, path)}"
-        in_file.group_by { |result| result.subject.id }.each do |subject_id, in_subject|
-          @out.puts "  #{subject_id}"
-          lines(report, path, in_subject)
-        end
+      # Statement + status is the group key: every survivor here survived.
+      # --all-mutants restores the per-mutant list: no collapse, one block
+      # each, in the same ranked order.
+      def groups(live)
+        return live.map { |result| [result] } if @all_mutants
+
+        live.group_by { |result| [result.subject.id, MutationText.line(result)] }.values
       end
 
-      def lines(report, path, in_subject)
-        in_subject.group_by { |result| MutationText.line(result) }.sort.each do |line, on_line|
-          first = on_line.first
-          @out.puts "    #{path}:#{line} in #{first.subject.id}"
-          @out.puts "      #{@palette.paint(:dim, "#{line}:")} #{source_line(first, line)}"
-          if @all_mutants
-            evidence_groups(report, on_line).each { |group| evidence_group(report, path, group) }
+      def block(report, group, rank, total)
+        first = group.first
+        line = MutationText.line(first)
+        path = relative(first.subject.file, report.root)
+        @out.puts "\n#{@palette.paint(:head, "#{rank}. #{path}:#{line}")} #{first.subject.id} " \
+                  "#{@palette.paint(:dim, label_suffix(first, rank, total))}".rstrip
+        fence(first, line)
+        @out.puts "  #{@palette.paint(:dim, "why it matters: #{why(first.mutation.operator)}")}"
+        changed_lines(report, path, first)
+        covered(group)
+        hint_line(first)
+        siblings(report, group)
+      end
+
+      def label_suffix(result, rank, total)
+        label = @classifier.label(result)
+        parts = [label, "##{rank} of #{total}"].compact
+        reason = SurvivorHints.label_reason(label)
+        "[#{parts.join(" \u00B7 ")}#{": #{reason}" if reason}]"
+      end
+
+      # The enclosing def with the changed line as a -/+ pair; longer
+      # methods keep head, the changed line and tail, the middle elided.
+      def fence(result, changed_line)
+        all = result.subject.source.lines
+        index = changed_line - result.subject.start_line
+        lines = fenced_rows(all, index).map do |row|
+          if row == :elision
+            @palette.paint(:dim, "#{gutter(' ', '')}...")
+          elsif row == index
+            changed_pair(result, all[row], changed_line)
           else
-            live, ignored = on_line.partition { |result| result.ignored.nil? }
-            statement_finding(live) unless live.empty?
-            ignored.each { |result| mutation(result) }
+            @palette.paint(:dim, "#{gutter(' ', result.subject.start_line + row)}#{all[row].rstrip}")
           end
         end
+        @out.puts lines
       end
 
-      # Default view (#1065): one finding per statement - how many mutants
-      # survive here and the mix of their classification labels, with the
-      # covering tests once. --all-mutants restores the per-mutant list.
-      def statement_finding(on_line)
-        count = "#{on_line.size} #{on_line.one? ? 'mutant' : 'mutants'}"
-        mix = on_line.group_by { |result| @classifier.label(result) || "unlabeled" }
-                     .sort_by { |label, _| label }
-                     .map { |label, group| "#{group.size} #{label}" }
-                     .join(", ")
-        @out.puts "      #{@palette.paint(:fail, '-')} #{count}: #{mix}"
-        tests_line(on_line.flat_map(&:covered_by).uniq, on_line.first.reused?,
-                   ran: on_line.flat_map { |result| result.executed || result.covered_by }.uniq)
-        digests = on_line.map(&:digest)
-        more = digests.size - 3
-        suffix = " (+#{more} more in the JSON report)" if more.positive?
-        @out.puts "        #{digests.first(3).join(' ')}#{suffix}"
+      # Head, the changed line with one neighbour each side, and the tail
+      # always survive the cap; only true middle lines elide.
+      def fenced_rows(all, changed_index)
+        return (0...all.size).to_a if all.size <= FENCE_CAP
+
+        keep = [0, 1, 2, changed_index - 1, changed_index, changed_index + 1, all.size - 2, all.size - 1]
+               .uniq.grep(0...all.size)
+        keep.each_with_object([]) do |i, rows|
+          rows << :elision if rows.any? && !rows.include?(i - 1)
+          rows << i
+        end
       end
 
-      # Mutants on one line share the printed evidence when it names the
-      # same tests: the covering-test list is compared as a set (#502), so
-      # one line's mutants no longer reprint an identical block only because
-      # the run measured the killer order per mutant. Reuse and changed
-      # lines still group exactly. Each run of neighbours with the same key
-      # is one group and shares evidence above its own mutations; evidence
-      # that repeats after another group is printed again, which keeps the
-      # ranked order. The block prints in the first mutant's run order.
-      def evidence_groups(report, on_line)
-        on_line.chunk { |result| [result.covered_by.uniq.sort, result.reused?, report.changed_lines_for(result)] }
-               .map(&:last)
+      def changed_pair(result, original_line, line_number)
+        replacement_line = replaced_line(result, original_line, line_number)
+        minus = @palette.paint(:fail, "#{gutter('-', line_number)}#{original_line.rstrip}")
+        return [minus] if replacement_line.strip.empty?
+
+        plus = "#{gutter('+', line_number)}#{replacement_line.rstrip}"
+        span = Diff.edit_span(line_start(result, line_number), MutationText.sorted_edits(result))
+        column, width = char_span(original_line, span)
+        [minus,
+         @palette.paint(:pass, plus) +
+           @palette.paint(:dim, "   #{result.mutation.operator} \u00B7 #{result.digest}"),
+         @palette.paint(:pass, "#{' ' * (GUTTER_WIDTH + column)}#{'^' * width}")]
       end
 
-      def evidence_group(report, path, group)
-        first = group.first
-        changed_lines(report, path, first)
-        passing_tests(first)
-        group.each { |result| mutation(result) }
+      # The span comes in file bytes; the caret lines up in printed
+      # characters, so a multibyte character before the edit must not push
+      # the caret one column right per byte.
+      def char_span(line, (offset, length))
+        bytes = line.b
+        # scrub() would not change the count: invalid bytes count as one
+        # character with or without it.
+        decode = ->(part) { part.force_encoding(line.encoding).length }
+        [decode.call(bytes.byteslice(0, offset)), decode.call(bytes.byteslice(offset, length))]
       end
 
-      def source_line(result, line)
-        result.subject.file_source.lines[line - 1].to_s.strip
+      # The changed line with this mutant's edits applied, so a line count
+      # change in the full def text cannot misalign the pair.
+      def replaced_line(result, original_line, line_number)
+        start = line_start(result, line_number)
+        MutationText.sorted_edits(result).reverse_each.reduce(original_line.b) do |text, edit|
+          from = edit.start_byte - start
+          text[0...from].to_s + edit.replacement.b + text[(from + (edit.end_byte - edit.start_byte))..].to_s
+        end.force_encoding(original_line.encoding)
       end
 
-      def mutation(result)
-        change = if MutationText.removal?(result)
-                   "removes #{MutationText.original(result)}"
-                 else
-                   "#{MutationText.original(result)} -> #{@palette.paint(:pass, MutationText.replacement(result))}"
-                 end
-        text = "      #{@palette.paint(:fail, '-')} #{result.mutation.operator} " \
-               "#{change} #{@palette.paint(:dim, result.digest)}"
-        label = @classifier.label(result)
-        text += @palette.paint(:info, " [#{label}]") if label
-        text += " (ignored: #{result.ignored})" if result.ignored
-        @out.puts text
-        hint(result)
+      # Byte offset where the printable form of this def line starts. The
+      # first line of a subject begins at the def keyword (subject.source is
+      # not the whole file line), later lines start at the file line start.
+      def line_start(result, line_number)
+        subject = result.subject
+        return subject.start_byte if line_number == subject.start_line
+
+        subject.file_source.lines.take(line_number - 1).join.bytesize
       end
 
-      def hint(result)
-        text = hint_for(result)
-        @out.puts "        #{@palette.paint(:dim, "hint: #{text}")}" if text
+      def gutter(sign, number)
+        "#{sign} #{number.to_s.rjust(3)} "
       end
 
-      def hint_for(result)
-        return nil if result.ignored
-
-        SurvivorHints.for(result.mutation.operator, coarse: result.mutation.coarse)
+      def why(operator)
+        SurvivorHints.why(operator)
       end
 
       # The tests that ran with the mutant applied and still passed: the
-      # missing assertion belongs in one of them. They are listed likeliest
-      # killers first, the order the run used. Line coverage can overstate which
-      # tests exercise the line, so the list is a lead, not proof.
-      def passing_tests(result)
-        tests_line(result.covered_by, result.reused?, ran: (result.executed || result.covered_by).uniq)
-      end
-
-      # ran is which of the covering tests actually executed against the
-      # mutant (nil recorded as covered_by). When fewer ran than covered the
-      # line, the survivor rests on the ran subset - say so and name the rest.
-      def tests_line(tests, reused, ran: tests)
-        return if tests.empty?
-
-        unrun = tests - ran
-        return ran_line(tests, unrun, reused) if unrun.any? && (ran - tests).empty?
-
-        covered = "      #{tests.size} #{tests.one? ? 'test' : 'tests'} covered this line and " \
-                  "#{reused ? 'passed in an earlier run (--incremental)' : 'still passed'} " \
-                  "(the missing check may belong in one of them):"
-        @out.puts @palette.paint(:dim, covered)
-        tests.first(MAX_PASSING_TESTS).each { |name| @out.puts @palette.paint(:dim, "        #{name}") }
-        more = tests.size - MAX_PASSING_TESTS
-        return unless more.positive?
-
-        @out.puts @palette.paint(:dim, "        ... #{more} more in the JSON report (coveredBy)")
-      end
-
-      def ran_line(tests, unrun, reused)
-        ran = tests - unrun
-        covered = "      #{ran.size} of the #{tests.size} tests that covered this line " \
-                  "#{reused ? 'passed in an earlier run (--incremental)' : 'ran and still passed'} " \
-                  "(the missing check may belong in one of them):"
-        @out.puts @palette.paint(:dim, covered)
-        ran.first(MAX_PASSING_TESTS).each { |name| @out.puts @palette.paint(:dim, "        #{name}") }
-        more = ran.size - MAX_PASSING_TESTS
-        @out.puts @palette.paint(:dim, "        ... #{more} more in the JSON report (executed)") if more.positive?
-        suffix = unrun.size > 3 ? " (+#{unrun.size - 3} more)" : ""
-        @out.puts @palette.paint(:dim, "      did not run: #{unrun.first(3).join(', ')}#{suffix}")
-      end
-
+      # missing assertion belongs in one of them. Line coverage can
+      # overstate which tests exercise the line, so the list is a lead.
       # In diff mode: the changed lines this mutant touches.
       def changed_lines(report, path, result)
         lines = report.changed_lines_for(result)
@@ -172,8 +170,90 @@ module Saboteur
 
         shown = lines.first(3).map { |line| "#{path}:#{line}" }.join(", ")
         more = lines.size - 3
-        @out.puts @palette.paint(:dim, "      changed #{lines.one? ? 'line' : 'lines'}: " \
-                                       "#{shown}#{" (+#{more} more)" if more.positive?}")
+        suffix = more.positive? ? " (+#{more} more)" : ""
+        @out.puts @palette.paint(:dim, "  changed #{lines.one? ? 'line' : 'lines'}: #{shown}#{suffix}")
+      end
+
+      # The covering tests are a group union (#502): the first names where an
+      # assertion would pin the change, the count says the rest also passed.
+      def covered(group)
+        tests = group.flat_map(&:covered_by).uniq
+        return if tests.empty?
+
+        first = group.find { |result| result.covered_by.include?(tests.first) }
+        @out.puts "  covered by #{tests.first} #{@palette.paint(:dim, "- #{passed_phrase(first)}")}"
+        line = more_covered_line(group, tests)
+        @out.puts @palette.paint(:dim, "  #{line}") if line
+      end
+
+      # The verdict names what this run did: executed is nil when the run
+      # did not record which tests ran, so only the bare verdict is safe.
+      def more_covered_line(group, tests)
+        more = tests.size - 1
+        return unless more.positive?
+
+        executed = group.filter_map(&:executed).flatten.uniq
+        ran = tests.drop(1).count { |test| executed.include?(test) }
+        suffix = if executed.empty?
+                   # Only a run that recorded nothing about this group may
+                   # keep the bare verdict; recorded-but-not-run is named.
+                   if group.all? { |result| result.executed.nil? }
+                     ", all passed"
+                   else
+                     " (none ran this run)"
+                   end
+                 elsif ran == more
+                   " (all #{more} ran, all passed)"
+                 elsif ran.zero?
+                   " (none ran this run)"
+                 else
+                   " (#{ran} ran, all passed; #{more - ran} did not run this run)"
+                 end
+        "+#{more} more covered#{suffix}"
+      end
+
+      def passed_phrase(result)
+        result.reused? ? "passed in an earlier run (--incremental)" : "ran, still passed"
+      end
+
+      def hint_line(result)
+        text = hint_for(result)
+        @out.puts "  #{@palette.paint(:info, "\u2192")} #{text}" if text
+      end
+
+      def hint_for(result)
+        SurvivorHints.for_label(result.mutation.operator, label: @classifier.label(result),
+                                                          coarse: result.mutation.coarse)
+      end
+
+      def siblings(report, group)
+        rest = group.drop(1)
+        return if rest.empty?
+
+        list = rest.first(SIBLING_DIGEST_CAP)
+                   .map { |result| "#{result.digest} (#{result.mutation.operator})" }.join(", ")
+        overflow = rest.size - SIBLING_DIGEST_CAP
+        list = "#{list} (+#{overflow} more)" if overflow.positive?
+        @out.puts @palette.paint(:dim, "  #{rest.size} more #{rest.one? ? 'mutant' : 'mutants'} here: #{list}")
+        @out.puts @palette.paint(:dim, "       expand: saboteur run --all-mutants#{' --since main' if report.diff?}")
+      end
+
+      # Accepted (ignored) survivors stay visible but never earn a block:
+      # one quoted dim line each, marked not scored.
+      def accepted_section(report, accepted)
+        return if accepted.empty?
+
+        @out.puts ""
+        entries = accepted.map do |result|
+          "#{relative(result.subject.file, report.root)}:#{MutationText.line(result)} " \
+            "#{result.mutation.operator} - \"#{result.ignored}\""
+        end
+        if accepted.one?
+          @out.puts @palette.paint(:dim, "Accepted (1, not scored): #{entries.join}")
+        else
+          lines = ["Accepted (#{accepted.size}, not scored):"] + entries.map { |entry| "  #{entry}" }
+          @out.puts @palette.paint(:dim, lines.join("\n"))
+        end
       end
 
       def relative(file, root)

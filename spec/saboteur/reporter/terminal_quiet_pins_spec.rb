@@ -109,8 +109,8 @@ RSpec.describe Saboteur::Reporter::Terminal, "quiet pins" do
       expect(quiet).to include(id)
       expect(default).to include(id)
     end
-    expect(default).to include("Survivors (3):")
-    expect(quiet).not_to include("Survivors (3):")
+    expect(default).to include("Survivors (3) - changes your tests did not catch")
+    expect(quiet).not_to include("Survivors (3)")
   end
 
   it "prints no collapse suffix for a single survivor on a statement" do

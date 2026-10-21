@@ -34,20 +34,23 @@ RSpec.describe "the colour contract (DX wave 1, PR1)" do
   end
 
   it "paints every contract token where the mock tags it under --color=always" do
-    # all_mutants: the per-mutant list is where the mock tags the finding
-    # marker, the pass replacement and the dim digest; the collapsed default
-    # (#1065) has no replacement text.
+    # all_mutants: the per-mutant block is where the mock tags the removed
+    # and added lines and the dim digest; the collapsed default (#1065) has
+    # no per-mutant lines.
     text = render(report, color: :always, threshold: 80, all_mutants: true)
     digest = report.unignored_survivors.first.digest
-    # head: structure (the Survivors heading and the file header).
-    expect(text).to include("\e[1mSurvivors (1):\e[0m", "\n\e[1mperson.rb\e[0m")
-    # fail: the survivor tally, the score below the threshold, the finding marker.
-    expect(text).to include("\e[31;1m1 survived\e[0m", "\e[31;1m50.0%\e[0m", "\e[31;1m-\e[0m")
-    # pass: the killed tally and the surviving replacement.
-    expect(text).to include("\e[32m1 killed\e[0m", "-> \e[32m>\e[0m")
-    # dim: context (digests, covered-by lines, hints and the tally).
-    expect(text).to include("\e[2m#{digest}\e[0m", "\e[2m      1 test covered this line")
-    expect(text).to include("\e[2mhint:",
+    # head: structure (the Survivors heading and the finding header).
+    expect(text).to include("\e[1mSurvivors (1) - changes your tests did not catch\e[0m",
+                            "\n\e[1m1. person.rb:2\e[0m")
+    # fail: the survivor tally, the score below the threshold, the removed line.
+    expect(text).to include("\e[31;1m1 survived\e[0m", "\e[31;1m50.0%\e[0m",
+                            "\e[31;1m-   2 def adult?; @age >= 18; end\e[0m")
+    # pass: the killed tally and the added line.
+    expect(text).to include("\e[32m1 killed\e[0m", "\e[32m+   2 def adult?; @age > 18; end\e[0m")
+    # dim: context (the operator and digest, the covered-by verdict, the
+    # why-it-matters line and the tally).
+    expect(text).to include("\e[2m   comparison \u00b7 #{digest}\e[0m", "\e[2m- ran, still passed\e[0m")
+    expect(text).to include("\e[2mwhy it matters: the boundary between the two comparisons is untested\e[0m",
                             "\e[2msaboteur 0.10.0: 1 subjects, 2 mutants, wall 1.25 s, seed 1 " \
                             "(repeat with --seed 1)\e[0m")
     # info: the paste-able replay command, with its lead-in.
