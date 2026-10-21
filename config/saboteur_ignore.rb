@@ -2620,4 +2620,14 @@ i.mutation "fdc4600f4e8e8625",
               "get_files_to_run falls back to Dir.getwd, so the configured default_path " \
               "never changes files_to_run here; hand-applied mutant leaves 111 integration " \
               "examples green."
+  # worker_pool.rb:215 - the loop is the last expression of abandon_all, so each versus map
+  # only changes the return value, and its only caller (collect) ignores it and returns.
+  i.mutation "19beb925eb189d79",
+             subject: "Saboteur::Execution::WorkerPool#abandon_all",
+             reason: "equivalent: the second loop is the method's last expression, so each versus " \
+                     "map changes only the return value, which the only caller (collect) ignores"
+  i.mutation "e44cdce1a20e3a31",
+             subject: "Saboteur::Execution::WorkerPool#collect",
+             reason: "equivalent: the return value of the dead-worker replacement loop is unused by " \
+                     "collect's only caller, distribute, so each and map replace the same workers"
 end
