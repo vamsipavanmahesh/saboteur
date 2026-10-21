@@ -390,7 +390,8 @@ RSpec.describe Saboteur::Reporter::Terminal do
     text = render(report_of(survivor, result_for(:skipped, reason: "no coverage"), warnings: ["stale entry"]),
                   verbose: true)
     expect(text).to include("1 accepted", "mutant locations not reached: 1", "warning: stale entry",
-                            %(Accepted (1, not scored): person.rb:2 comparison - "equivalent: ages are integers"))
+                            "Accepted (1, not scored): person.rb:2 comparison [input_gap] - " \
+                            '"equivalent: ages are integers"')
   end
 
   it "prints other mutant skip reasons with the generic wording (#1087)" do
@@ -608,7 +609,7 @@ RSpec.describe Saboteur::Reporter::Terminal do
                                   root: File.dirname(person_subject.file), review: true)
     text = render(report)
     expect(text.scan(/^\d+\. person\.rb/).size).to eq(1)
-    expect(text).to include(live.digest, %(Accepted (1, not scored): person.rb:2 comparison - "equivalent"))
+    expect(text).to include(live.digest, %(Accepted (1, not scored): person.rb:2 comparison [input_gap] - "equivalent"))
     expect(text).not_to include(ignored.digest)
   end
 

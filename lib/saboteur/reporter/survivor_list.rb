@@ -239,14 +239,17 @@ module Saboteur
       end
 
       # Accepted (ignored) survivors stay visible but never earn a block:
-      # one quoted dim line each, marked not scored.
+      # one quoted dim line each, marked not scored, carrying the same
+      # classification label and wont_fix marker JSON and HTML show (#1074).
       def accepted_section(report, accepted)
         return if accepted.empty?
 
         @out.puts ""
         entries = accepted.map do |result|
+          label = @classifier.label(result)
+          triage = " (wont_fix)" if result.triage_state == "wont_fix"
           "#{relative(result.subject.file, report.root)}:#{MutationText.line(result)} " \
-            "#{result.mutation.operator} - \"#{result.ignored}\""
+            "#{result.mutation.operator}#{" [#{label}]" if label} - \"#{result.ignored}\"#{triage}"
         end
         if accepted.one?
           @out.puts @palette.paint(:dim, "Accepted (1, not scored): #{entries.join}")

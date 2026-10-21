@@ -161,8 +161,32 @@ RSpec.describe Saboteur::Reporter::SurvivorList, "survivor blocks" do
                       operator: "chain_removal", dir:, name: "cart.rb")
     accepted.ignored = "display-only rounding"
     text = render([operand, accepted])
-    expect(text).to include(%(Accepted (1, not scored): cart.rb:2 chain_removal - "display-only rounding"\n))
+    expected = %(Accepted (1, not scored): cart.rb:2 chain_removal [input_gap] - "display-only rounding"\n)
+    expect(text).to include(expected)
     expect(text).not_to include("cart.rb:2 Cart#total")
+  end
+
+  it "carries the classification label on an accepted line, like JSON and HTML do (#1074)" do
+    accepted = edited("class Cart\n  def total; @items.sum.round(2); end\nend\n", ".round(2)", "",
+                      operator: "chain_removal", dir:, name: "cart.rb",
+                      covered_by: ["./spec/cart_spec.rb[1:1]"])
+    accepted.ignored = "display-only rounding"
+    text = render([operand, accepted])
+    expected = "Accepted (1, not scored): cart.rb:2 chain_removal [effect] - " \
+               "\"display-only rounding\"\n"
+    expect(text).to include(expected)
+  end
+
+  it "marks a wont_fix triage on the accepted line, like JSON and HTML do (#1074)" do
+    accepted = edited("class Cart\n  def total; @items.sum.round(2); end\nend\n", ".round(2)", "",
+                      operator: "chain_removal", dir:, name: "cart.rb")
+    accepted.ignored = "display-only rounding"
+    accepted.triage_state = "wont_fix"
+    accepted.triage_reason = "display-only rounding"
+    text = render([operand, accepted])
+    expected = "Accepted (1, not scored): cart.rb:2 chain_removal [input_gap] - " \
+               "\"display-only rounding\" (wont_fix)\n"
+    expect(text).to include(expected)
   end
 
   it "marks an incremental survivor's covering tests as passed in an earlier run" do
@@ -303,11 +327,13 @@ RSpec.describe Saboteur::Reporter::SurvivorList, "survivor blocks" do
                     operator: "method_swap", dir:, name: "cart.rb")
     second.ignored = "close enough"
     text = render([accepted])
-    expect(text).to match(/\n\nAccepted \(1, not scored\): cart\.rb:2 chain_removal - "display-only rounding"\n\z/)
+    accepted_line = /\n\nAccepted \(1, not scored\): cart\.rb:2 chain_removal \[input_gap\] - /
+    expect(text).to match(accepted_line)
+    expect(text).to end_with("\"display-only rounding\"\n")
     text = render([accepted, second])
     expect(text).to include("Accepted (2, not scored):\n")
-    expect(text).to include("  cart.rb:2 chain_removal - \"display-only rounding\"\n",
-                            "  cart.rb:2 method_swap - \"close enough\"\n")
+    expect(text).to include("  cart.rb:2 chain_removal [input_gap] - \"display-only rounding\"\n",
+                            "  cart.rb:2 method_swap [input_gap] - \"close enough\"\n")
   end
 
   it "aligns the elision marker under the gutter" do
