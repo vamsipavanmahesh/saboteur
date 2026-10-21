@@ -38,6 +38,20 @@ RSpec.describe Saboteur::Baseline::Workflow do
     record
   end
 
+  it "refuses an existing proposal or unreviewed destination before running the engine" do
+    stub_run
+    proposal = File.join(@root, "proposal.json")
+    File.write(proposal, "{}")
+    expect { workflow.propose(proposal: proposal, destination: File.join(@root, "b.json")) }
+      .to raise_error(Saboteur::ConfigError, "baseline output exists: #{proposal}")
+    File.delete(proposal)
+    destination = File.join(@root, "baseline.json")
+    File.write(destination, "{}")
+    expect { workflow.propose(proposal: proposal, destination: destination) }
+      .to raise_error(Saboteur::ConfigError, "baseline destination exists")
+    expect(Saboteur::Engine).not_to have_received(:new)
+  end
+
   it "proposes bound immutable producer evidence and accepts it only once" do
     stub_run
     proposal = File.join(@root, "proposal.json")
@@ -159,7 +173,8 @@ RSpec.describe Saboteur::Baseline::Workflow do
       metadata = { "snapshot" => snapshot.to_h }
       expect(store.instance_variable_get(:@verify).call(metadata)).to be(true)
       File.write(extra, "changed")
-      expect(store.instance_variable_get(:@verify).call(metadata)).to be(false)
+      expect { store.instance_variable_get(:@verify).call(metadata) }
+        .to raise_error(Saboteur::ConfigError, /baseline inputs changed or unverified: external:.*changed/)
     end
   end
 
@@ -168,8 +183,9 @@ RSpec.describe Saboteur::Baseline::Workflow do
     source = File.join(@root, "probe.rb")
     alias_path = File.join(@root, "alias.json")
     File.link(source, alias_path)
+    # An existing alias is refused before the run; Acceptance still rejects input aliases on write.
     expect { workflow.propose(proposal: alias_path, destination: File.join(@root, "b.json")) }
-      .to raise_error(Saboteur::ConfigError, /input/)
+      .to raise_error(Saboteur::ConfigError, "baseline output exists: #{alias_path}")
     expect { workflow.accept(proposal: File.join(@root, "p.json"), destination: source) }
       .to raise_error(Saboteur::ConfigError, /overlaps/)
   end
@@ -180,13 +196,15 @@ RSpec.describe Saboteur::Baseline::Workflow do
     allow(workflow).to receive(:store).and_return(store)
     proposal = File.join(@root, "p.json")
     destination = File.join(@root, "b.json")
+    File.write(destination, "reviewed")
+    previous = Digest::SHA256.file(destination).hexdigest
     expect(store).to receive(:propose).with(document: anything, evidence: document, proposal: proposal,
-                                            destination: destination, previous: "a" * 64)
-    workflow.propose(proposal: proposal, destination: destination, previous: "a" * 64)
+                                            destination: destination, previous: previous)
+    workflow.propose(proposal: proposal, destination: destination, previous: previous)
     expect(Saboteur::Engine).to have_received(:new).with(config, err: $stderr, capture_evidence: true)
-    expect(store).to receive(:accept).with(proposal: proposal, destination: destination, previous: "a" * 64)
+    expect(store).to receive(:accept).with(proposal: proposal, destination: destination, previous: previous)
                                      .and_return(destination)
-    workflow.accept(proposal: proposal, destination: destination, previous: "a" * 64)
+    workflow.accept(proposal: proposal, destination: destination, previous: previous)
   end
 
   it "rejects both output positions under explicitly declared extra fixture patterns" do

@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "stringio"
+require "tmpdir"
 require "saboteur/cli"
 
 RSpec.describe "baseline CLI validation" do
@@ -134,12 +135,14 @@ RSpec.describe "baseline CLI validation" do
       "survivors" => 1, "candidates" => 3, "gaps" => ["subject_skipped:probe.rb:Probe#other:no_tests"]
     )
     expect(command("propose", "--baseline", "b.json", "--proposal", "p.json")).to eq(0)
-    expect(@out.string).to eq(<<~TEXT)
+    expected = <<~TEXT
       baseline proposal written: /tmp/p.json
-        matched mutants: 3 (1 survivors to reason about)
-        proposed with 1 untested subjects: probe.rb:Probe#other:no_tests - the baseline cannot speak for them
-        next step: review the reasons in the proposal, then run: saboteur baseline accept --baseline /tmp/b.json --proposal /tmp/p.json
+        matched mutants: 3 (1 survivor to reason about)
+        proposed with 1 untested subject: probe.rb:Probe#other:no_tests - the baseline cannot speak for them
     TEXT
+    expected += "  next step: give each accepted survivor a reason in the proposal, then run: " \
+                "saboteur baseline accept --baseline /tmp/b.json --proposal /tmp/p.json\n"
+    expect(@out.string).to eq(expected)
   end
 
   it "prints a gap-free proposal without the untested-subjects line" do
@@ -150,11 +153,31 @@ RSpec.describe "baseline CLI validation" do
       "survivors" => 1, "candidates" => 3
     )
     expect(command("propose", "--baseline", "b.json", "--proposal", "p.json")).to eq(0)
-    expect(@out.string).to eq(<<~TEXT)
+    expected = <<~TEXT
       baseline proposal written: /tmp/p.json
-        matched mutants: 3 (1 survivors to reason about)
-        next step: review the reasons in the proposal, then run: saboteur baseline accept --baseline /tmp/b.json --proposal /tmp/p.json
+        matched mutants: 3 (1 survivor to reason about)
     TEXT
+    expected += "  next step: give each accepted survivor a reason in the proposal, then run: " \
+                "saboteur baseline accept --baseline /tmp/b.json --proposal /tmp/p.json\n"
+    expect(@out.string).to eq(expected)
+  end
+
+  it "repeats the propose scope flags in the next-step accept command" do
+    workflow = instance_double(Saboteur::Baseline::Workflow)
+    allow(Saboteur::Baseline::Workflow).to receive(:new).and_return(workflow)
+    allow(workflow).to receive(:propose).and_return(
+      "state" => "proposal", "proposal" => "/tmp/p.json", "destination" => "/tmp/b.json",
+      "survivors" => 2, "candidates" => 3
+    )
+    Dir.mktmpdir do |dir|
+      config = File.join(dir, "saboteur.rb")
+      File.write(config, "")
+      expect(command("propose", "--subject", "People::Person", "--seed", "7", "--config", config,
+                     "--baseline", "b.json", "--proposal", "p.json")).to eq(0)
+      expect(@out.string).to include("2 survivors to reason about")
+      expect(@out.string).to include("saboteur baseline accept --subject People::Person --seed 7 " \
+                                     "--config #{config} --baseline /tmp/b.json --proposal /tmp/p.json")
+    end
   end
 
   it "joins several gaps with a comma and strips only a leading gap prefix" do
