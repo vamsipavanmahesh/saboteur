@@ -77,9 +77,10 @@ module Saboteur
       # progress (see start_progress); the letter is legend-only.
       LEGEND = ".:killed S:survived T:timeout E:error s:skipped L:resource limit"
 
-      # Chunk sizing: leave room for the "  (n/total ...)" suffix, never
-      # below the floor.
-      CHUNK_MARGIN = 10
+      # Chunk sizing: leave room for the full "  n/total (100%) ETA 123m45s"
+      # summary suffix (32 columns), never below the floor, so a piped line
+      # fits an 80-column CI log instead of wrapping mid-summary.
+      CHUNK_MARGIN = 32
       CHUNK_FLOOR = 40
       DEFAULT_WIDTH = 80
 
