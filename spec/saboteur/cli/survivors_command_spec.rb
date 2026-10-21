@@ -34,7 +34,7 @@ RSpec.describe Saboteur::CLI, "survivors (#475)" do
     RUBY_SRC
     digest_a = "a" * 16
     mutants = [mutant(id: digest_a, operator: "sum_to_map_sum", line: 3, status: "Survived",
-                      classification: "missing_test"),
+                      classification: "missing_test", covered: ["0"]),
                mutant(id: "b" * 16, operator: "and_to_or", line: 3, status: "Survived")] + survivors
     report = {
       "schemaVersion" => "2", "thresholds" => { "high" => 80, "low" => 60 },
@@ -113,6 +113,104 @@ RSpec.describe Saboteur::CLI, "survivors (#475)" do
       expect(cli("survivors", path, "--show", "b" * 16).call).to eq(0)
       expect(out.string).to include(%(i.mutation "#{'b' * 16}")).and include("TODO")
       expect(out.string).to include("saboteur run --id #{'b' * 16}")
+    end
+  end
+
+  it "fills the ignore subject from the files section when findings lack the digest (#1181)" do
+    Dir.mktmpdir do |dir|
+      path = write_report(dir, survivors: [])
+      report = JSON.parse(File.read(path))
+      report["files"]["lib/order.rb"]["mutants"].each { |m| m["subject"] = "Order#total" }
+      File.write(path, JSON.generate(report))
+      expect(cli("survivors", path, "--show", "b" * 16).call).to eq(0)
+      expect(out.string).to include(%(i.mutation "#{'b' * 16}")).and include('subject: "Order#total"')
+      expect(out.string).not_to include("TODO")
+    end
+  end
+
+  it "shows the classification, why-it-matters, covering tests and hint like the terminal (#1183)" do
+    Dir.mktmpdir do |dir|
+      path = write_report(dir, survivors: [])
+      expect(cli("survivors", path, "--show", "a" * 16).call).to eq(0)
+      expect(out.string).to include("classification: missing_test - ",
+                                    "the covering specs pass without pinning this change")
+      expect(out.string).to include("why it matters:")
+      expect(out.string).to include("covered by ./spec/order_spec.rb[1:1] - ran, still passed")
+    end
+  end
+
+  it "omits the classification and hint lines for an unclassified survivor" do
+    Dir.mktmpdir do |dir|
+      path = write_report(dir, survivors: [])
+      expect(cli("survivors", path, "--show", "b" * 16).call).to eq(0)
+      expect(out.string).not_to include("classification:", "hint:")
+    end
+  end
+
+  describe "detail lines (#1194 dogfood survivors)" do
+    it "names the first covering test and counts the rest" do
+      Dir.mktmpdir do |dir|
+        path = write_report(dir, survivors: [])
+        report = JSON.parse(File.read(path))
+        report["files"]["lib/order.rb"]["mutants"].first["coveredBy"] = %w[0 1 2]
+        report["testFiles"]["spec/order_spec.rb"]["tests"] +=
+          [{ "id" => "1", "name" => "./spec/order_spec.rb[1:2]" },
+           { "id" => "2", "name" => "./spec/order_spec.rb[1:3]" }]
+        File.write(path, JSON.generate(report))
+        report["files"]["lib/order.rb"]["mutants"].last["coveredBy"] = %w[0 1]
+        File.write(path, JSON.generate(report))
+        expect(cli("survivors", path, "--show", "a" * 16).call).to eq(0)
+        expect(out.string).to include("covered by ./spec/order_spec.rb[1:1] (+2 more) - ran, still passed")
+        expect(cli("survivors", path, "--show", "b" * 16).call).to eq(0)
+        expect(out.string).to include("covered by ./spec/order_spec.rb[1:1] (+1 more) - ran, still passed")
+      end
+    end
+
+    it "prints the hint for a hint-bearing classification" do
+      Dir.mktmpdir do |dir|
+        path = write_report(dir, survivors: [])
+        report = JSON.parse(File.read(path))
+        report["files"]["lib/order.rb"]["mutants"].first
+                                                  .merge!("mutatorName" => "comparison", "classification" => "arid")
+        File.write(path, JSON.generate(report))
+        expect(cli("survivors", path, "--show", "a" * 16).call).to eq(0)
+        expect(out.string).to include("hint: try an example at the boundary: equal values, or values one apart")
+      end
+    end
+
+    it "prints a bare classification line for a label with no reason" do
+      Dir.mktmpdir do |dir|
+        path = write_report(dir, survivors: [])
+        report = JSON.parse(File.read(path))
+        report["files"]["lib/order.rb"]["mutants"].first["classification"] = "assertion_gap"
+        File.write(path, JSON.generate(report))
+        expect(cli("survivors", path, "--show", "a" * 16).call).to eq(0)
+        expect(out.string).to include("classification: assertion_gap\n")
+        expect(out.string).not_to include("assertion_gap -")
+      end
+    end
+
+    it "tolerates a testFiles entry without a tests list" do
+      Dir.mktmpdir do |dir|
+        path = write_report(dir, survivors: [])
+        report = JSON.parse(File.read(path))
+        report["testFiles"][""] = {}
+        File.write(path, JSON.generate(report))
+        expect(cli("survivors", path, "--show", "a" * 16).call).to eq(0)
+        expect(out.string).to include("covered by ./spec/order_spec.rb[1:1] - ran, still passed")
+      end
+    end
+
+    it "returns empty line arrays from the detail helpers when nothing applies" do
+      browser = Saboteur::CLI::SurvivorsBrowser.new({})
+      expect(browser.send(:classification_line, nil)).to eq([])
+      expect(browser.send(:covered_line, { covered: [] })).to eq([])
+      expect(browser.send(:hint_line, { operator: "comparison" }, nil)).to eq([])
+    end
+
+    it "memoizes the test-name index" do
+      browser = Saboteur::CLI::SurvivorsBrowser.new({ "testFiles" => {} })
+      expect(browser.send(:test_names)).to equal(browser.send(:test_names))
     end
   end
 

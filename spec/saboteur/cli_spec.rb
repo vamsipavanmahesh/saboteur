@@ -394,6 +394,20 @@ RSpec.describe Saboteur::CLI do
   describe "doctor suite options" do
     before { allow(Saboteur::Doctor).to receive(:new).and_return(instance_double(Saboteur::Doctor, call: true)) }
 
+    it "exits 2 with the run's include message when include selects no Ruby file, and 0 when it does" do
+      Dir.mktmpdir do |dir|
+        config_path = File.join(dir, "saboteur.rb")
+        File.write(config_path, "Saboteur.configure { |c| c.include = ['nothing/**/*.rb'] }\n")
+        Dir.chdir(dir) { expect(cli("doctor", "--config", config_path).call).to eq(2) }
+        expect(err.string).to include("saboteur: include: nothing/**/*.rb selects no Ruby file - the run would pass " \
+                                      "with 0 subjects. Point include at your code")
+        expect(out.string).to eq("")
+      end
+      err.truncate(0)
+      expect(cli("doctor").call).to eq(0)
+      expect(err.string).to eq("")
+    end
+
     it "does not run the suite by default" do
       expect(cli("doctor").call).to eq(0)
       expect(Saboteur::Doctor).to have_received(:new).with(anything, out: out, suite: false)
@@ -1668,9 +1682,15 @@ RSpec.describe Saboteur::CLI, "details" do
     described_class.new(argv, out:, err:)
   end
 
-  it "prints only the usage line for an unknown command" do
-    cli("explode").call
+  it "prints only the usage line when no command is given" do
+    expect(cli.call).to eq(2)
     expect(err.string).to eq("#{described_class::USAGE}\n")
+  end
+
+  it "names an unknown command, then prints the usage line" do
+    cli("explode").call
+    expect(err.string).to eq("unknown command: explode. Run 'saboteur help' for the commands.\n" \
+                             "#{described_class::USAGE}\n")
   end
 
   it "parses --allow-focus into the allow_focus config key" do

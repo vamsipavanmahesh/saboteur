@@ -195,7 +195,9 @@ module Saboteur
           @out.puts "#{key}: #{file} (found)"
         end
       end
-      @config.unmatched_patterns.each { |pattern| @out.puts "Warning: #{pattern} matches no file" }
+      @config.unmatched_patterns.each do |pattern|
+        @out.puts "Warning: #{pattern} matches no file - point include at your code in config/saboteur.rb"
+      end
     end
   end
 end

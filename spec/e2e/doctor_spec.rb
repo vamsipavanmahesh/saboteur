@@ -21,6 +21,15 @@ RSpec.describe "doctor", :e2e do
     expect(File).not_to exist(File.join(dir, ".saboteur"))
   end
 
+  it "fails with the run's include hint when include selects no Ruby file" do
+    dir = copy_fixture("people")
+    File.write(File.join(dir, "config", "saboteur.rb"), "Saboteur.configure { |c| c.include = ['app/**/*.rb'] }\n")
+    out, err, status = doctor(dir)
+    expect(status.exitstatus).to eq(2)
+    expect(out).to include("Warning: include: app/**/*.rb matches no file")
+    expect(err).to include("include: app/**/*.rb selects no Ruby file - the run would pass with 0 subjects")
+  end
+
   it "checks two seeded baselines with --suite without writing caches or reports" do
     dir = copy_fixture("people")
     out, err, status = doctor(dir, "--suite", "--seed", "42")

@@ -21,7 +21,11 @@ module Saboteur
       private
 
       def preset_or_usage_error(command)
-        PRESETS.key?(command) ? preset(command) : usage_error
+        return preset(command) if PRESETS.key?(command)
+
+        # A typo'd command is not a run: say so before the usage line.
+        @err.puts("unknown command: #{command}. Run 'saboteur help' for the commands.") if command
+        usage_error
       end
 
       def preset(name)
