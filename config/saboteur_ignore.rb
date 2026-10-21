@@ -2700,4 +2700,16 @@ i.mutation "fdc4600f4e8e8625",
              subject: "Saboteur::CLI::RunBudgetOptions#add_run_budget_options",
              reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not " \
                      "position - hand-applied swap leaves run --help byte-identical"
+
+  # Subject#to_s delegates to #id (subject.rb:188): dropping the map leaves join
+  # calling to_s - hand-probed byte-identical ("A#m, B#n").
+  i.mutation "a2711ae885de2792",
+             subject: "Saboteur::Reporter::Terminal#untested_win_note",
+             reason: "equivalent: Subject#to_s delegates to #id, so join(', ') renders the identical string"
+
+  # each returns the receiver and Subject#to_s delegates to #id - the joined
+  # string is unchanged (hand-probed byte-identical, same probe as above).
+  i.mutation "3680c6f564cfca0f",
+             subject: "Saboteur::Reporter::Terminal#untested_win_note",
+             reason: "equivalent: each returns the receiver; Subject#to_s delegates to #id - same string"
 end

@@ -15,11 +15,8 @@ RSpec.describe "block-defined subjects (end to end)", :e2e do
   end
 
   it "names uncovered factory methods as no coverage, not skipped (#290)" do
-    %w[Uncovered#tripled Uncovered#nothing].each do |id|
-      expect(run.out).to include("#{id} (lib/blocks.rb:")
-    end
-    expect(run.out).to include("no tests exist")
-    expect(run.out).not_to include("Covered#doubled (lib/blocks.rb:")
+    expect(run.out).to include("2 subjects not scored - no tests exist: Uncovered#tripled, Uncovered#nothing")
+    expect(run.out).not_to include("Covered#doubled")
   end
 
   it "does not treat a non-factory block as a class owner" do

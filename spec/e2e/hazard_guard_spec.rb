@@ -7,7 +7,7 @@ RSpec.describe "hazard guard and canary (issue #102)", :e2e do
   it "suppresses mutants inside the destructive call and leaves the tree intact" do
     run = saboteur(dir)
     expect(run.status).to eq(0)
-    expect(run.out).to include("hazardous mutations suppressed")
+    expect(run.out).to include("2/2 mutants killed")
     expect(File).to exist(File.join(dir, "SENTINEL.txt"))
     expect(File).to exist(File.join(dir, "lib", "builder.rb"))
     expect(File).to exist(File.join(dir, "spec", "builder_spec.rb"))
@@ -21,7 +21,7 @@ RSpec.describe "hazard guard and canary (issue #102)", :e2e do
     send_dir = copy_fixture("danger_send")
     run = saboteur(send_dir)
     expect(run.status).to eq(0)
-    expect(run.out).to include("hazardous mutations suppressed")
+    expect(run.out).to include("2/2 mutants killed")
     expect(File).to exist(File.join(send_dir, "lib", "dispatcher.rb"))
   end
 
