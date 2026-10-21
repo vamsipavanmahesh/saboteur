@@ -49,8 +49,10 @@ Metrics/ClassLength:
   Max: 442
 Metrics/ModuleLength:
   # RunReporting's replay command narrows to the mutant's covering specs
-  # (#1148), one line over the default.
-  Max: 101
+  # (#1148), one line over the default; text_run's whole-suite
+  # covering-map plumbing and its cache-off gate (review C1) take
+  # RunReporting to 106.
+  Max: 106
   # OperatorExplain carries the curated survives/kill guidance for all 37
   # registry operators; those content lines are intrinsic to the feature.
   Exclude:

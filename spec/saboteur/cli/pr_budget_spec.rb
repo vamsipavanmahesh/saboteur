@@ -14,7 +14,7 @@ RSpec.describe Saboteur::CLI, "pr budget (#654)" do
       report = Saboteur::Report.new(results: [result_for(:killed)], subjects: [person_subject],
                                     root: File.dirname(person_subject.file), wall_time: 1, early_stop: stop)
       allow(Saboteur::Engine).to receive(:new).and_return(
-        instance_double(Saboteur::Engine, guessed_tests: nil, call: report)
+        engine_double(guessed_tests: nil, call: report)
       )
       # The engine is stubbed, but pr still validates its range before boot.
       # CI checkouts have no local "main" branch, so the ref check is stubbed too.

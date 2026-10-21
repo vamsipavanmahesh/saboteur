@@ -10,7 +10,7 @@ RSpec.describe "score history CLI" do
         out = StringIO.new
         err = StringIO.new
         report = report_of(result_for(:killed))
-        engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report)
+        engine = engine_double(guessed_tests: nil, call: report)
         allow(Saboteur::Engine).to receive(:new).and_return(engine)
         allow_any_instance_of(Saboteur::CLI).to receive(:write_html)
         allow_any_instance_of(Saboteur::CLI).to receive(:write_json)

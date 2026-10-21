@@ -19,7 +19,8 @@ RSpec.describe "finished run reporting" do
         .with(out, verbose: verbose || false, quiet: false, color: color || :auto, overrides: {},
                    replay_command: kind_of(Proc),
                    all_mutants: false, exit_code: 0, threshold: nil, previous_score: nil, baseline_gate: nil,
-                   scope: "whole project")
+                   scope: "whole project",
+                   whole_suite_map: Saboteur::Reporter::SurvivorList::NO_WHOLE_SUITE_LOOKUP, run_map: nil)
         .and_return(terminal)
       expect(terminal).to receive(:call).with(report)
       replay_report = instance_double(Saboteur::Reporter::Replay)
@@ -37,6 +38,27 @@ RSpec.describe "finished run reporting" do
       expect(cli.send(:text_run, report, nil)).to eq(0)
       expect(err.string).to eq("\n")
     end
+  end
+
+  it "passes a nil whole-suite map only when a cached build could exist (review C1)" do
+    report = report_of(result_for(:killed))
+    out = StringIO.new
+    cli = Saboteur::CLI.new([], out: out, err: StringIO.new)
+    terminal = instance_double(Saboteur::Reporter::Terminal)
+    allow(cli).to receive(:survivor_replay_command).and_return(->(digest) { "replay #{digest}" })
+    expect(Saboteur::Reporter::Terminal).to receive(:new)
+      .with(out, verbose: false, quiet: false, color: :auto, overrides: {},
+                 replay_command: kind_of(Proc),
+                 all_mutants: false, exit_code: 0, threshold: nil, previous_score: nil, baseline_gate: nil,
+                 scope: "whole project", whole_suite_map: nil, run_map: nil)
+      .and_return(terminal)
+    expect(terminal).to receive(:call).with(report)
+    allow(cli).to receive(:validate_history)
+    allow(cli).to receive(:write_html)
+    allow(cli).to receive(:record_history)
+    allow(cli).to receive(:write_json)
+    engine = engine_double(whole_suite_map_lookup?: true)
+    expect(cli.send(:text_run, report, engine)).to eq(0)
   end
 
   it "forwards the agent engine config and err stream, preserving provenance output exclusions" do
@@ -63,7 +85,7 @@ RSpec.describe "finished run reporting" do
   it "wires the replay command through text_run with report first, engine last" do
     report = report_of(result_for(:survived))
     cli = Saboteur::CLI.new([], out: StringIO.new, err: StringIO.new)
-    engine = instance_double(Saboteur::Engine, guessed_tests: nil)
+    engine = engine_double(guessed_tests: nil)
     terminal = instance_double(Saboteur::Reporter::Terminal, call: nil)
     captured = nil
     allow(Saboteur::Reporter::Terminal).to receive(:new) do |*_args, **kwargs|
@@ -137,7 +159,7 @@ RSpec.describe "finished run reporting" do
     state = Saboteur::WorkingTree::State.new(head: "a" * 40, dirty: false, changed_files: 0)
     tree = instance_double(Saboteur::WorkingTree, state: state)
     expect(Saboteur::WorkingTree).to receive(:new).with(config.root, ignored: config.output_paths).and_return(tree)
-    engine = instance_double(Saboteur::Engine, guessed_tests: nil)
+    engine = engine_double(guessed_tests: nil)
     command = cli.send(:survivor_replay_command, report_of(result_for(:survived)), engine).call("53b683c4659bb71c")
     expect(command).to include("saboteur run", "--id", "53b683c4659bb71c")
   end
@@ -163,7 +185,7 @@ RSpec.describe "finished run reporting" do
       arguments = { err: err, verbose: false, palette: kind_of(Saboteur::Reporter::Palette) }
       arguments[:digest] = digest if digest
       report = report_of(result_for(:killed))
-      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report)
+      engine = engine_double(guessed_tests: nil, call: report)
       expect(Saboteur::Engine).to receive(:new).with(cli.config, **arguments).and_return(engine)
       expect(cli).to receive(:text_run).with(report, engine).and_return(0)
       expect(cli.send(:execute_run)).to eq(0)

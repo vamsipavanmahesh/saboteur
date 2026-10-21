@@ -595,7 +595,7 @@ RSpec.describe Saboteur::CLI do
   end
 
   it "hands c.palette overrides to the engine's stderr palette end to end" do
-    engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of(result_for(:killed)))
+    engine = engine_double(guessed_tests: nil, call: report_of(result_for(:killed)))
     seen = nil
     allow(Saboteur::Engine).to receive(:new) do |_config, **arguments|
       seen = arguments[:palette]
@@ -813,14 +813,14 @@ RSpec.describe Saboteur::CLI do
 
   describe "exit codes after a run" do
     def run_with(report)
-      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report)
+      engine = engine_double(guessed_tests: nil, call: report)
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       cli("run", "--json", File.join(Dir.mktmpdir, "r.json")).call
     end
 
     it "appends the run to the score history when --score-history is set" do
       history = File.join(File.realpath(Dir.mktmpdir), "history.jsonl")
-      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of(result_for(:killed)))
+      engine = engine_double(guessed_tests: nil, call: report_of(result_for(:killed)))
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       json = File.join(File.realpath(Dir.mktmpdir), "r.json")
       expect(cli("run", "--score-history", history, "--json", json).call).to eq(0), "stderr: #{err.string}"
@@ -846,14 +846,14 @@ RSpec.describe Saboteur::CLI do
 
     it "is 1 when the score is below --threshold, even with ignored survivors" do
       report = report_of(result_for(:killed), result_for(:survived))
-      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report)
+      engine = engine_double(guessed_tests: nil, call: report)
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       expect(cli("run", "--threshold", "60", "--json", File.join(Dir.mktmpdir, "r.json")).call).to eq(1)
     end
 
     it "is 0 when the score meets --threshold exactly, despite survivors" do
       report = report_of(result_for(:killed), result_for(:survived))
-      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report)
+      engine = engine_double(guessed_tests: nil, call: report)
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       expect(cli("run", "--threshold", "50", "--json", File.join(Dir.mktmpdir, "r.json")).call).to eq(0)
       expect(err.string).not_to include("incomplete")
@@ -861,7 +861,7 @@ RSpec.describe Saboteur::CLI do
 
     it "is 0 when the score is above --threshold, and 1 just above a score of 50 %" do
       report = report_of(result_for(:killed), result_for(:survived))
-      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report)
+      engine = engine_double(guessed_tests: nil, call: report)
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       json = File.join(Dir.mktmpdir, "r.json")
       expect(cli("run", "--threshold", "40", "--json", json).call).to eq(0)
@@ -869,21 +869,21 @@ RSpec.describe Saboteur::CLI do
     end
 
     it "is 1 under --threshold when nothing was tested, and says why" do
-      engine = instance_double(Saboteur::Engine, guessed_tests: nil,
-                                                 call: report_of(result_for(:skipped, reason: "no coverage")))
+      engine = engine_double(guessed_tests: nil,
+                             call: report_of(result_for(:skipped, reason: "no coverage")))
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       expect(cli("run", "--threshold", "0", "--json", File.join(Dir.mktmpdir, "r.json")).call).to eq(1)
       expect(err.string).to include("no mutant was tested, so there is no score")
     end
 
     it "is 1 under --threshold for a run with no mutants at all" do
-      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of)
+      engine = engine_double(guessed_tests: nil, call: report_of)
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       expect(cli("run", "--threshold", "90", "--json", File.join(Dir.mktmpdir, "r.json")).call).to eq(1)
     end
 
     it "is 0 with a note for a zero-mutant --since diff under --ignore-empty, even under --threshold" do
-      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of)
+      engine = engine_double(guessed_tests: nil, call: report_of)
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       allow(Saboteur::Selection::GitDiff).to receive(:verify_ref!)
       expect(cli("run", "--since", "HEAD~1", "--threshold", "90", "--ignore-empty",
@@ -892,7 +892,7 @@ RSpec.describe Saboteur::CLI do
     end
 
     it "keeps the gate without --ignore-empty: a zero-mutant --since diff still fails under --threshold" do
-      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of)
+      engine = engine_double(guessed_tests: nil, call: report_of)
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       allow(Saboteur::Selection::GitDiff).to receive(:verify_ref!)
       expect(cli("run", "--since", "HEAD~1", "--threshold", "90",
@@ -901,7 +901,7 @@ RSpec.describe Saboteur::CLI do
     end
 
     it "still fails a non-empty --since run under --ignore-empty" do
-      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of(result_for(:survived)))
+      engine = engine_double(guessed_tests: nil, call: report_of(result_for(:survived)))
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       allow(Saboteur::Selection::GitDiff).to receive(:verify_ref!)
       expect(cli("run", "--since", "HEAD~1", "--ignore-empty",
@@ -940,7 +940,7 @@ RSpec.describe Saboteur::CLI do
       def stub_run(gate)
         allow(Saboteur::Baseline::RunGate).to receive(:build).and_return(gate)
         allow(Saboteur::Engine).to receive(:new)
-          .and_return(instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of))
+          .and_return(engine_double(guessed_tests: nil, call: report_of))
       end
 
       it "refuses --baseline with --agent before touching the file" do
@@ -1003,7 +1003,7 @@ RSpec.describe Saboteur::CLI do
         path = baseline_file
         allow(Saboteur::Baseline::RunGate).to receive(:build).and_return(gate_double(failed: false))
         allow(Saboteur::Engine).to receive(:new)
-          .and_return(instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of))
+          .and_return(engine_double(guessed_tests: nil, call: report_of))
         expect(Saboteur::Baseline::Loader).to receive(:call).with(path).once
                                                             .and_return([instance_double(Saboteur::Baseline::Manifest),
                                                                          Digest::SHA256.file(path).hexdigest])
@@ -1015,7 +1015,7 @@ RSpec.describe Saboteur::CLI do
         manifest = stub_baseline_load(path)
         report = report_of
         allow(Saboteur::Engine).to receive(:new)
-          .and_return(instance_double(Saboteur::Engine, guessed_tests: nil, call: report))
+          .and_return(engine_double(guessed_tests: nil, call: report))
         received = nil
         allow(Saboteur::Baseline::RunGate).to receive(:build) do |manifest:, report:, **|
           received = [manifest, report]
@@ -1048,7 +1048,7 @@ RSpec.describe Saboteur::CLI do
         path = baseline_file
         stub_baseline_load(path)
         allow(Saboteur::Baseline::RunGate).to receive(:build).and_return(gate_double(failed: false))
-        engine = instance_double(Saboteur::Engine, guessed_tests: nil)
+        engine = engine_double(guessed_tests: nil)
         allow(engine).to receive(:call) do
           File.write(path, "{ }")
           report_of
@@ -1092,7 +1092,7 @@ RSpec.describe Saboteur::CLI do
         path = baseline_file
         stub_baseline_load(path)
         allow(Saboteur::Engine).to receive(:new)
-          .and_return(instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of))
+          .and_return(engine_double(guessed_tests: nil, call: report_of))
         received = nil
         allow(Saboteur::Baseline::RunGate).to receive(:build) do |epsilon:, **|
           received = epsilon
@@ -1106,7 +1106,7 @@ RSpec.describe Saboteur::CLI do
         path = baseline_file
         stub_baseline_load(path)
         allow(Saboteur::Engine).to receive(:new)
-          .and_return(instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of))
+          .and_return(engine_double(guessed_tests: nil, call: report_of))
         expect(Saboteur::Baseline::RunGate).to receive(:build) do |epsilon:, **|
           expect(epsilon).to eq(0.5)
           gate_double(failed: false)
@@ -1119,7 +1119,7 @@ RSpec.describe Saboteur::CLI do
         path = baseline_file
         stub_baseline_load(path)
         allow(Saboteur::Baseline::RunGate).to receive(:build).and_return(gate_double(failed: false))
-        engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of)
+        engine = engine_double(guessed_tests: nil, call: report_of)
         expect(Saboteur::Engine).to receive(:new)
           .with(anything, hash_including(capture_evidence: true, evidence_files: [path])).and_return(engine)
         expect(cli("run", "--baseline", path, "--json", File.join(Dir.mktmpdir, "r.json")).call).to eq(0)
@@ -1128,28 +1128,28 @@ RSpec.describe Saboteur::CLI do
 
     it "is 3 under --threshold when some mutants errored, even with a passing score" do
       report = report_of(result_for(:killed), result_for(:error))
-      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, guessed_tests: nil,
-                                                                                            call: report))
+      allow(Saboteur::Engine).to receive(:new).and_return(engine_double(guessed_tests: nil,
+                                                                        call: report))
       expect(cli("run", "--threshold", "50", "--json", File.join(Dir.mktmpdir, "r.json")).call).to eq(3)
       expect(err.string).to include("1 mutant(s) errored or hit a resource limit, so the score is incomplete")
     end
 
     it "is 3 under --threshold when a mutant hit a resource limit" do
       report = report_of(result_for(:killed), result_for(:resource_limit))
-      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, guessed_tests: nil,
-                                                                                            call: report))
+      allow(Saboteur::Engine).to receive(:new).and_return(engine_double(guessed_tests: nil,
+                                                                        call: report))
       expect(cli("run", "--threshold", "50", "--json", File.join(Dir.mktmpdir, "r.json")).call).to eq(3)
     end
 
     it "ignores errors for the exit code when no threshold is set" do
       report = report_of(result_for(:killed), result_for(:error))
-      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, guessed_tests: nil,
-                                                                                            call: report))
+      allow(Saboteur::Engine).to receive(:new).and_return(engine_double(guessed_tests: nil,
+                                                                        call: report))
       expect(cli("run", "--json", File.join(Dir.mktmpdir, "r.json")).call).to eq(0)
     end
 
     it "keeps exit 3 over the threshold when every executed mutant errored" do
-      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of(result_for(:error)))
+      engine = engine_double(guessed_tests: nil, call: report_of(result_for(:error)))
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       expect(cli("run", "--threshold", "0", "--json", File.join(Dir.mktmpdir, "r.json")).call).to eq(3)
     end
@@ -1160,14 +1160,14 @@ RSpec.describe Saboteur::CLI do
 
     it "is 0 when timeouts and errors stay within --max-timeouts and --max-errors" do
       report = report_of(*killed(8), result_for(:timeout), result_for(:error))
-      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, call: report))
+      allow(Saboteur::Engine).to receive(:new).and_return(engine_double(call: report))
       expect(cli("run", "--max-timeouts", "1", "--max-errors", "10%", "--json",
                  File.join(Dir.mktmpdir, "r.json")).call).to eq(0)
     end
 
     it "is 1 when errors are above --max-errors, with the error count named" do
       report = report_of(*killed(8), result_for(:error), result_for(:error))
-      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, call: report))
+      allow(Saboteur::Engine).to receive(:new).and_return(engine_double(call: report))
       json = File.join(Dir.mktmpdir, "r.json")
       expect(cli("run", "--max-errors", "1", "--json", json).call).to eq(1)
       expect(JSON.parse(File.read(json)).dig("saboteur", "exitCause")).to eq("maxErrors")
@@ -1175,8 +1175,8 @@ RSpec.describe Saboteur::CLI do
 
     it "keeps survivors and the threshold as the stated cause when they fail too" do
       report = report_of(result_for(:killed), result_for(:survived), result_for(:timeout))
-      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, call: report,
-                                                                                            guessed_tests: nil))
+      allow(Saboteur::Engine).to receive(:new).and_return(engine_double(call: report,
+                                                                        guessed_tests: nil))
       json = File.join(Dir.mktmpdir, "r.json")
       expect(cli("run", "--max-timeouts", "0", "--json", json).call).to eq(1)
       expect(JSON.parse(File.read(json)).dig("saboteur", "exitCause")).to eq("survivors")
@@ -1184,14 +1184,14 @@ RSpec.describe Saboteur::CLI do
 
     it "lets --max-errors, not --threshold, judge errored mutants" do
       report = report_of(*killed(8), result_for(:error))
-      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, call: report))
+      allow(Saboteur::Engine).to receive(:new).and_return(engine_double(call: report))
       expect(cli("run", "--threshold", "50", "--max-errors", "1", "--json",
                  File.join(Dir.mktmpdir, "r.json")).call).to eq(0)
     end
 
     it "still makes a resource-limit mutant incomplete under --threshold with --max-errors" do
       report = report_of(*killed(8), result_for(:resource_limit))
-      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, call: report))
+      allow(Saboteur::Engine).to receive(:new).and_return(engine_double(call: report))
       expect(cli("run", "--threshold", "50", "--max-errors", "1", "--json",
                  File.join(Dir.mktmpdir, "r.json")).call).to eq(3)
       expect(err.string).to include("1 mutant(s) errored or hit a resource limit, so the score is incomplete")
@@ -1199,7 +1199,7 @@ RSpec.describe Saboteur::CLI do
 
     it "still makes an errored mutant incomplete under --threshold with only --max-timeouts" do
       report = report_of(*killed(8), result_for(:error))
-      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, call: report))
+      allow(Saboteur::Engine).to receive(:new).and_return(engine_double(call: report))
       expect(cli("run", "--threshold", "50", "--max-timeouts", "1", "--json",
                  File.join(Dir.mktmpdir, "r.json")).call).to eq(3)
     end
@@ -1223,7 +1223,7 @@ RSpec.describe Saboteur::CLI do
         config = File.join(dir, "saboteur.rb")
         File.write(config, 'Saboteur.configure { |c| c.score_gate "**/*", min_score: 95 }')
         json = File.join(dir, "r.json")
-        engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of(result_for(:killed)))
+        engine = engine_double(guessed_tests: nil, call: report_of(result_for(:killed)))
         allow(Saboteur::Engine).to receive(:new).and_return(engine)
         expect(cli("run", "--config", config, "--json", json).call).to eq(0), "stderr: #{err.string}"
         expect(JSON.parse(File.read(json)).dig("saboteur", "scoreGates")).to eq(
@@ -1235,7 +1235,7 @@ RSpec.describe Saboteur::CLI do
 
     it "omits scoreGates from the JSON report when no score gates are configured" do
       json = File.join(Dir.mktmpdir, "r.json")
-      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of(result_for(:killed)))
+      engine = engine_double(guessed_tests: nil, call: report_of(result_for(:killed)))
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       expect(cli("run", "--json", json).call).to eq(0)
       expect(JSON.parse(File.read(json))["saboteur"]).not_to have_key("scoreGates")
@@ -1249,7 +1249,7 @@ RSpec.describe Saboteur::CLI do
         config = File.join(dir, "saboteur.rb")
         File.write(config, 'Saboteur.configure { |c| c.score_gate "**/*", min_score: 95 }')
         json = File.join(dir, "r.json")
-        engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of(result_for(:survived)))
+        engine = engine_double(guessed_tests: nil, call: report_of(result_for(:survived)))
         allow(Saboteur::Engine).to receive(:new).and_return(engine)
         expect(cli("run", "--config", config, "--json", json).call).to eq(1)
         expect(err.string).to include("saboteur: score gate **/*: score 0.0 below 95")
@@ -1297,8 +1297,8 @@ RSpec.describe Saboteur::CLI do
     it "names the cause under --threshold when a mutant errored" do
       died = "worker 2 died (signal KILL), running this item"
       report = report_of(result_for(:killed), result_for(:error, reason: died))
-      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, guessed_tests: nil,
-                                                                                            call: report))
+      allow(Saboteur::Engine).to receive(:new).and_return(engine_double(guessed_tests: nil,
+                                                                        call: report))
       expect(cli("run", "--threshold", "50", "--json", File.join(Dir.mktmpdir, "r.json")).call).to eq(3)
       expect(err.string).to include("score is incomplete\n  most common cause (1 of 1): worker 2 died (signal KILL)")
     end
@@ -1327,7 +1327,7 @@ RSpec.describe Saboteur::CLI do
     it "writes the majority-error cause into the JSON report" do
       report = report_of(result_for(:killed), result_for(:error), result_for(:error))
       json = File.join(Dir.mktmpdir, "r.json")
-      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report)
+      engine = engine_double(guessed_tests: nil, call: report)
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       expect(cli("run", "--json", json).call).to eq(3)
       expect(JSON.parse(File.read(json)).dig("saboteur", "exitCause")).to eq("errorMajority")
@@ -1340,7 +1340,7 @@ RSpec.describe Saboteur::CLI do
       report = report_of(result_for(:killed), result_for(:error), result_for(:error))
       dir = Dir.mktmpdir
       json = File.join(dir, "r.json")
-      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report)
+      engine = engine_double(guessed_tests: nil, call: report)
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       allow_any_instance_of(Saboteur::Reporter::Html).to receive(:call).and_raise(Saboteur::Error, "no html")
       expect(cli("run", "--json", json, "--html", File.join(dir, "r.html")).call).to eq(3)
@@ -1351,7 +1351,7 @@ RSpec.describe Saboteur::CLI do
     # fallible stages too, so the JSON is written only after them.
     it "gives agent provenance the specs --guess-tests narrowed to, not the original --test list" do
       report = report_of(result_for(:killed))
-      engine = instance_double(Saboteur::Engine, guessed_tests: %w[spec/a_spec.rb], call: report)
+      engine = engine_double(guessed_tests: %w[spec/a_spec.rb], call: report)
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       allow(Saboteur::Reporter::Agent).to receive(:call).and_call_original
       # Keep --since, with the range made non-empty by an untracked file:
@@ -1371,7 +1371,7 @@ RSpec.describe Saboteur::CLI do
     it "keeps the explicit --test list in agent provenance when nothing was guessed" do
       spec = File.join(Dir.mktmpdir, "x_spec.rb")
       File.write(spec, "")
-      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of(result_for(:killed)))
+      engine = engine_double(guessed_tests: nil, call: report_of(result_for(:killed)))
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       allow(Saboteur::Reporter::Agent).to receive(:call).and_call_original
       source = File.join(File.dirname(spec), "x.rb")
@@ -1387,7 +1387,7 @@ RSpec.describe Saboteur::CLI do
     # c.test_selection = :all, which agent settings record.
     it "records only run-setting flags plus the resolved operator policy in agent settings" do
       report = report_of(result_for(:killed))
-      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report)
+      engine = engine_double(guessed_tests: nil, call: report)
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       allow(Saboteur::Reporter::Agent).to receive(:call).and_call_original
       Dir.mktmpdir do |dir|
@@ -1404,7 +1404,7 @@ RSpec.describe Saboteur::CLI do
     # commands keep it; the provenance says which settings were typed (#317).
     it "records the operator settings typed on the command line, empty ones included" do
       report = report_of(result_for(:killed))
-      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report)
+      engine = engine_double(guessed_tests: nil, call: report)
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       allow(Saboteur::Reporter::Agent).to receive(:call).and_call_original
       Dir.mktmpdir do |dir|
@@ -1420,7 +1420,7 @@ RSpec.describe Saboteur::CLI do
 
     it "omits --all from agent settings when named tests win over a configured whole-suite selection" do
       report = report_of(result_for(:killed))
-      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report)
+      engine = engine_double(guessed_tests: nil, call: report)
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       allow(Saboteur::Reporter::Agent).to receive(:call).and_call_original
       Dir.mktmpdir do |dir|
@@ -1440,7 +1440,7 @@ RSpec.describe Saboteur::CLI do
     end
 
     it "prints the complete replay command for a survivor, carrying the run's own selection options (#261)" do
-      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of(result_for(:survived)))
+      engine = engine_double(guessed_tests: nil, call: report_of(result_for(:survived)))
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       Dir.mktmpdir do |dir|
         stub_source_fixture(dir)
@@ -1469,7 +1469,7 @@ RSpec.describe Saboteur::CLI do
     end
 
     it "carries --allow-focus into the survivor replay command (#261)" do
-      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of(result_for(:survived)))
+      engine = engine_double(guessed_tests: nil, call: report_of(result_for(:survived)))
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       Dir.mktmpdir do |dir|
         stub_source_fixture(dir)
@@ -1488,7 +1488,7 @@ RSpec.describe Saboteur::CLI do
     end
 
     it "prints the footer command in full when the selection runs past the agent byte cap (#261)" do
-      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of(result_for(:survived)))
+      engine = engine_double(guessed_tests: nil, call: report_of(result_for(:survived)))
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       allow(Saboteur::WorkingTree).to receive(:new).and_call_original
       tests = Array.new(40) { |i| "spec/padded selection #{i}/a_spec.rb" }
@@ -1517,7 +1517,7 @@ RSpec.describe Saboteur::CLI do
     end
 
     it "passes --verbose to the engine only for text runs (#262)" do
-      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of(result_for(:killed)))
+      engine = engine_double(guessed_tests: nil, call: report_of(result_for(:killed)))
       kwargs_seen = []
       allow(Saboteur::Engine).to receive(:new) { |*_args, **kwargs| kwargs_seen << kwargs and engine }
       cli("run", "--verbose").call
@@ -1528,7 +1528,7 @@ RSpec.describe Saboteur::CLI do
 
     it "records config-defined tests in agent provenance so the rerun keeps them" do
       report = report_of(result_for(:killed))
-      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report)
+      engine = engine_double(guessed_tests: nil, call: report)
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       allow(Saboteur::Reporter::Agent).to receive(:call).and_call_original
       Dir.mktmpdir do |dir|
@@ -1549,7 +1549,7 @@ RSpec.describe Saboteur::CLI do
 
     it "records a configured test_selection = :all in agent settings when no tests resolved" do
       report = report_of(result_for(:killed))
-      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report)
+      engine = engine_double(guessed_tests: nil, call: report)
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       allow(Saboteur::Reporter::Agent).to receive(:call).and_call_original
       Dir.mktmpdir do |dir|
@@ -1567,7 +1567,7 @@ RSpec.describe Saboteur::CLI do
 
     it "records --all in agent settings so rerun and replay keep the whole-suite scope" do
       report = report_of(result_for(:killed))
-      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report)
+      engine = engine_double(guessed_tests: nil, call: report)
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       allow(Saboteur::Reporter::Agent).to receive(:call).and_call_original
       Dir.mktmpdir do |dir|
@@ -1583,7 +1583,7 @@ RSpec.describe Saboteur::CLI do
       report = report_of(result_for(:killed), result_for(:error), result_for(:error))
       dir = Dir.mktmpdir
       json = File.join(dir, "r.json")
-      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report)
+      engine = engine_double(guessed_tests: nil, call: report)
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       allow(Saboteur::Reporter::Agent).to receive(:call).and_raise(Saboteur::Error, "no payload")
       expect(cli("run", "--agent", "--json", json).call).to eq(3)
@@ -1595,7 +1595,7 @@ RSpec.describe Saboteur::CLI do
     it "records survivors as the cause in agent mode when survivors gate the exit" do
       report = report_of(result_for(:survived), result_for(:error), result_for(:error), result_for(:error))
       json = File.join(Dir.mktmpdir, "r.json")
-      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report)
+      engine = engine_double(guessed_tests: nil, call: report)
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       expect(cli("run", "--agent", "--json", json).call).to eq(1)
       expect(JSON.parse(File.read(json)).dig("saboteur", "exitCause")).to eq("survivors")
@@ -1604,7 +1604,7 @@ RSpec.describe Saboteur::CLI do
     it "records the majority-error cause in agent mode when it decides the exit" do
       report = report_of(result_for(:killed), result_for(:error), result_for(:error))
       json = File.join(Dir.mktmpdir, "r.json")
-      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report)
+      engine = engine_double(guessed_tests: nil, call: report)
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       expect(cli("run", "--agent", "--json", json).call).to eq(3)
       expect(JSON.parse(File.read(json)).dig("saboteur", "exitCause")).to eq("errorMajority")
@@ -1613,7 +1613,7 @@ RSpec.describe Saboteur::CLI do
     it "records an incomplete cause in agent mode when a minority errored" do
       report = report_of(result_for(:killed), result_for(:error))
       json = File.join(Dir.mktmpdir, "r.json")
-      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report)
+      engine = engine_double(guessed_tests: nil, call: report)
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       expect(cli("run", "--agent", "--json", json).call).to eq(3)
       expect(JSON.parse(File.read(json)).dig("saboteur", "exitCause")).to eq("incomplete")
@@ -1626,7 +1626,7 @@ RSpec.describe Saboteur::CLI do
       dir = Dir.mktmpdir
       json = File.join(dir, "r.json")
       html = File.join(dir, "r.html")
-      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report)
+      engine = engine_double(guessed_tests: nil, call: report)
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       expect(cli("run", "--agent", "--json", json, "--html", html).call).to eq(0)
       expect(JSON.parse(out.string)["status"]).to eq("complete")
@@ -1637,7 +1637,7 @@ RSpec.describe Saboteur::CLI do
     it "records ok as the cause in agent mode when the run is clean" do
       report = report_of(result_for(:killed))
       json = File.join(Dir.mktmpdir, "r.json")
-      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report)
+      engine = engine_double(guessed_tests: nil, call: report)
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       expect(cli("run", "--agent", "--json", json).call).to eq(0)
       expect(JSON.parse(File.read(json)).dig("saboteur", "exitCause")).to eq("ok")
@@ -1645,7 +1645,7 @@ RSpec.describe Saboteur::CLI do
 
     it "writes ok into the JSON report when nothing failed" do
       json = File.join(Dir.mktmpdir, "r.json")
-      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of(result_for(:killed)))
+      engine = engine_double(guessed_tests: nil, call: report_of(result_for(:killed)))
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       expect(cli("run", "--json", json).call).to eq(0)
       expect(JSON.parse(File.read(json)).dig("saboteur", "exitCause")).to eq("ok")
@@ -1653,7 +1653,7 @@ RSpec.describe Saboteur::CLI do
 
     it "writes survivors into the JSON report when the survivor gate fails" do
       json = File.join(Dir.mktmpdir, "r.json")
-      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of(result_for(:survived)))
+      engine = engine_double(guessed_tests: nil, call: report_of(result_for(:survived)))
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       expect(cli("run", "--json", json).call).to eq(1)
       expect(JSON.parse(File.read(json)).dig("saboteur", "exitCause")).to eq("survivors")
@@ -1662,7 +1662,7 @@ RSpec.describe Saboteur::CLI do
     it "writes belowThreshold into the JSON report when the score misses the threshold" do
       json = File.join(Dir.mktmpdir, "r.json")
       report = report_of(result_for(:killed), result_for(:survived))
-      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report)
+      engine = engine_double(guessed_tests: nil, call: report)
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       expect(cli("run", "--threshold", "90", "--json", json).call).to eq(1)
       expect(JSON.parse(File.read(json)).dig("saboteur", "exitCause")).to eq("belowThreshold")
@@ -1671,7 +1671,7 @@ RSpec.describe Saboteur::CLI do
     it "writes maxTimeouts into the JSON report when too many mutants time out" do
       json = File.join(Dir.mktmpdir, "r.json")
       report = report_of(result_for(:killed), result_for(:killed), result_for(:timeout))
-      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, call: report))
+      allow(Saboteur::Engine).to receive(:new).and_return(engine_double(call: report))
       expect(cli("run", "--max-timeouts", "0", "--json", json).call).to eq(1)
       expect(JSON.parse(File.read(json)).dig("saboteur", "exitCause")).to eq("maxTimeouts")
       expect(err.string).to include("1 timeout mutants, above --max-timeouts 0")
@@ -1680,7 +1680,7 @@ RSpec.describe Saboteur::CLI do
     it "writes the incomplete-under-threshold cause into the JSON report" do
       report = report_of(result_for(:killed), result_for(:error))
       json = File.join(Dir.mktmpdir, "r.json")
-      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report)
+      engine = engine_double(guessed_tests: nil, call: report)
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       expect(cli("run", "--threshold", "50", "--json", json).call).to eq(3)
       expect(JSON.parse(File.read(json)).dig("saboteur", "exitCause")).to eq("incompleteUnderThreshold")
@@ -1801,8 +1801,9 @@ RSpec.describe Saboteur::CLI, "details" do
   it "prints the summary and writes the JSON report it names" do
     Dir.mktmpdir do |dir|
       path = File.join(dir, "r.json")
-      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
-                                                                          call: report_of(result_for(:killed))))
+      allow(Saboteur::Engine).to receive(:new).and_return(engine_double(
+                                                            call: report_of(result_for(:killed))
+                                                          ))
       cli("run", "--json", path).call
       expect(out.string).to include("saboteur #{Saboteur::VERSION}", "whole project", "Reports: #{path} (JSON)")
       expect(File).to exist(path)
@@ -1812,8 +1813,9 @@ RSpec.describe Saboteur::CLI, "details" do
   it "writes the HTML report it names, next to the JSON one" do
     Dir.mktmpdir do |dir|
       path = File.join(dir, "r.html")
-      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
-                                                                          call: report_of(result_for(:killed))))
+      allow(Saboteur::Engine).to receive(:new).and_return(engine_double(
+                                                            call: report_of(result_for(:killed))
+                                                          ))
       cli("run", "--json", File.join(dir, "r.json"), "--html", path).call
       expect(out.string).to include("Reports: #{File.join(dir, 'r.json')} (JSON), #{path} (HTML)")
       expect(out.string.scan("Reports:").size).to eq(1)
@@ -1824,8 +1826,9 @@ RSpec.describe Saboteur::CLI, "details" do
   it "names both reports on one Reports line with paths relative to the root" do
     Dir.mktmpdir do |dir|
       stub_source_fixture(dir)
-      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
-                                                                          call: report_of(result_for(:killed))))
+      allow(Saboteur::Engine).to receive(:new).and_return(engine_double(
+                                                            call: report_of(result_for(:killed))
+                                                          ))
       Dir.chdir(dir) { cli("run").call }
       expect(out.string).to include("\nReports: .saboteur/report.json (JSON), .saboteur/report.html (HTML)\n")
       expect(out.string).not_to include("JSON report:")
@@ -1837,8 +1840,9 @@ RSpec.describe Saboteur::CLI, "details" do
       FileUtils.mkdir_p(File.join(dir, "config"))
       File.write(File.join(dir, "config", "saboteur.rb"),
                  "Saboteur.configure { |c| c.html_report = nil; c.json_report = nil }\n")
-      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
-                                                                          call: report_of(result_for(:killed))))
+      allow(Saboteur::Engine).to receive(:new).and_return(engine_double(
+                                                            call: report_of(result_for(:killed))
+                                                          ))
       Dir.chdir(dir) { cli("run").call }
       expect(out.string).not_to include("Reports:")
       expect(Dir.glob("#{dir}/.saboteur/report.*")).to be_empty
@@ -1850,8 +1854,9 @@ RSpec.describe Saboteur::CLI, "details" do
       stub_source_fixture(dir)
       FileUtils.mkdir_p(File.join(dir, "config"))
       File.write(File.join(dir, "config", "saboteur.rb"), "Saboteur.configure { |c| c.html_report = nil }\n")
-      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
-                                                                          call: report_of(result_for(:killed))))
+      allow(Saboteur::Engine).to receive(:new).and_return(engine_double(
+                                                            call: report_of(result_for(:killed))
+                                                          ))
       Dir.chdir(dir) { cli("run").call }
       expect(out.string).to include("Reports: .saboteur/report.json (JSON)\n")
       expect(out.string).not_to include("HTML")
@@ -1864,8 +1869,9 @@ RSpec.describe Saboteur::CLI, "details" do
       readonly = File.join(dir, "readonly")
       FileUtils.mkdir_p(readonly)
       FileUtils.chmod(0o555, readonly)
-      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
-                                                                          call: report_of(result_for(:killed))))
+      allow(Saboteur::Engine).to receive(:new).and_return(engine_double(
+                                                            call: report_of(result_for(:killed))
+                                                          ))
       html = File.join(readonly, "r.html")
       status = cli("run", "--json", File.join(dir, "r.json"), "--html", html).call
       expect(status).to eq(0)
@@ -1881,8 +1887,9 @@ RSpec.describe Saboteur::CLI, "details" do
       cache = File.join(dir, ".saboteur")
       FileUtils.mkdir_p(cache)
       FileUtils.chmod(0o555, cache)
-      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
-                                                                          call: report_of(result_for(:killed))))
+      allow(Saboteur::Engine).to receive(:new).and_return(engine_double(
+                                                            call: report_of(result_for(:killed))
+                                                          ))
       status = Dir.chdir(dir) { cli("run").call }
       expect(status).to eq(0)
       # The CLI resolves the root with realpath; on macOS the tmpdir is a
@@ -1898,8 +1905,9 @@ RSpec.describe Saboteur::CLI, "details" do
       readonly = File.join(dir, "readonly")
       FileUtils.mkdir_p(readonly)
       FileUtils.chmod(0o555, readonly)
-      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
-                                                                          call: report_of(result_for(:killed))))
+      allow(Saboteur::Engine).to receive(:new).and_return(engine_double(
+                                                            call: report_of(result_for(:killed))
+                                                          ))
       json = File.join(readonly, "r.json")
       status = cli("run", "--json", json, "--html", File.join(dir, "r.html")).call
       expect(status).to eq(3)
@@ -1916,8 +1924,9 @@ RSpec.describe Saboteur::CLI, "details" do
       json = File.join(dir, "r.json")
       File.write(json, '{"old": true}')
       FileUtils.chmod(0o444, json)
-      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
-                                                                          call: report_of(result_for(:killed))))
+      allow(Saboteur::Engine).to receive(:new).and_return(engine_double(
+                                                            call: report_of(result_for(:killed))
+                                                          ))
       status = cli("run", "--json", json).call
       expect(status).to eq(3)
       expect(File.read(json)).to eq('{"old": true}')
@@ -1934,8 +1943,9 @@ RSpec.describe Saboteur::CLI, "details" do
         raise IOError, "stream closed"
       end
       allow(Saboteur::Reporter::Stryker).to receive(:new).and_return(writer)
-      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
-                                                                          call: report_of(result_for(:killed))))
+      allow(Saboteur::Engine).to receive(:new).and_return(engine_double(
+                                                            call: report_of(result_for(:killed))
+                                                          ))
       status = cli("run", "--json", json).call
       expect(status).to eq(3)
       expect(err.string).to include("could not write the JSON report to #{json}: stream closed - " \
@@ -1949,7 +1959,7 @@ RSpec.describe Saboteur::CLI, "details" do
       readonly = File.join(dir, "readonly")
       FileUtils.mkdir_p(readonly)
       FileUtils.chmod(0o555, readonly)
-      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of(result_for(:killed)))
+      engine = engine_double(guessed_tests: nil, call: report_of(result_for(:killed)))
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       status = cli("run", "--agent", "--json", File.join(readonly, "r.json")).call
       expect(status).to eq(3)
@@ -1969,8 +1979,9 @@ RSpec.describe Saboteur::CLI, "details" do
       cache = File.join(dir, ".saboteur")
       FileUtils.mkdir_p(cache)
       FileUtils.chmod(0o555, cache)
-      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
-                                                                          call: report_of(result_for(:killed))))
+      allow(Saboteur::Engine).to receive(:new).and_return(engine_double(
+                                                            call: report_of(result_for(:killed))
+                                                          ))
       status = Dir.chdir(dir) { cli("run").call }
       expect(status).to eq(0)
       # The CLI resolves the root with realpath; on macOS the tmpdir is a
@@ -1992,8 +2003,9 @@ RSpec.describe Saboteur::CLI, "details" do
       FileUtils.mkdir_p(cache)
       history = File.join(cache, "history.jsonl")
       File.write(history, "")
-      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
-                                                                          call: report_of(result_for(:killed))))
+      allow(Saboteur::Engine).to receive(:new).and_return(engine_double(
+                                                            call: report_of(result_for(:killed))
+                                                          ))
       File.open(history, File::RDWR) do |held|
         held.flock(File::LOCK_EX)
         status = Dir.chdir(dir) { cli("run").call }
@@ -2011,8 +2023,9 @@ RSpec.describe Saboteur::CLI, "details" do
                  "Saboteur.configure { |c| c.score_history = '.saboteur/history.jsonl' }\n")
       allow(Saboteur::Reporter::HistoryRecord).to receive(:validate)
         .and_raise(Saboteur::Error, "score history contains an inconsistent score")
-      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
-                                                                          call: report_of(result_for(:killed))))
+      allow(Saboteur::Engine).to receive(:new).and_return(engine_double(
+                                                            call: report_of(result_for(:killed))
+                                                          ))
       status = Dir.chdir(dir) { cli("run").call }
       expect(status).to eq(3)
       expect(err.string).to include("score history contains an inconsistent score")
@@ -2026,8 +2039,9 @@ RSpec.describe Saboteur::CLI, "details" do
       File.write(File.join(dir, "config", "saboteur.rb"),
                  "Saboteur.configure { |c| c.score_history = '.saboteur/history.jsonl' }\n")
       stub_const("Saboteur::Reporter::ScoreHistory::MAX_RECORD_BYTES", 10)
-      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
-                                                                          call: report_of(result_for(:killed))))
+      allow(Saboteur::Engine).to receive(:new).and_return(engine_double(
+                                                            call: report_of(result_for(:killed))
+                                                          ))
       status = Dir.chdir(dir) { cli("run").call }
       expect(status).to eq(3)
       expect(err.string).to include("score history record exceeds byte limit")
@@ -2065,8 +2079,8 @@ RSpec.describe Saboteur::CLI, "details" do
 
   it "exits 0 when every mutant was skipped (nothing ran, nothing errored)" do
     allow(Saboteur::Engine).to receive(:new)
-      .and_return(instance_double(Saboteur::Engine, guessed_tests: nil,
-                                                    call: report_of(result_for(:skipped, reason: "no coverage"))))
+      .and_return(engine_double(guessed_tests: nil,
+                                call: report_of(result_for(:skipped, reason: "no coverage"))))
     expect(cli("run", "--json", File.join(Dir.mktmpdir, "r.json")).call).to eq(0)
   end
 
