@@ -115,4 +115,52 @@ RSpec.describe Saboteur::Baseline::Acceptance do
     expect { acceptance.accept(proposal: @proposal, destination: @output) }
       .to raise_error(Saboteur::ConfigError, "baseline destination exists")
   end
+
+  describe "required evidence and record shapes" do
+    def required_store
+      described_class.new(directory: @directory, protected_paths: [], verify: ->(_) { true }, require_evidence: true)
+    end
+
+    it "does not demand execution evidence unless asked to" do
+      expect { propose }.not_to raise_error
+    end
+
+    it "demands execution evidence when asked to, and says it is missing" do
+      expect { propose(required_store) }
+        .to raise_error(Saboteur::ConfigError, "baseline execution evidence missing")
+    end
+
+    it "checks given execution evidence instead of calling it missing when it is demanded" do
+      expect { required_store.send(:validate_execution, document, {}) }
+        .to raise_error(Saboteur::ConfigError, "baseline evidence fields")
+    end
+
+    it "includes the system error in an accept failure and in a proposal failure" do
+      acceptance = store
+      File.write(File.join(@root, ".saboteur"), "blocker")
+      expect { propose(acceptance) }
+        .to raise_error(Saboteur::ConfigError, /\Abaseline proposal: .*(Not a directory|File exists)/)
+      FileUtils.rm_f(File.join(@root, ".saboteur"))
+      acceptance.propose(document:, proposal: @proposal, destination: @output)
+      token = JSON.parse(File.read(@proposal))["token"]
+      File.delete(File.join(@directory, "#{token}.json"))
+      expect { acceptance.accept(proposal: @proposal, destination: @output) }
+        .to raise_error(Saboteur::ConfigError, /\Abaseline evidence: .*No such file or directory/)
+    end
+
+    it "reads a record with exactly the four keys, or those four plus execution, and nothing else" do
+      base = { "destination" => @output, "document" => { "accepted" => [{}] }, "previous" => nil, "token" => "a" * 32 }
+      [base, base.merge("execution" => {})].each do |record|
+        File.write(@proposal, JSON.generate(record))
+        expect(store.send(:read_record, @proposal)).to eq(record)
+        record.each_key.reject { |key| key == "execution" }.each do |key|
+          File.write(@proposal, JSON.generate(record.except(key)))
+          expect { store.send(:read_record, @proposal) }
+            .to raise_error(Saboteur::ConfigError, "baseline evidence fields"), key
+        end
+      end
+      File.write(@proposal, JSON.generate(base.merge("extra" => 1)))
+      expect { store.send(:read_record, @proposal) }.to raise_error(Saboteur::ConfigError, "baseline evidence fields")
+    end
+  end
 end
