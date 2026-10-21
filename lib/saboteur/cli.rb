@@ -15,6 +15,7 @@ require_relative "cli/baseline_gate"
 require_relative "preview"
 require_relative "cli/run_reporting"
 require_relative "cli/survivors_command"
+require_relative "cli/explain_command"
 require_relative "cli/source_set"
 require_relative "cli/run_budget_options"
 require_relative "cli/shard_options"
@@ -44,6 +45,7 @@ module Saboteur
     include BaselineGate
     include RunReporting
     include SurvivorsCommand
+    include ExplainCommand
     include SourceSet
     include RunBudgetOptions
     include ShardOptions
@@ -103,6 +105,7 @@ module Saboteur
       when "run" then run_command
       when "baseline" then baseline
       when "survivors" then survivors_command
+      when "explain" then explain_command
       when "doctor" then doctor_command
       when "badge", "trend" then history_entry(command)
       when "version", "--version" then @out.puts(VERSION) || EXIT_OK
