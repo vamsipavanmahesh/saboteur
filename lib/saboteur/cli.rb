@@ -131,7 +131,7 @@ module Saboteur
 
     def agent_requested? = self.class.agent_requested?(@argv)
 
-    def overrides = options.except(:config, :id, :suite, :list_operators, :dry_run)
+    def overrides = options.except(:config, :id, :suite, :list_operators, :dry_run, :all_mutants)
 
     def add_subject(expr) = (options[:subjects] ||= []) << expr
 

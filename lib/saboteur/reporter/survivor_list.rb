@@ -64,7 +64,7 @@ module Saboteur
                      .map { |label, group| "#{group.size} #{label}" }
                      .join(", ")
         @out.puts "      #{@palette.paint(:red, '-')} #{count}: #{mix}"
-        passing_tests(on_line.first)
+        tests_line(on_line.flat_map(&:covered_by).uniq, on_line.first.reused?)
         digests = on_line.map(&:digest)
         more = digests.size - 3
         suffix = " (+#{more} more in the JSON report)" if more.positive?
@@ -126,18 +126,18 @@ module Saboteur
       # killers first, the order the run used. Line coverage can overstate which
       # tests exercise the line, so the list is a lead, not proof.
       def passing_tests(result)
-        tests = result.covered_by
+        tests_line(result.covered_by, result.reused?)
+      end
+
+      def tests_line(tests, reused)
         return if tests.empty?
 
         @out.puts "      #{tests.size} #{tests.one? ? 'test' : 'tests'} covered this line and " \
-                  "#{passed_phrase(result)} (the missing check may belong in one of them):"
+                  "#{reused ? 'passed in an earlier run (--incremental)' : 'still passed'} " \
+                  "(the missing check may belong in one of them):"
         tests.first(MAX_PASSING_TESTS).each { |name| @out.puts "        #{name}" }
         more = tests.size - MAX_PASSING_TESTS
         @out.puts "        ... #{more} more in the JSON report (coveredBy)" if more.positive?
-      end
-
-      def passed_phrase(result)
-        result.reused? ? "passed in an earlier run (--incremental)" : "still passed"
       end
 
       # In diff mode: the changed lines this mutant touches.
