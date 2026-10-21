@@ -47,9 +47,9 @@ The report lists the manual obligations that no script checks. Read them.
    whole name is a known AI tool or bot (or whose address is a known AI vendor or `[bot]` address), or a
    `Generated with/by <tool>` line, fails. A human co-author, even one named "Claude Martin", passes. The list
    is a heuristic and misses tools it does not know.
-4a. `base_snapshot` and `readme_update`: `--base` is compared with the local `origin/main` (a difference is
-   `review_required`; no origin/main is `not_applicable`). CLI files changed without `README.md` is
-   `review_required`. Neither proves freshness or that the README text is right.
+4a. `base_snapshot` and `docs_update`: `--base` is compared with the local `origin/main` (a difference is
+   `review_required`; no origin/main is `not_applicable`). CLI files changed without a `docs/` page is
+   `review_required`. Neither proves freshness or that the docs text is right.
 5. `spdx_headers`: files this change touches, same file set and fixture exemption as CI.
 6. `diff_check`: `git diff --check`.
 7. `rubocop`: full `bundle exec rubocop` with the repository's `.rubocop.yml`. The JSON report is parsed strictly
