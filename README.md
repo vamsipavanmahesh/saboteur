@@ -49,6 +49,25 @@ Rails app? `bundle exec rails generate saboteur:install` writes the config
 for you. Full setup:
 [the quickstart](https://vamsipavanmahesh.github.io/saboteur/quickstart.html).
 
+### Rails apps
+
+`bundle exec rails generate saboteur:install` writes the config for you.
+By hand, put this in `config/saboteur.rb`:
+
+```ruby
+Saboteur.configure do |c|
+  c.include = ["app/**/*.rb"]         # spec/test dirs vendored under lib/ are excluded by default
+  c.require = ["./config/environment"] # boots the app
+  c.rails = true                       # reconnects ActiveRecord after fork, per-worker databases
+  c.jobs = 4                           # optional; the default is 1
+end
+```
+
+The defaults target a plain gem, so a first run on an unconfigured Rails
+tree refuses with exit 2 and points at the generator. Engine gem with
+`spec/dummy`? See
+[Rails engines and dummy apps](docs/guides/rails-engines-and-dummy-apps.md).
+
 ## Highlights
 
 - ⚡ **Fast by scope.** `--since main` mutates only the methods you
