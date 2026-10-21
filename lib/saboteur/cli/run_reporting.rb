@@ -13,7 +13,8 @@ module Saboteur
       def text_run(report, engine)
         @err.puts
         Reporter::Terminal.new(@out, verbose: @verbose || false, color: @color || :auto,
-                                     replay_command: survivor_replay_command(report, engine)).call(report)
+                                     replay_command: survivor_replay_command(report, engine),
+                                     all_mutants: options[:all_mutants] || false).call(report)
         Reporter::Replay.new(@out).call(report) if options[:id]
         code = exit_code(report)
         # The JSON carries the exit cause an outer harness trusts, so it is
