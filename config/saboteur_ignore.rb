@@ -2630,4 +2630,23 @@ i.mutation "fdc4600f4e8e8625",
              subject: "Saboteur::Execution::WorkerPool#collect",
              reason: "equivalent: the return value of the dead-worker replacement loop is unused by " \
                      "collect's only caller, distribute, so each and map replace the same workers"
+  # worker_pool.rb:81 - order = items.each_index.sort_by { |index| [-(weights ? weights[index] : 0), index] }
+  # The default weight is used only when there are no weights, so every item gets the same
+  # key part and every key shifts equally: the order does not change.
+  i.mutation "2ee9981587e79e3d",
+             subject: "Saboteur::Execution::WorkerPool#map",
+             reason: "equivalent: the default weight is used only when no weights are given, so " \
+                     "-0 becoming 1 or -1 shifts every item's key equally and the order is unchanged"
+  i.mutation "9feec60128f111d3",
+             subject: "Saboteur::Execution::WorkerPool#map",
+             reason: "equivalent: the default weight is used only when no weights are given, so " \
+                     "-0 becoming 1 or -1 shifts every item's key equally and the order is unchanged"
+  # Results are written by item index, so dropping the index tiebreak from the sort key can
+  # only change the order in which tied items are dispatched, never the returned array.
+  # sort_by is not guaranteed stable, so no spec can hold that order on every platform.
+  i.mutation "472eb17a70036d49",
+             subject: "Saboteur::Execution::WorkerPool#map",
+             reason: "equivalent: results are stored by item index, so without the index tiebreak " \
+                     "only the dispatch order of equal-weight items can change, and sort_by does " \
+                     "not guarantee that order on every platform, so no spec can hold it"
 end
