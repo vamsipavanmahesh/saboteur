@@ -106,6 +106,14 @@ RSpec.describe Saboteur::Baseline::Workflow do
     expect { workflow.check(path: path) }.to raise_error(Saboteur::ConfigError, /omitted/)
   end
 
+  it "names the missing baseline file and the command that creates it" do
+    path = File.join(@root, "baseline.json")
+    expect { workflow.check(path: path) }.to raise_error(Saboteur::ConfigError) { |error|
+      expect(error.message).to include("baseline file #{path} does not exist",
+                                       "saboteur baseline propose --baseline #{path}")
+    }
+  end
+
   it "rejects oversized or corrupt baseline snapshots before execution" do
     path = File.join(@root, "baseline.json")
     File.write(path, "not json")
