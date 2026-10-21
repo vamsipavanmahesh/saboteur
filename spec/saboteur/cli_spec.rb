@@ -1815,6 +1815,20 @@ RSpec.describe Saboteur::CLI, "details" do
     end
   end
 
+  it "warns, leaves out the reports line and still prints the report when the HTML renderer raises" do
+    Dir.mktmpdir do |dir|
+      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
+                                                                          call: report_of(result_for(:killed))))
+      allow_any_instance_of(Saboteur::Reporter::Html).to receive(:call).and_raise(ArgumentError, "bad row")
+      html = File.join(dir, "r.html")
+      expect(cli("run", "--json", File.join(dir, "r.json"), "--html", html).call).to eq(0)
+      expect(err.string).to include("saboteur: could not write the HTML report to #{html} (bad row); " \
+                                    "continuing without it\n")
+      expect(out.string).to include("mutants killed").and(satisfy { |text| !text.include?("reports:") })
+      expect(File).to exist(File.join(dir, "r.json"))
+    end
+  end
+
   it "warns and still exits by the results when the HTML report cannot be written (#296)" do
     Dir.mktmpdir do |dir|
       readonly = File.join(dir, "readonly")

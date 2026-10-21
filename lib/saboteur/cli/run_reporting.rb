@@ -128,8 +128,11 @@ module Saboteur
 
         Reporter::Html.new(path).call(report)
         path
-      rescue SystemCallError, IOError => e
-        warn_report_write_failure("HTML report", path, e)
+      rescue StandardError => e
+        # Written before the terminal report, so any failure here (not only
+        # an I/O one) must not stop the run from reporting its results. A
+        # Saboteur::Error keeps its exit-3 contract.
+        e.is_a?(Saboteur::Error) ? raise : warn_report_write_failure("HTML report", path, e)
       end
 
       # An auxiliary report artifact that cannot be written - the tree is
