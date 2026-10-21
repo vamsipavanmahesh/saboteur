@@ -199,7 +199,8 @@ module Saboteur
                  matrix: config["matrix"], inline_suppressions: @diagnostics.inline_suppressions,
                  operator_policy: config.operator_policy, discovery_failures: @diagnostics.discovery_failures,
                  test_command: config["test_command"], reuse_label: reuse_label, since: config["since"],
-                 shard: @shard, memory: @memory_report, referenced: @guessed_referenced || {})
+                 shard: @shard, memory: @memory_report, referenced: @guessed_referenced || {},
+                 phase_timings: @phase_timings)
     end
 
     def complete_evidence(results, subjects)
@@ -226,14 +227,13 @@ module Saboteur
 
     def mutate(subjects, files, integration, scope, ignore_list, load_lines: {}, load_methods: {})
       store = coverage_store(integration, load_lines, load_methods)
-      full_passes = config["baseline_passes"] + (store.reusable?(files) ? 0 : 1)
-      warn_unscoped(integration, full_passes)
-      announce_quiet_start(store, files)
-      check_baseline(integration, full_passes)
+      map_reusable = store.reusable?(files)
+      full_passes = config["baseline_passes"] + (map_reusable ? 0 : 1)
+      baseline_preflight(store, integration, files, full_passes)
       refuse_unaffordable_coverage_build(store, files)
       return [] if abandon_for_budget?(subjects)
 
-      map = store.fetch(files)
+      map, map_seconds = timed_map_fetch(store, files)
       inform_about_run(subjects, map)
       cache = result_cache(map, files)
       scheduler = scheduler_for(map, integration, cache)
@@ -246,11 +246,39 @@ module Saboteur
       # mutant when serial. Pack the heap now that the map and candidates
       # are retained, to reduce later copying of shared pages.
       Execution::ForkReadiness.prepare_heap
-      results = run_and_confirm(runnable_subjects, runnable_lists, scheduler, cache, ignore_list)
+      results = run_and_confirm_timed(runnable_subjects, runnable_lists, scheduler, cache, ignore_list,
+                                      map_cached: map_reusable, map_seconds:)
       cache&.save
       results
     rescue BudgetPhaseTimeout => e
       budget_phase_stop(e, subjects)
+    end
+
+    # The map phase's monotonic split, for the speed footer.
+    def timed_map_fetch(store, files)
+      started = monotonic
+      [store.fetch(files), monotonic - started]
+    end
+
+    # Baseline phase: announce, then verify the unchanged tree passes.
+    def baseline_preflight(store, integration, files, full_passes)
+      warn_unscoped(integration, full_passes)
+      announce_quiet_start(store, files)
+      check_baseline(integration, full_passes)
+    end
+
+    # The mutant phase plus the run's three disjoint timing intervals
+    # (baseline inside check_baseline, map build, mutants) and the worker
+    # count, recorded for the terminal's speed footer.
+    def run_and_confirm_timed(subjects, lists, scheduler, cache, ignore_list, map_cached:, map_seconds:)
+      started = monotonic
+      results = run_and_confirm(subjects, lists, scheduler, cache, ignore_list)
+      # @baseline_elapsed is a Float from initialize on, so no fallback is needed.
+      @phase_timings = PhaseTimings.new(baseline_seconds: @baseline_elapsed,
+                                        map_seconds:, map_cached:,
+                                        mutants_seconds: monotonic - started,
+                                        jobs: config["jobs"])
+      results
     end
 
     # The candidate run plus the opt-in post-run confirmation pass (#1063):

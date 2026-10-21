@@ -10,6 +10,7 @@ require_relative "survivor_ranking"
 require_relative "palette"
 require_relative "notice"
 require_relative "score_table"
+require_relative "speed_footer"
 require_relative "survivor_list"
 require_relative "survivor_classification"
 require_relative "test_matrix"
@@ -69,6 +70,7 @@ module Saboteur
         test_matrix(report)
         operator_policy(report)
         summary(report)
+        SpeedFooter.new(@out, @palette, verbose: @verbose).call(report)
       end
 
       private
@@ -210,9 +212,7 @@ module Saboteur
         @out.puts "#{dots}  #{suffix}"
       end
 
-      def win_tally(report)
-        "#{report.counts[:killed]}/#{report.executed.size} mutants killed"
-      end
+      def win_tally(report) = "#{report.counts[:killed]}/#{report.executed.size} mutants killed"
 
       def hazard_suppressions(report)
         return unless report.hazard_suppressions.positive?
