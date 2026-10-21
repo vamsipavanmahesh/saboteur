@@ -31,6 +31,9 @@ Metrics/MethodLength:
   Max: 25
 Metrics/CyclomaticComplexity:
   Max: 12
+# ExitStatus: the B3 empty-diff short-circuit and its notice suffix take it to 107.
+Metrics/ModuleLength:
+  Max: 107
 Metrics/PerceivedComplexity:
   Max: 12
 # The stacked custom-map work (#600, #642, #640) fits at 310.

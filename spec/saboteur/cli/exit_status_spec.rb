@@ -25,7 +25,7 @@ RSpec.describe Saboteur::CLI::ExitStatus do
       def surv_cause(report) = survivors_cause(report)
 
       def quality_gate?(report) = failed_quality_gate?(report)
-      def ignore_empty?(report) = ignore_empty_diff?(report)
+      def empty_diff_exit?(report) = empty_diff?(report)
     end.new(config)
   end
 
@@ -295,57 +295,79 @@ RSpec.describe Saboteur::CLI::ExitStatus do
     end
   end
 
-  describe "--ignore-empty" do
+  describe "empty --since diff (B3)" do
     let(:config) { {} }
 
-    def empty_report(results, omissions: [], inline_suppressions: [], discovery_failures: [])
-      instance_double(Saboteur::Report, results:, omissions:, inline_suppressions:, discovery_failures:)
+    def empty_report(results, omissions: [], inline_suppressions: [], discovery_failures: [],
+                     subjects: [], skipped_subjects: {})
+      instance_double(Saboteur::Report, results:, omissions:, inline_suppressions:, discovery_failures:,
+                                        subjects:, skipped_subjects:)
     end
 
     context "with the flag and --since set" do
       let(:config) { { "ignore_empty" => true, "since" => "main" } }
 
       it "is true and notes when the run selected no mutants" do
-        expect(harness.ignore_empty?(empty_report([]))).to be(true)
-        expect(harness.err.string).to include("no mutants in the diff")
+        expect(harness.empty_diff_exit?(empty_report([]))).to be(true)
+        expect(harness.err.string).to include("saboteur: no mutants in the diff - nothing to gate (--ignore-empty)")
       end
 
       it "is false when the run selected mutants" do
-        expect(harness.ignore_empty?(empty_report([:result]))).to be(false)
+        expect(harness.empty_diff_exit?(empty_report([:result]))).to be(false)
       end
 
       it "is false when the empty diff still carries omissions" do
-        expect(harness.ignore_empty?(empty_report([], omissions: ["1 mutant omitted"]))).to be(false)
+        expect(harness.empty_diff_exit?(empty_report([], omissions: ["1 mutant omitted"]))).to be(false)
       end
 
       it "is false when the empty diff's mutants were all inline-suppressed" do
-        expect(harness.ignore_empty?(empty_report([], inline_suppressions: ["Person#adult?"]))).to be(false)
+        expect(harness.empty_diff_exit?(empty_report([], inline_suppressions: ["Person#adult?"]))).to be(false)
       end
 
       it "is false when mutant discovery failed in the diff" do
-        expect(harness.ignore_empty?(empty_report([], discovery_failures: ["lib/a.rb: parse error"]))).to be(false)
+        expect(harness.empty_diff_exit?(empty_report([], discovery_failures: ["lib/a.rb: parse error"]))).to be(false)
       end
     end
 
     it "is false without --since, flag or not" do
-      expect(harness.ignore_empty?(empty_report([]))).to be(false)
+      expect(harness.empty_diff_exit?(empty_report([]))).to be(false)
     end
 
     context "with the flag but no --since (below the validation that refuses it)" do
       let(:config) { { "ignore_empty" => true } }
 
       it "is false and silent" do
-        expect(harness.ignore_empty?(empty_report([]))).to be(false)
+        expect(harness.empty_diff_exit?(empty_report([]))).to be(false)
         expect(harness.err.string).to be_empty
       end
     end
 
-    context "with --since but no flag" do
+    context "with --since and every subject skipped (unverifiable, not empty)" do
       let(:config) { { "since" => "main" } }
 
       it "is false and silent" do
-        expect(harness.ignore_empty?(empty_report([]))).to be(false)
+        skipped = { person: "refinements" }
+        expect(harness.empty_diff_exit?(empty_report([], subjects: [:person], skipped_subjects: skipped))).to be(false)
         expect(harness.err.string).to be_empty
+      end
+    end
+
+    context "with --since but no flag (B3: the flag is no longer required)" do
+      let(:config) { { "since" => "main" } }
+
+      it "is true and notes, with no suffix" do
+        expect(harness.empty_diff_exit?(empty_report([]))).to be(true)
+        expect(harness.err.string).to include("saboteur: no mutants in the diff - nothing to gate
+")
+      end
+    end
+
+    context "with --since and --threshold (B3)" do
+      let(:config) { { "since" => "main", "threshold" => 80 } }
+
+      it "is true and names the skipped threshold" do
+        expect(harness.empty_diff_exit?(empty_report([]))).to be(true)
+        expect(harness.err.string).to include("no mutants in the diff - nothing to gate (threshold 80 skipped)\n")
       end
     end
   end

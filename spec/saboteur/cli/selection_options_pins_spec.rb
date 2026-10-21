@@ -16,7 +16,7 @@ RSpec.describe Saboteur::CLI::SelectionOptions, "run help" do
     "--id DIGEST" => "Replay exactly one current mutant by its full digest",
     "--shard K/N" => "Run one of N deterministic candidate shards (for example 1/4)",
     "--since REF" => "Only mutate subjects changed since git REF",
-    "--ignore-empty" => "A --since diff that selects no mutants exits 0 with a note instead of failing a score gate",
+    "--ignore-empty" => "Deprecated: an empty --since diff always exits 0 with a note; kept for script compatibility",
     "--subject EXPR" => "Klass#meth, Klass.meth or a namespace; repeatable"
   }.each do |switch, description|
     it "describes #{switch.split.first}" do

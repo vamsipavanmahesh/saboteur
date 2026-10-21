@@ -11,7 +11,7 @@ module Saboteur
       def exit_code(report)
         return EXIT_BUDGET if budget_exhausted?(report)
 
-        return EXIT_OK if ignore_empty_diff?(report)
+        return EXIT_OK if empty_diff?(report)
 
         return EXIT_TOOL if untested_partial?(report)
 
@@ -25,15 +25,28 @@ module Saboteur
         gates.failed?(report, @err, record_cause: !quality_failed) || quality_failed ? EXIT_SURVIVORS : EXIT_OK
       end
 
-      # --ignore-empty: a --since diff that selected no mutants exits 0 with
-      # a note; suppressed, omitted or undiscovered mutants still gate.
-      def ignore_empty_diff?(report)
-        return false unless config["ignore_empty"] && config["since"] && report.results.empty?
+      # An empty --since diff selected no mutants a gate could judge: it
+      # exits 0 with a note regardless of --threshold (B3) and of
+      # --ignore-empty, which #1119 made opt-in and this change turns into a
+      # no-op. Suppressed, omitted or undiscovered mutants still gate.
+      def empty_diff?(report)
+        return false unless config["since"] && report.results.empty?
         return false unless report.omissions.empty? && report.inline_suppressions.empty? &&
                             report.discovery_failures.empty?
+        # A diff whose subjects were all skipped (refinements, no coverage)
+        # is unverifiable, not empty: unverifiable_scope? owns its exit 3.
+        return false if report.subjects.any? && report.subjects.all? { |s| report.skipped_subjects.key?(s) }
 
-        @err.puts("saboteur: no mutants in the diff - nothing to gate (--ignore-empty)")
+        @err.puts("saboteur: no mutants in the diff - nothing to gate#{empty_diff_suffix}")
         true
+      end
+
+      def empty_diff_suffix
+        threshold = config["threshold"]
+        return " (threshold #{format('%g', threshold)} skipped)" if threshold
+        return " (--ignore-empty)" if config["ignore_empty"]
+
+        ""
       end
 
       # A spent --max-duration budget exits 4 on its own, before the gates:
