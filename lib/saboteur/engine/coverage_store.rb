@@ -16,6 +16,9 @@ module Saboteur
       include CoverageParts
 
       CACHE_INPUTS = %w[integration require rspec_args rails tests coverage_recorder].freeze
+      # Names the freshest whole-suite map build; read as an untrusted hint:
+      # only a bare 64-hex key joins the cache dir (#427).
+      WHOLE_SUITE_POINTER = "whole-suite-map"
       LOCKFILES = %w[Gemfile.lock gems.locked].freeze
       LOG = "coverage-build.log"
       # RSpec rewrites this on every run (example_status_persistence_file_path),
@@ -31,7 +34,7 @@ module Saboteur
       TAIL_LINE_WIDTH = 300
 
       def initialize(config:, integration:, hooks:, supervisor:, diagnostics:, load_lines: {}, load_methods: {},
-                     timeout_cap: nil, parts: 1)
+                     timeout_cap: nil, parts: 1, whole_suite_run: false)
         @config = config
         @parts = parts
         @integration = integration
@@ -41,6 +44,7 @@ module Saboteur
         @timeout_cap = timeout_cap
         @load_lines = load_lines
         @load_methods = load_methods
+        @whole_suite_run = whole_suite_run
         @root = File.realpath(config.root)
         @root_prefixes = Selection::CoverageMap.root_prefixes(config.root)
       end
@@ -58,19 +62,44 @@ module Saboteur
         path = cache_path(files)
         preloaded = LoadCoverage.preloaded_uninstrumented(files)
         cached = cached_map(files)
-        return refuse_empty_map(cached.with_preloaded(preloaded), files, preloaded) if cached
+        return serve_cached(path, cached, files, preloaded) if cached
 
         note = miss_note(files)
         @diagnostics.inform(note.message(scoped: !@config["tests"].empty?)) if @config["cache"]
         started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
         map = fresh_map(files, note, preloaded)
         build_seconds = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
-        map.save(path)
+        persist_map(path, map)
         shadow(files, map, note, build_seconds) if shadow?
         note.save
         File.write(File.join(@config.path("cache_dir"), "preview.json"),
                    JSON.generate(path: path, fingerprint: RunFingerprint.new(config: @config).snapshot.digest))
         map
+      end
+
+      # The map a whole-suite coverage build wrote on this tree, or nil.
+      # Survivor presentation consults it (presentation only, never
+      # selection): in a scoped run the run's own map holds only the specs
+      # the run loaded, so a "covered by" list from it can read as complete
+      # when another spec pins the behavior (false survivors by default,
+      # review C1). A full run keys its map with tests: [], so the lookup
+      # overrides a scoped run's --test value.
+      # The map this store's fetch produced (or served from cache): the
+      # run's own selection map, read by survivor presentation (review C1).
+      attr_reader :fetched_map
+
+      def whole_suite_map
+        return nil unless @config["cache"]
+
+        pointer = File.join(@config.path("cache_dir"), WHOLE_SUITE_POINTER)
+        return nil unless File.file?(pointer)
+
+        key = File.read(pointer, encoding: Encoding::UTF_8).strip
+        return nil unless key.match?(/\A[0-9a-f]{64}\z/)
+
+        Selection::CoverageMap.load(File.join(@config.path("cache_dir"), "coverage-#{key}.json"))
+      rescue SystemCallError, EncodingError
+        nil
       end
 
       private
@@ -104,6 +133,28 @@ module Saboteur
         return nil unless @config["cache"]
 
         @cached_map ||= Selection::CoverageMap.load(cache_path(files))
+      end
+
+      def serve_cached(path, cached, files, preloaded)
+        record_whole_suite_map(path)
+        refuse_empty_map(@fetched_map = cached.with_preloaded(preloaded), files, preloaded)
+      end
+
+      def persist_map(path, map)
+        map.save(path)
+        record_whole_suite_map(path)
+        @fetched_map = map
+      end
+
+      # The engine tells us when this run is a whole-suite build (no
+      # --since, no subjects, no explicit --test): remember the map key for
+      # later scoped runs, whose tree has usually drifted past the exact
+      # cache key already (review C1).
+      def record_whole_suite_map(path)
+        return unless @whole_suite_run
+
+        File.write(File.join(@config.path("cache_dir"), WHOLE_SUITE_POINTER),
+                   File.basename(path, ".json").delete_prefix("coverage-"), perm: 0o600)
       end
 
       def cache_key(files)

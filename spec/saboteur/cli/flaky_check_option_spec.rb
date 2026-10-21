@@ -11,7 +11,7 @@ RSpec.describe Saboteur::CLI, "--flaky-check option" do
   let(:err) { StringIO.new }
 
   before do
-    engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of(result_for(:killed)))
+    engine = engine_double(guessed_tests: nil, call: report_of(result_for(:killed)))
     allow(Saboteur::Engine).to receive(:new).and_return(engine)
     allow(Saboteur::Reporter::Terminal).to receive(:new) { |*_a, **_kw| instance_double(Saboteur::Reporter::Terminal, call: nil) }
   end

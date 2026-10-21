@@ -18,6 +18,15 @@ ENV.delete("GITHUB_ACTIONS")
 # lazy in production, the suite stops depending on example order.
 Saboteur::Execution::FiddleLoader.require_fiddle!(with_import: true)
 
+# Engine doubles flowing through text_run must carry the coverage-map
+# readers run_reporting asks of the engine (review C1): every Engine double
+# gets nil maps and a cache-less lookup unless the example overrides them.
+def engine_double(**kwargs)
+  instance_double(Saboteur::Engine,
+                  { whole_suite_coverage_map: nil, run_coverage_map: nil,
+                    whole_suite_map_lookup?: false }.merge(kwargs))
+end
+
 Dir[File.join(__dir__, "support", "**", "*.rb")].each { |file| require file }
 
 # Fixture repositories must not run Git background auto-maintenance: it

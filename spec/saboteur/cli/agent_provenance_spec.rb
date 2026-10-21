@@ -86,7 +86,7 @@ RSpec.describe "Saboteur::CLI::AgentProvenance execution (#334)" do
     command = run_with("Saboteur.configure { |c| c.tests = %w[from_config.rb] }")
     report = double(seed: 7, referenced: {})
     tree = instance_double("tree", head: "abc", label: "dirty", changed_files: %w[a.rb])
-    engine = instance_double(Saboteur::Engine, guessed_tests: %w[from_engine.rb])
+    engine = engine_double(guessed_tests: %w[from_engine.rb])
     prov = command.send(:agent_provenance, report, tree, engine)
     expect(prov.tests).to eq(%w[from_engine.rb])
     expect(prov.incremental).to eq(command.config["incremental"])
@@ -100,7 +100,7 @@ RSpec.describe "Saboteur::CLI::AgentProvenance execution (#334)" do
     command = run_with("Saboteur.configure { |c| c.tests = %w[from_config.rb] }")
     report = double(seed: 7, referenced: {})
     tree = instance_double("tree", head: "abc", label: "dirty", changed_files: %w[a.rb])
-    engine = instance_double(Saboteur::Engine, guessed_tests: nil)
+    engine = engine_double(guessed_tests: nil)
     expect(command.send(:agent_provenance, report, tree, engine).tests).to eq(%w[from_config.rb])
   end
 
@@ -108,7 +108,7 @@ RSpec.describe "Saboteur::CLI::AgentProvenance execution (#334)" do
     command = run_with(empty_config)
     report = double(seed: 7, referenced: { "lib/a.rb" => ["spec/x_spec.rb"] })
     tree = double(head: "abc", label: "dirty", changed_files: [])
-    engine = instance_double(Saboteur::Engine, guessed_tests: nil)
+    engine = engine_double(guessed_tests: nil)
 
     expect(command.send(:agent_provenance, report, tree, engine).referenced).to eq("lib/a.rb" => ["spec/x_spec.rb"])
   end
@@ -135,7 +135,7 @@ RSpec.describe "Saboteur::CLI::AgentProvenance execution (#334)" do
     command = run_with(empty_config, "lib/foo.rb")
     report = double(seed: 7, referenced: {})
     tree = double(head: "abc", label: "dirty", changed_files: %w[a.rb])
-    engine = instance_double(Saboteur::Engine, guessed_tests: nil)
+    engine = engine_double(guessed_tests: nil)
     prov = command.send(:agent_provenance, report, tree, engine)
     expect(prov.sources).to eq(["lib/foo.rb"])
     expect(prov.mode).to eq("files")
@@ -147,7 +147,7 @@ RSpec.describe "Saboteur::CLI::AgentProvenance execution (#334)" do
     allow(Saboteur::Reporter::Agent::Provenance).to receive(:new) { |**kw| given = kw }
     report = double(seed: 7, referenced: {})
     tree = double(head: "abc", label: "clean", changed_files: [])
-    engine = instance_double(Saboteur::Engine, guessed_tests: nil)
+    engine = engine_double(guessed_tests: nil)
     command.send(:agent_provenance, report, tree, engine)
     expect(given).to include(typed_settings: [:jobs], seed: 7)
   end

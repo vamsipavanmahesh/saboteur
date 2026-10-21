@@ -39,8 +39,8 @@ RSpec.describe Saboteur::CLI, "agent mode in this process" do
   end
 
   def run_in_repository(*argv)
-    allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, guessed_tests: nil,
-                                                                                          call: report_of))
+    allow(Saboteur::Engine).to receive(:new).and_return(engine_double(guessed_tests: nil,
+                                                                      call: report_of))
     Dir.chdir(root) { cli(*argv).call }
     JSON.parse(out.string)
   end
