@@ -36,7 +36,7 @@ RSpec.describe "saboteur run under LANG=C with non-ASCII paths", :e2e do
     File.write(File.join(root, "config", "saboteur.rb"), <<~RUBY)
       Saboteur.configure do |c|
         c.include = ["lib/**/*.rb"]
-        c.timeout_min = 1
+        c.timeout_min = 10 # wall-time floor: fork boot under load, not test speed (#1129)
         # The accented source name maps to spec/hello_spec.rb, not the
         # conventional accented spec name, so inference would stop the run.
         c.test_selection = :all
