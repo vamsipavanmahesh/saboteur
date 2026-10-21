@@ -26,6 +26,7 @@ RSpec.describe Saboteur::MutationSource::ArgumentRemoval do
     expect(original).to eq([%i[a b], { c: :d }])
     found.each do |mutation|
       expect(mutation.operator).to eq("argument_removal")
+      expect(mutation.source).to eq("argument_removal")
       expect(mutation.coarse).to be(false)
       changed = Class.new { class_eval(subject.apply(mutation.edits)) }.new.apply(model)
       expect { expect(changed).to eq(original) }.to raise_error(RSpec::Expectations::ExpectationNotMetError)
