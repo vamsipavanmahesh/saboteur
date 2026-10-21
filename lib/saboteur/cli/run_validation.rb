@@ -64,6 +64,10 @@ module Saboteur
 
       # Agent mode allows no score gates (one strict exit 0); the json inventory is --dry-run planning only.
       def reject_format_conflicts
+        # --quiet prints only the findings and the verdict; --verbose adds
+        # the debug statistics. One output cannot be both.
+        raise UsageError, "--quiet cannot be combined with --verbose" if options[:quiet] && options[:verbose]
+
         if agent? && (config["threshold"] || config["baseline"] || gates.any?)
           raise UsageError, "#{agent_gate_name} cannot be combined with --agent"
         end

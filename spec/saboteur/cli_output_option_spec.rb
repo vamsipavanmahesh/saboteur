@@ -51,3 +51,23 @@ RSpec.describe "Saboteur::CLI --all-mutants option" do
     expect(cli.options[:all_mutants]).to be(true)
   end
 end
+
+RSpec.describe "Saboteur::CLI --quiet option" do
+  let(:out) { StringIO.new }
+  let(:err) { StringIO.new }
+
+  it "is documented in the run help and stored in the options" do
+    expect(Saboteur::CLI.new(%w[run --help], out:, err:).call).to eq(0)
+    expect(out.string).to include("--quiet")
+    expect(out.string).to include("Text report: print only the findings and the verdict")
+    cli = Saboteur::CLI.new(%w[run --quiet --dry-run], out:, err:)
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    expect { cli.call }.not_to raise_error(OptionParser::InvalidOption)
+    expect(cli.options[:quiet]).to be(true)
+  end
+
+  it "rejects --quiet combined with --verbose as a usage error" do
+    expect(Saboteur::CLI.new(%w[run --quiet --verbose], out:, err:).call).to eq(2)
+    expect(err.string).to include("--quiet cannot be combined with --verbose")
+  end
+end

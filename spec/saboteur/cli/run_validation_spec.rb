@@ -134,6 +134,22 @@ RSpec.describe Saboteur::CLI::RunValidation do
         expect { cli.send(:reject_format_conflicts) }.to raise_error(usage, /--format json is the --dry-run/)
       end
 
+      it "rejects --quiet with --verbose" do
+        with_options(quiet: true, verbose: true)
+
+        expect { cli.send(:reject_format_conflicts) }
+          .to raise_error(usage, "--quiet cannot be combined with --verbose")
+      end
+
+      it "allows --quiet alone and --verbose alone" do
+        with_options(quiet: true)
+        expect { cli.send(:reject_format_conflicts) }.not_to raise_error
+
+        other = Saboteur::CLI.new([])
+        other.send(:options).merge!(verbose: true)
+        expect { other.send(:reject_format_conflicts) }.not_to raise_error
+      end
+
       it "allows --format json with --dry-run and other formats without it" do
         cli.instance_variable_set(:@format, "json")
         with_options(dry_run: true)
