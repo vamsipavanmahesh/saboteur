@@ -13,7 +13,7 @@ RSpec.describe Saboteur::CLI::DoctorCommand, "option values" do
 
   it "gives the doctor parser its exact usage banner" do
     expect(cli("doctor").doctor_parser.banner).to eq(
-      "Usage: saboteur doctor [--config PATH] [--seed N] [--suite] [--test PATH]"
+      "Usage: saboteur doctor [--config PATH] [--seed N] [--suite] [--test PATH] [-v] [--color [MODE]]"
     )
   end
 

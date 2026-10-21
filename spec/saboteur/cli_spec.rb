@@ -396,18 +396,18 @@ RSpec.describe Saboteur::CLI do
 
     it "does not run the suite by default" do
       expect(cli("doctor").call).to eq(0)
-      expect(Saboteur::Doctor).to have_received(:new).with(anything, out: out, suite: false)
+      expect(Saboteur::Doctor).to have_received(:new).with(anything, hash_including(out: out, suite: false))
     end
 
     it "runs the suite with --suite" do
       cli("doctor", "--suite").call
-      expect(Saboteur::Doctor).to have_received(:new).with(anything, out: out, suite: true)
+      expect(Saboteur::Doctor).to have_received(:new).with(anything, hash_including(out: out, suite: true))
     end
 
     it "runs the suite on the given specs with --test, which the config sees" do
       command = cli("doctor", "--test", "spec/saboteur/cli_spec.rb")
       command.call
-      expect(Saboteur::Doctor).to have_received(:new).with(anything, out: out, suite: true)
+      expect(Saboteur::Doctor).to have_received(:new).with(anything, hash_including(out: out, suite: true))
       expect(command.config["tests"]).to eq(["spec/saboteur/cli_spec.rb"])
     end
 

@@ -518,7 +518,7 @@ RSpec.describe Saboteur::CLI, "doctor command" do
     expect(Saboteur::Config).to receive(:load).with(root: Dir.pwd, path: "health.yml",
                                                     overrides: { seed: 42 }).and_return(config)
     expect(Saboteur::Doctor).to receive(:new).with(config,
-                                                   out: out, suite: false)
+                                                   hash_including(out: out, suite: false))
                                              .and_return(instance_double(Saboteur::Doctor, call: true))
     expect(Saboteur::Engine).not_to receive(:new)
     expect(described_class.new(%w[doctor --config health.yml --seed 42], out: out, err: err).call).to eq(0)

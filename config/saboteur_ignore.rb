@@ -3,24 +3,25 @@
 
 # Survivors accepted with a reason. Each digest is printed next to its survivor.
 Saboteur.ignore do |i|
-  # doctor_command.rb:12/14/15 opts.on flag<->help argument_swaps - OptionParser#on
+  # doctor_command.rb:13/15/16 opts.on flag<->help argument_swaps - OptionParser#on
   # classifies its string arguments by shape (a leading "-" makes a flag, anything
   # else a description), not by position, so the swap builds the identical parser
   # entry. Hand-probed: all three swaps applied together leave `doctor --help`
-  # byte-identical and doctor_command + doctor + cli specs green (237 examples).
-  i.mutation "455660d7ea53007b",
+  # byte-identical and doctor_command + doctor + cli specs green (289 examples).
+  # Digests re-enumerated for the PR13 13a-1 line shift (same edits, new offsets).
+  i.mutation "a8899ae3a1a5afa7",
              subject: "Saboteur::CLI::DoctorCommand#doctor_parser",
              reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not " \
-                     "position - hand-applied swap leaves doctor --help byte-identical and 237 " \
+                     "position - hand-applied swap leaves doctor --help byte-identical and 289 " \
                      "doctor/cli examples green"
-  i.mutation "2084048de77c796f",
+  i.mutation "52c13d20ff0b2bfc",
              subject: "Saboteur::CLI::DoctorCommand#doctor_parser",
              reason: "equivalent: same opts.on shape-classification swap on --suite - hand-applied " \
-                     "mutant leaves doctor --help byte-identical and 237 doctor/cli examples green"
-  i.mutation "5dd192fa4a2df7db",
+                     "mutant leaves doctor --help byte-identical and 289 doctor/cli examples green"
+  i.mutation "96fe9c2434cf3816",
              subject: "Saboteur::CLI::DoctorCommand#doctor_parser",
              reason: "equivalent: same opts.on shape-classification swap on --test - hand-applied " \
-                     "mutant leaves doctor --help byte-identical and 237 doctor/cli examples green"
+                     "mutant leaves doctor --help byte-identical and 289 doctor/cli examples green"
 
   # execution_options.rb add_reuse_options: swapping the flag and description strings of
   # --incremental / --resume DIR. OptionParser#on classifies them by shape, so `run --help`
@@ -2687,7 +2688,7 @@ i.mutation "fdc4600f4e8e8625",
                      "and for integers >= 1 the two predicates agree"
   # selection_options.rb:25/26 --ignore-empty flag<->help argument_swap - OptionParser#on
   # classifies its string arguments by shape, not position, so the swap builds the
-  # identical parser entry (same equivalence as 455660d7ea53007b above). Hand-probed:
+  # identical parser entry (same equivalence as a8899ae3a1a5afa7 above). Hand-probed:
   # the swap leaves `run --help` byte-identical.
   i.mutation "79a0a3ee707564ea",
              subject: "Saboteur::CLI::SelectionOptions#define_selection_options",

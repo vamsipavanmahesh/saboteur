@@ -32,7 +32,9 @@ RSpec.describe Saboteur::CLI::DoctorCommand do
         "--config PATH" => "Config file (default config/saboteur.rb)",
         "--seed N" => "Seed for the two baseline runs (default 1)",
         "--suite" => "Also run the unchanged suite twice (slow on a large suite)",
-        "--test PATH" => "Spec file or directory for the suite runs; repeatable. Implies --suite"
+        "--test PATH" => "Spec file or directory for the suite runs; repeatable. Implies --suite",
+        "-v, --verbose" => "Full environment detail instead of the summary",
+        "--color [MODE]" => "Colour the summary: always, never or auto (default: auto)"
       }.each do |flag, help|
         expect(out).to match(/#{Regexp.escape(flag)}\s+#{Regexp.escape(help)}/), "no help text after #{flag}"
       end

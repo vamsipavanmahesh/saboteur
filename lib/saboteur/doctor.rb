@@ -10,10 +10,17 @@ module Saboteur
   # Reports the current environment, never mutations. The two unchanged suite
   # passes are slow on a large suite, so they run only when asked for.
   class Doctor
-    def initialize(config, out: $stdout, suite: false)
+    # One summary check: glyph status, one-line detail, exact fix (#333).
+    Check = Data.define(:status, :detail, :fix) do
+      def initialize(status:, detail:, fix: nil) = super
+    end
+
+    def initialize(config, out: $stdout, suite: false, verbose: true, palette: nil)
       @config = config
       @out = out
       @suite = suite
+      @verbose = verbose
+      @palette = palette || Reporter::Palette.for(out)
     end
 
     def call
