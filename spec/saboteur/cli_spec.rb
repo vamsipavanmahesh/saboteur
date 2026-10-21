@@ -1693,6 +1693,17 @@ RSpec.describe Saboteur::CLI, "details" do
                              "#{described_class::USAGE}\n")
   end
 
+  it "points a setup word at the Rails generator, and only a setup word" do
+    %w[init install setup].each do |word|
+      err.truncate(0)
+      err.rewind
+      cli(word).call
+      expect(err.string).to eq("unknown command: #{word}. Run 'saboteur help' for the commands.\n" \
+                               "To set up a Rails app, run: bin/rails generate saboteur:install\n" \
+                               "#{described_class::USAGE}\n")
+    end
+  end
+
   it "parses --allow-focus into the allow_focus config key" do
     command = cli("run", "--allow-focus")
     allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
