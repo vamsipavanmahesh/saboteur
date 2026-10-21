@@ -24,6 +24,10 @@ RSpec.describe Saboteur::Reporter::Stryker do
     expect(json.dig("files", "person.rb", "language")).to eq("ruby")
   end
 
+  it "carries the subject id on every file-section mutant, so --show can complete its ignore template (#1181)" do
+    expect(mutants.map { |m| m["subject"] }).to all(eq(person_subject.id))
+  end
+
   it "records per-worker and supervisor peak memory when the run measured it (#202)" do
     memory = { workers: [{ worker: 0, peakMb: 12.1 }, { worker: 1, peakMb: 11.0 }], supervisorPeakMb: 30.5 }
     payload = JSON.parse(JSON.generate(described_class.build(report_of(result_for(:killed), memory:))))

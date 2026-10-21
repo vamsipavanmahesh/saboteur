@@ -141,9 +141,11 @@ RSpec.describe Saboteur::CLI::SurvivorsBrowser, "output pins (#520)" do
   it "shows one survivor from a short digest prefix: diff, replay and subject from findings" do
     expect(browser.show("aaaa")).to eq(
       "lib/order.rb:5  sum_to_map_sum  aaaaaaaaaaaaaaaa\n" \
+      "classification: missing_test - the covering specs pass without pinning this change\n" \
       "\n" \
       "- items.sum(&:price)\n" \
       "+ items.map(&:price).sum\n" \
+      "why it matters: no test observes this change\n" \
       "\n" \
       "replay one survivor: saboteur run --id aaaaaaaaaaaaaaaa --seed 7\n  " \
       "(add this run's own --config, --since, --subject, --test and source options)\n" \
@@ -160,6 +162,7 @@ RSpec.describe Saboteur::CLI::SurvivorsBrowser, "output pins (#520)" do
       "\n" \
       "- line3_of_order\n" \
       "+ REPL_and_to_or\n" \
+      "why it matters: no test observes this change\n" \
       "\n" \
       "replay one survivor: saboteur run --id bbbbbbbbbbbbbbbb --seed 7\n  " \
       "(add this run's own --config, --since, --subject, --test and source options)\n" \
@@ -177,6 +180,7 @@ RSpec.describe Saboteur::CLI::SurvivorsBrowser, "output pins (#520)" do
       "\n" \
       "- \"z\"\n" \
       "+ \"Z\"\n" \
+      "why it matters: no test asserts on this exact text\n" \
       "\n" \
       "replay one survivor: saboteur run --id dddddddddddddddd --seed 7\n  " \
       "(add this run's own --config, --since, --subject, --test and source options)\n" \

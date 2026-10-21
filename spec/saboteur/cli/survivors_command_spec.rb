@@ -34,7 +34,7 @@ RSpec.describe Saboteur::CLI, "survivors (#475)" do
     RUBY_SRC
     digest_a = "a" * 16
     mutants = [mutant(id: digest_a, operator: "sum_to_map_sum", line: 3, status: "Survived",
-                      classification: "missing_test"),
+                      classification: "missing_test", covered: ["0"]),
                mutant(id: "b" * 16, operator: "and_to_or", line: 3, status: "Survived")] + survivors
     report = {
       "schemaVersion" => "2", "thresholds" => { "high" => 80, "low" => 60 },
@@ -113,6 +113,37 @@ RSpec.describe Saboteur::CLI, "survivors (#475)" do
       expect(cli("survivors", path, "--show", "b" * 16).call).to eq(0)
       expect(out.string).to include(%(i.mutation "#{'b' * 16}")).and include("TODO")
       expect(out.string).to include("saboteur run --id #{'b' * 16}")
+    end
+  end
+
+  it "fills the ignore subject from the files section when findings lack the digest (#1181)" do
+    Dir.mktmpdir do |dir|
+      path = write_report(dir, survivors: [])
+      report = JSON.parse(File.read(path))
+      report["files"]["lib/order.rb"]["mutants"].each { |m| m["subject"] = "Order#total" }
+      File.write(path, JSON.generate(report))
+      expect(cli("survivors", path, "--show", "b" * 16).call).to eq(0)
+      expect(out.string).to include(%(i.mutation "#{'b' * 16}")).and include('subject: "Order#total"')
+      expect(out.string).not_to include("TODO")
+    end
+  end
+
+  it "shows the classification, why-it-matters, covering tests and hint like the terminal (#1183)" do
+    Dir.mktmpdir do |dir|
+      path = write_report(dir, survivors: [])
+      expect(cli("survivors", path, "--show", "a" * 16).call).to eq(0)
+      expect(out.string).to include("classification: missing_test - ",
+                                    "the covering specs pass without pinning this change")
+      expect(out.string).to include("why it matters:")
+      expect(out.string).to include("covered by ./spec/order_spec.rb[1:1] - ran, still passed")
+    end
+  end
+
+  it "omits the classification and hint lines for an unclassified survivor" do
+    Dir.mktmpdir do |dir|
+      path = write_report(dir, survivors: [])
+      expect(cli("survivors", path, "--show", "b" * 16).call).to eq(0)
+      expect(out.string).not_to include("classification:", "hint:")
     end
   end
 
