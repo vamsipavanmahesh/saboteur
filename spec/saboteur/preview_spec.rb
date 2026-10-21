@@ -44,9 +44,32 @@ RSpec.describe Saboteur::Preview do
     expect(out.string).to include("Total: #{full} mutants; 0 dropped")
   end
 
-  it "announces the effective operator set" do
+  it "leads with the totals, not the default operator list (#1178)" do
     preview(config).call
-    expect(out.string).to match(/^Operators: \w+(, \w+)+/)
+    expect(out.string).not_to include("Operators:")
+    expect(out.string).to include("Total: ")
+  end
+
+  it "announces the effective operator set when the selection is changed" do
+    preview(config(operators: %w[arithmetic range])).call
+    expect(out.string).to start_with("Operators: arithmetic, range\n")
+    out.truncate(0)
+    out.rewind
+    preview(config(exclude_operators: %w[range])).call
+    expect(out.string).to match(/\AOperators: \w+(, \w+)+\n/)
+    expect(out.string.lines.first).not_to include("range")
+  end
+
+  it "keeps the json inventory free of the operator line even when the selection is changed" do
+    Saboteur::Preview.new(config(operators: %w[arithmetic], verbose: true), out: out, err: StringIO.new,
+                                                                            format: "json").call
+    expect { JSON.parse(out.string) }.not_to raise_error
+    expect(out.string).not_to include("Operators:")
+  end
+
+  it "announces the effective operator set under --verbose" do
+    preview(config(verbose: true)).call
+    expect(out.string).to match(/\AOperators: \w+(, \w+)+\n/)
   end
 
   it "prints the shard slice with the full inventory digest" do

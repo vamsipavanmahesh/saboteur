@@ -27,7 +27,7 @@ RSpec.describe "Saboteur::CLI --format option" do
       end
     end
     expect(err.string).not_to include("invalid argument")
-    expect(out.string).to start_with("Operators: ")
+    expect(out.string).not_to include("Operators: ")
     expect(out.string).to include("Total: ")
     expect { JSON.parse(out.string) }.to raise_error(JSON::ParserError)
   end
