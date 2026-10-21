@@ -24,7 +24,7 @@ RSpec.describe Saboteur::Reporter::SurvivorRanking do
                          root: File.dirname(subject.file), review: review, diff_scope: scope)
   end
 
-  it "prioritizes coarse, then coverage, then edited-line impact, then proximity" do
+  it "prioritizes same-statement survivors, then thin coverage, coarse, span and proximity" do
     coarse = ranked_result(subject, first: 3, coarse: true)
     covered = ranked_result(subject, first: 3, tests: %w[a b])
     broad = ranked_result(subject, first: 3, last: 4, tests: ["a"])
@@ -33,7 +33,9 @@ RSpec.describe Saboteur::Reporter::SurvivorRanking do
     scope = Saboteur::Engine::DiffScope.new(subject.file => Set[6])
     results = [far, near, broad, covered, coarse]
     report = report_for(results, scope: scope)
-    expected = [coarse, covered, broad, near, far]
+    # line 3 holds 4 mutants, so all of them outrank the lone line-6 mutant; inside the
+    # statement: coarse, then fewest covering tests, then larger span, then proximity.
+    expected = [coarse, broad, far, covered, near]
     expect(described_class.ordered(report, results)).to eq(expected)
     expect(described_class.ordered(report, results.reverse)).to eq(expected)
     expect(report.results).to eq(results)
@@ -43,10 +45,12 @@ RSpec.describe Saboteur::Reporter::SurvivorRanking do
     one = ranked_result(subject, first: 3, tests: %w[a a], replacement: "one_new")
     two = ranked_result(subject, first: 3, tests: ["a"], replacement: "two_new")
     report = report_for([two, one])
-    expect(described_class.key(report, one)[0..2]).to eq([1, -1, -1])
+    expect(described_class.key(report, one)[0..2]).to eq([0, 1, 1])
     coarse = ranked_result(subject, first: 3, coarse: true)
     expect(described_class.key(report, coarse)[0]).to eq(0)
-    expect(described_class.key(report, one)[3]).to eq(Float::INFINITY)
+    expect(described_class.key(report, coarse)[2]).to eq(0)
+    expect(described_class.key(report, one)[2]).to eq(1)
+    expect(described_class.key(report, one)[4]).to eq(Float::INFINITY)
     expect(described_class.ordered(report, [two, one]).map(&:digest)).to eq([one.digest, two.digest].sort)
     duplicate = one.mutation.edits.first
     multi = one.mutation.with(edits: [duplicate, duplicate])
@@ -62,15 +66,15 @@ RSpec.describe Saboteur::Reporter::SurvivorRanking do
     report = report_for([low, accepted, high])
     out = StringIO.new
     Saboteur::Reporter::Terminal.new(out, all_mutants: true).call(report)
-    expect(out.string.index(high.digest)).to be < out.string.index(low.digest)
+    expect(out.string.index(low.digest)).to be < out.string.index(high.digest)
     expect(out.string).to include("Accepted (1, not scored)")
     expect(out.string.index("Accepted (")).to be > out.string.index(low.digest)
     findings = Saboteur::Reporter::Stryker.build(report).dig(:saboteur, :findings)
-    expect(findings[:survivors].map { |item| item[:digest] }).to eq([high.digest, low.digest])
+    expect(findings[:survivors].map { |item| item[:digest] }).to eq([low.digest, high.digest])
     expect(findings[:accepted].first[:digest]).to eq(accepted.digest)
     review = StringIO.new
     Saboteur::Reporter::Terminal.new(review, all_mutants: true).call(report_for([low, high], review: true))
-    expect(review.string.index(high.digest)).to be < review.string.index(low.digest)
+    expect(review.string.index(low.digest)).to be < review.string.index(high.digest)
   end
 
   it "collapses same-statement mutants into one ranked block while JSON keeps the full ranked list" do
@@ -146,5 +150,63 @@ RSpec.describe Saboteur::Reporter::SurvivorRanking do
     edit = edit.with(start_byte: boundary, end_byte: boundary)
     allow(result).to receive(:mutation).and_return(result.mutation.with(edits: [edit]))
     expect(described_class.edited_lines(result)).to eq([4])
+  end
+  it "ranks a 4-mutant statement ahead of single-mutant statements, and thin coverage ahead of thick" do
+    cluster = Array.new(4) { |i| ranked_result(subject, first: 3, tests: %w[a b], replacement: "s#{i}") }
+    thin = ranked_result(subject, first: 4, tests: %w[a b], replacement: "thin")
+    thick = ranked_result(subject, first: 5, tests: (1..21).map(&:to_s), replacement: "thick")
+    results = [thick, thin, *cluster]
+    ordered = described_class.ordered(report_for(results), results)
+    expect(ordered.first(4)).to match_array(cluster)
+    expect(ordered.index(thin)).to be < ordered.index(thick)
+  end
+
+  # Synthetic 12-survivor fixture mirroring the reviewer P3 money-gem distribution (recorded
+  # fixture did not fit the cap): remainder statement with 4 mutants and thin coverage,
+  # allocation-style mutant with 21 covering tests, seven single-mutant statements.
+  it "ranks the money-gem remainder case in the top 2 of 12 survivors" do
+    subjects = subjects_in("class Money\n#{(1..9).map { |i| "  def s#{i}\n    v#{i}\n  end\n" }.join}end\n")
+    remainder = Array.new(4) { |i| ranked_result(subjects[0], first: 3, tests: %w[a b], replacement: "rem#{i}") }
+    allocation = ranked_result(subjects[1], first: 6, tests: (1..21).map(&:to_s), replacement: "alloc")
+    singles = subjects[2..8].each_with_index.map do |sub, i|
+      ranked_result(sub, first: 9 + (i * 3), tests: (1..(3 + i)).map(&:to_s), replacement: "x#{i}")
+    end
+    all = [allocation, *singles, *remainder].shuffle(random: Random.new(7))
+    expect(all.size).to eq(12)
+    ordered = described_class.ordered(report_for(all), all)
+    expect(ordered.first(4)).to match_array(remainder)
+    expect(ordered.last).to eq(allocation)
+  end
+
+  it "pins the statement key shape: relative file, subject id, first mutated line" do
+    result = ranked_result(subject, first: 3)
+    report = report_for([result])
+    expect(described_class.statement(report, result)).to eq([File.basename(subject.file), "Ranked#m", 3])
+  end
+
+  it "does not merge same-line mutants from different subjects into one statement" do
+    one = ranked_result(subject, first: 3, replacement: "one_x")
+    other = ranked_result(subject, first: 3, replacement: "other_x")
+    twin = subject.dup
+    allow(twin).to receive(:id).and_return("Ranked#other")
+    allow(other).to receive(:subject).and_return(twin)
+    report = report_for([one, other])
+    expect(described_class.statement(report, one)).not_to eq(described_class.statement(report, other))
+  end
+
+  it "ranks coarse before non-coarse on otherwise identical survivors" do
+    coarse = ranked_result(subject, first: 3, tests: ["a"], coarse: true, replacement: "coarse_x")
+    plain = ranked_result(subject, first: 3, tests: ["a"], replacement: "plain_x")
+    report = report_for([plain, coarse])
+    expect(described_class.ordered(report, [plain, coarse]).first).to eq(coarse)
+  end
+
+  it "pins the documented ordering" do
+    ordering = [
+      "surviving mutants per statement descending, then fewer covering tests,",
+      "coarse first, larger edited-line span, nearer changed lines,",
+      "then file, line and digest"
+    ].join(" ")
+    expect(described_class::ORDERING).to eq(ordering)
   end
 end
