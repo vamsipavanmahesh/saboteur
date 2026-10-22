@@ -41,7 +41,8 @@ module Saboteur
 
         live, accepted = survivors.partition(&:unignored_survivor?)
         @out.puts @palette.paint(:head, "Survivors (#{live.size}) - changes your tests did not catch")
-        groups(live).each_with_index { |group, index| block(report, group, index + 1, live.size) }
+        block_list = groups(live)
+        block_list.each_with_index { |group, index| block(report, group, index + 1, block_list.size) }
         accepted_section(report, accepted)
         hinted = live.select { |result| hint_for(result) }
         @out.puts "\n#{@palette.paint(:dim, SurvivorHints::CAVEAT)}" if hinted.any?
@@ -72,9 +73,12 @@ module Saboteur
         siblings(report, group)
       end
 
+      # The count names blocks, the unit the leading ordinal uses: grouped
+      # siblings read "#3 of 14 blocks", never blocks against mutants (#1147).
       def label_suffix(result, rank, total)
         label = @classifier.label(result)
-        parts = [("coarse" if result.mutation.coarse), label, "##{rank} of #{total}"].compact
+        unit = total == 1 ? "block" : "blocks"
+        parts = [("coarse" if result.mutation.coarse), label, "##{rank} of #{total} #{unit}"].compact
         reason = SurvivorHints.label_reason(label)
         "[#{parts.join(" \u00B7 ")}#{": #{reason}" if reason}]"
       end
