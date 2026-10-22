@@ -87,7 +87,7 @@ module Preflight
       [["protected_paths", -> { Checks::ProtectedPaths.new(repository: @repository).call }],
        ["check_policy_changes", -> { Checks::CheckPolicyChanges.new(repository: @repository).call }],
        ["base_snapshot", -> { Checks::BaseSnapshot.new(repository: @repository, base: @options.base).call }],
-       ["readme_update", -> { Checks::ReadmeUpdate.new(repository: @repository).call }],
+       ["docs_update", -> { Checks::DocsUpdate.new(repository: @repository).call }],
        ["dco_signoff", -> { Checks::Signoff.new(repository: @repository).call }],
        ["spdx_headers", -> { Checks::SpdxHeaders.new(repository: @repository, head: @options.head).call }],
        ["diff_check", lambda {

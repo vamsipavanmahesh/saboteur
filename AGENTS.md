@@ -32,8 +32,8 @@ Names follow Uncle Bob's Clean Code conventions:
 
 ## Documentation
 
-- A pull request that changes CLI flags, behavior or usage must update [README.md](README.md) in the same pull request.
-- A pull request without that README update fails review.
+- A pull request that changes CLI flags, behavior or usage must update the reference docs under [docs/](docs/) in the same pull request; README.md stays short and is not the CLI reference.
+- A pull request without that docs update fails review.
 
 ## Review
 

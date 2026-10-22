@@ -201,6 +201,22 @@ the loop bound is never reached because the list is capped at 10" is. Review
 the ignore file in code review like any other change, and revisit entries when
 the method changes. If a method changes a lot, check that its entries still apply.
 
+The ignore list is the one place a survivor is accepted: reviewed with the
+code, carrying a reason, applied by every run. Two advanced paths exist for
+narrow cases; neither is a second way to file a routine acceptance.
+
+- **Inline `# saboteur:disable-line`** on the mutated line, naming the
+  operators and a `reason="..."`, keeps the mutants it names from being
+  generated at all. Use it when the decision must travel with the source -
+  a vendored or generated file, or a line a reader should never have to
+  reason about as mutable. The mutant is skipped, not scored, and the
+  decision never passes through ignore-list review, so prefer the list when
+  in doubt.
+- **`saboteur baseline accept`** snapshots every current survivor as the
+  reference for a whole-project gate. It exists for the legacy ratchet
+  below, not for accepting one survivor: a survivor you mean to accept
+  belongs in the ignore list with its reason.
+
 Do not tune tests to the mutants. If a survivor tempts you to add an assertion
 that just restates the code, the method may be better off simplified.
 
