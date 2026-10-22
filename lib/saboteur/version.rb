@@ -2,5 +2,5 @@
 # frozen_string_literal: true
 
 module Saboteur
-  VERSION = "0.11.1"
+  VERSION = "0.11.2"
 end

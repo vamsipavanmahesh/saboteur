@@ -5,6 +5,41 @@ All notable changes are documented here. The format follows
 [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
+
+## [0.11.2] - 2026-10-22
+
+### Added
+
+- A full run warns when an ignore entry's subject never appears, so a
+  renamed or removed method can no longer kill the entry silently
+  (#1250, #1206).
+- Survivor gaps are labeled by kind instead of the blanket
+  `missing_test` label (#1246, #1153, #1064), and the README names
+  `tool_limit` and the gap kinds in the survivor triage labels (#1247).
+- The `explain` command prints a human-readable rationale for any
+  registry operator (#1251).
+- The HTML report lists survivors, timeouts and errors before killed
+  rows inside each file, keeping source order within each group
+  (#1253, #1233).
+- Survivor blocks consult the whole-suite coverage map, ending false
+  survivors from diff-scoped runs (#1252).
+
+### Changed
+
+- Output polish across the terminal, JSON and HTML reports: the flaky
+  check names why it exits 3, `doctor` prints its coverage line and a
+  run without a config says so (#1239); stubbed-test wording, the
+  timeout tally and the replay scope line are clearer (#1240);
+  selection messaging states nothing-to-test once and names the
+  `--since` scope on `--subject` misses (#1241); survivor blocks count
+  blocks, not mutants (#1242); the run opener and coverage-map counts
+  are pluralized (#1244); the clean screen labels its scope, hints at
+  the live reports and summarizes an empty diff (#1245).
+- Docs: the ignore list is named as the one way to accept a survivor,
+  the pre-1.0 policy for test selection and operator defaults is
+  stated, and the CLI-docs rule points at `docs/` rather than the
+  short README (#1248).
+
 ## [0.11.1] - 2026-10-22
 
 ### Added
