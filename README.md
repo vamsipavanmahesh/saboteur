@@ -80,15 +80,19 @@ tree refuses with exit 2 and points at the generator. Engine gem with
   assertion, 1 by a crash`), and an error-dominated run prints
   `Score: n/a` instead of a number you would misread.
 - 🔍 **Survivors you can act on.** Survivors group per statement with a
-  triage label (`likely_equivalent`, `arid`, `tool_limit`, or a gap kind) and their
+  triage label (`likely_equivalent`, `arid`, `tool_limit`, `input_gap` when no test
+  ran the mutant, or a gap kind) and their
   covering tests - split into the tests that ran against the mutant and
   the ones that never did. `saboteur survivors` browses them read-only:
   one digest shows the full diff and the exact replay command.
 - 🧪 **Flakiness contained.** `--flaky-check survivors` re-runs each new
   survivor in a reordered confirmation pass; a verdict the rerun disagrees
   with becomes `unverified` and stays out of the score. With
-  `partial_coverage = "use"`, open survivors get one budgeted confirmation
-  run against the covering specs that never ran them.
+  `partial_coverage = "use"`, open
+  survivors get one budgeted confirmation run against the covering specs
+  that never ran them when the map is built from every spec (`--all`, no
+  `--test`, one coverage part, cache on). Default inferred-spec runs, `pr`
+  included, skip it.
 - 📊 **Reports for people and tools.** Terminal, HTML, a Stryker-compatible
   JSON report, and a stable agent JSON API with a deprecation policy. The
   GitHub Action posts survivors as review comments on your PR diff lines.
@@ -127,6 +131,15 @@ tree refuses with exit 2 and points at the generator. Engine gem with
 - A survivor is review evidence, not proof of a bug in your tests. It can
   be a missing test, an equivalent change, a flaky test, or a limit of
   the tool. Read it before you write a test for it.
+- A survivor can be false when the test that kills it lives in a spec
+  file saboteur did not select. Runs without `--test` pick specs by file
+  name and by the constants they read, so a test in a differently named
+  spec (say `spec/integration/flow_spec.rb` for `lib/ledger/router.rb`)
+  may never run against the mutant, and the "covered by ... ran, still
+  passed" lines list the specs that ran, plus any others marked "not run
+  here". If you know
+  another spec exercises the code, run again with `--test` naming it
+  before you trust the survivor.
 - `--since` and `--incremental` are iteration aids. Run the whole project
   on main and before a release.
 - Sandboxing varies by platform and network access is never restricted.

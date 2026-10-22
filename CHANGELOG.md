@@ -6,6 +6,17 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Corrected
+
+- 0.12.0 said uncovered survivors are labeled `input_gap`, "separate from
+  assertion gaps" (#1254, #1157). Only `input_gap` exists, meaning no test
+  ran the mutant. There is no assertion-gap label yet (#1064).
+- 0.11.2 said survivor blocks consult the whole-suite coverage map,
+  "ending false survivors from diff-scoped runs" (#1252). That change
+  only affects which covering tests a block lists. A survivor whose real
+  test sits in a spec file saboteur did not select can still be reported
+  as a survivor; see "Know the limits" in the README.
+
 ## [0.12.1] - 2026-10-22
 
 ### Changed
