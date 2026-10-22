@@ -127,6 +127,18 @@ score 100.0 %
 
 Exit 0. [Replay one mutant](replay.md) covers digest replay in depth.
 
+## False survivors in a scoped run
+
+`--since`, `--subject` and the default spec inference run only the specs
+they select. A survivor can be killed by a spec outside that selection,
+for example an integration spec with no matching source file. Only
+`saboteur run --all` builds the whole-suite coverage map that names those
+specs. Without that map a scoped run prints one line, `survivors
+unconfirmed: no whole-suite coverage map; run `saboteur run --all` to
+build one`, and each survivor block says the covering list is this run's
+selection only. Verdicts, score and exit code do not change. With the map,
+a block names the covering specs the run did not load as `(not run here)`.
+
 ## 6. When the fix is not a test
 
 If a survivor is genuinely equivalent - the mutation cannot change any

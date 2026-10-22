@@ -18,7 +18,10 @@ module Saboteur
       CACHE_INPUTS = %w[integration require rspec_args rails tests coverage_recorder].freeze
       # Names the freshest whole-suite map build; read as an untrusted hint:
       # only a bare 64-hex key joins the cache dir (#427).
-      WHOLE_SUITE_POINTER = "whole-suite-map"
+      # Renamed from "whole-suite-map" in 0.12.2: older versions also wrote
+      # the pointer for maps built from inferred specs, which are not whole
+      # suites, so their pointers are never read (#1286).
+      WHOLE_SUITE_POINTER = "whole-suite-map-v2"
       LOCKFILES = %w[Gemfile.lock gems.locked].freeze
       LOG = "coverage-build.log"
       # RSpec rewrites this on every run (example_status_persistence_file_path),

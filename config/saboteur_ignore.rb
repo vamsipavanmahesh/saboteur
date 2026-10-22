@@ -2707,7 +2707,7 @@ i.mutation "fdc4600f4e8e8625",
              subject: "Saboteur::Reporter::SurvivorList#covered",
              reason: "equivalent: survivor groups are keyed by subject.id, so " \
                      "group.first.subject and group.last.subject are always the same subject"
-  i.mutation "5b108859385f0247",
+  i.mutation "4c45d27df1669ef7",
              subject: "Saboteur::Reporter::SurvivorList#covered",
              reason: "equivalent: same grouping key - group.first.subject == group.last.subject " \
                      "because SurvivorList#groups keys on [subject.id, line]"

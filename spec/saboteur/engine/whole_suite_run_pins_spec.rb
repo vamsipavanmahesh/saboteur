@@ -28,10 +28,22 @@ RSpec.describe Saboteur::Engine, "whole-suite run detection" do
     expect(build_engine("tests" => ["spec/person_spec.rb"]).send(:whole_suite_run?)).to be(false)
   end
 
-  it "is a whole-suite run when explicit tests came with inferred specs" do
+  it "is not a whole-suite run when specs were inferred: inference is a selection (#1286)" do
     engine = build_engine("tests" => ["spec/person_spec.rb"])
     engine.instance_variable_set(:@guessed_tests, ["spec/person_spec.rb"])
-    expect(engine.send(:whole_suite_run?)).to be(true)
+    expect(engine.send(:whole_suite_run?)).to be(false)
+    expect(engine.scoped_selection?).to be(true)
+  end
+
+  it "is not a whole-suite run once specs were inferred, even with no explicit tests (#1286)" do
+    engine = build_engine
+    engine.instance_variable_set(:@guessed_tests, ["spec/person_spec.rb"])
+    expect(engine.send(:whole_suite_run?)).to be(false)
+  end
+
+  it "is not scoped without scope flags and is scoped with any of them" do
+    expect(build_engine.scoped_selection?).to be(false)
+    expect(build_engine("since" => "main").scoped_selection?).to be(true)
   end
 
   it "builds the coverage store once, flagged as a whole-suite run" do

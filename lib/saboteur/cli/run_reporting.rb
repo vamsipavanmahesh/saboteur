@@ -23,7 +23,7 @@ module Saboteur
                                      replay_command: survivor_replay_command(report, engine),
                                      all_mutants: options[:all_mutants] || false, details: options[:details] || false,
                                      exit_code: code, previous_score: previous_score, scope: scope_label,
-                                     whole_suite_map: whole_suite_map_for(engine),
+                                     whole_suite_map: whole_suite_map_for(engine, report),
                                      run_map: engine&.run_coverage_map,
                                      baseline_gate: (baseline_gate(report) if config["baseline"])).call(report)
         Reporter::Replay.new(@out).call(report) if options[:id]
@@ -38,14 +38,6 @@ module Saboteur
         json = write_json(report, exit_cause(report, code))
         announce_reports(json => "JSON", html => "HTML")
         code
-      end
-
-      # No engine or no cache: no whole-suite map can exist, so the survivor
-      # block keeps its legacy covered-by line over an impossible build (review C1).
-      def whole_suite_map_for(engine)
-        return engine.whole_suite_coverage_map if engine&.whole_suite_map_lookup?
-
-        Reporter::SurvivorList::NO_WHOLE_SUITE_LOOKUP
       end
 
       def agent_run(arguments)

@@ -39,9 +39,14 @@ RSpec.describe "the README get-started flow (end to end)", :e2e do
     expect(first.err).not_to include("no config/saboteur.rb")
     expect(first.err).not_to include("coverage cache miss")
     expect(first.err).not_to include("building coverage map")
-    # The one kept notice: a correctness caveat about how specs were chosen.
-    expect(first.err.lines.map(&:strip).reject(&:empty?))
-      .to match([start_with("saboteur: inferred specs: selected by constant reference or require")])
+    # Kept notices are correctness caveats, not first-run notices: how the
+    # specs were chosen, and (#1286) survivors of an inferred-spec run that no
+    # whole-suite map has confirmed. The fixture run may or may not have
+    # survivors, so the second line is allowed but never required.
+    lines = first.err.lines.map(&:strip).reject(&:empty?)
+    expect(lines.first).to start_with("saboteur: inferred specs: selected by constant reference or require")
+    expect(lines.drop(1)).to all(start_with("saboteur: survivors unconfirmed: no whole-suite coverage map"))
+    expect(lines.size).to be <= 2
   end
 
   it "step 3: pr mutates only what changed against main" do
