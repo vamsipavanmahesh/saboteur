@@ -2755,4 +2755,19 @@ i.mutation "fdc4600f4e8e8625",
              subject: "Saboteur::Reporter::SurvivorList#covered",
              reason: "equivalent: same grouping key - group.first.subject == group.last.subject " \
                      "because SurvivorList#groups keys on [subject.id, line]"
+
+  # html.rb attention_rank: the rank only splits the table into the attention
+  # group and the rest, so any rank below the rest rank behaves like 0.
+  # Hand-probed: ? -1 : 1 applied, 924 reporter examples green.
+  i.mutation "32b5e6644574bc51",
+             subject: "Saboteur::Reporter::Html#attention_rank",
+             reason: "equivalent: every negative rank sorts the attention group before the rest " \
+                     "exactly like 0 does - hand-probed, 924 reporter examples green"
+
+  # Same split, other side: any rank above the attention rank behaves like 1.
+  # Hand-probed: ? 0 : 2 applied, 924 reporter examples green.
+  i.mutation "3e1e3c59890a85cc",
+             subject: "Saboteur::Reporter::Html#attention_rank",
+             reason: "equivalent: every rank above 0 sorts after the attention group exactly " \
+                     "like 1 does - hand-probed, 924 reporter examples green"
 end
