@@ -139,6 +139,10 @@ module Saboteur
           # Why the survivor is worth a look, as a label only: scores and
           # the exit code never change (#192).
           classification: SurvivorClassification.label(result),
+          # Additive (#1286): confirmed, killed_by_confirmation or unconfirmed.
+          # An unconfirmed survivor reports Ignored: outside the score.
+          confirmation: result.confirmation_state,
+          creditedTest: result.credited_test&.then { |name| test_ids.fetch(name) },
           killedBy: result.killed_by.map { |name| test_ids.fetch(name) }.then { |ids| ids.empty? ? nil : ids },
           coveredBy: result.covered_by.map { |name| test_ids.fetch(name) }.then { |ids| ids.empty? ? nil : ids },
           # Which of the covering tests actually ran against the mutant; absent
@@ -151,7 +155,7 @@ module Saboteur
       def self.status(result)
         case result.status
         when :killed then "Killed"
-        when :survived then "Survived"
+        when :survived then result.unconfirmed? ? "Ignored" : "Survived"
         when :timeout then "Timeout"
         when :error, :resource_limit then "RuntimeError"
         when :skipped then result.reason&.start_with?("no coverage") ? "NoCoverage" : "Ignored"
@@ -169,6 +173,7 @@ module Saboteur
         # ignore, and only wont_fix adds a suffix after the reason.
         return "ignored: #{result.ignored} (wont_fix)" if result.triage_state == "wont_fix"
         return "ignored: #{result.ignored}" if result.ignored
+        return "unconfirmed: #{result.unconfirmed_reason}" if result.unconfirmed?
         return "resource limit: #{result.reason}" if result.status == :resource_limit
         return result.crash_kill? ? "crash: #{result.kill_cause}" : result.kill_cause if result.kill_cause
 

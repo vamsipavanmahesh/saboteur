@@ -57,17 +57,18 @@ RSpec.describe "survivor confirmation (#1063)", :e2e do
 
     expect(run.status).to eq(1)
     expect(run.err).not_to include("private method")
-    expect(run.err).to include("survivor confirmation: 1 unconfirmed(no covering tests)")
+    expect(run.err).to include("survivor confirmation: 1 confirmed")
   end
 
-  it "says on the run tail when inferred specs skip the confirmation under partial_coverage use" do
+  it "has no whole-suite map to confirm against after an inferred run, and says so once" do
     run = saboteur(dir, "--no-color")
 
     expect(run.status).to eq(1)
-    expect(run.err).to include("survivor confirmation skipped: partial_coverage = use applies only to a cached")
+    expect(run.err).not_to include("survivor confirmation:")
+    expect(run.err.scan("survivors unconfirmed: no whole-suite coverage map").size).to eq(1)
   end
 
-  it "stays silent when the skipped run has no live survivor" do
+  it "stays silent when the inferred run has no live survivor" do
     write("spec/answer_spec.rb", <<~RUBY)
       require_relative "../lib/answer"
 
@@ -85,6 +86,6 @@ RSpec.describe "survivor confirmation (#1063)", :e2e do
     run = saboteur(dir, "--no-color")
 
     expect(run.status).to eq(0)
-    expect(run.err).not_to include("survivor confirmation skipped")
+    expect(run.err).not_to include("survivors unconfirmed")
   end
 end

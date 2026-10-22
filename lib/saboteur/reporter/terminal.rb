@@ -6,6 +6,7 @@ require_relative "wording"
 require_relative "baseline_tail"
 require_relative "next_steps"
 require_relative "kill_causes"
+require_relative "unconfirmed_section"
 require_relative "survivor_ranking"
 require_relative "palette"
 require_relative "notice"
@@ -62,6 +63,7 @@ module Saboteur
         return quiet_call(report) if @quiet
 
         findings(report)
+        UnconfirmedSection.new(@out, @palette).call(report)
         errors(report)
         skipped_subjects(report) if @verbose
         test_command_gaps(report)
@@ -346,7 +348,7 @@ module Saboteur
         untested = untested_subjects(report).size
         [counted(counts[:killed], "killed", plural: false, color: :pass),
          counted(live, "survived", plural: false, color: :fail),
-         counted(report.survivors.size - live, "accepted", plural: false),
+         counted(report.survivors.size - live, "accepted", plural: false), UnconfirmedSection.part(report),
          counted(counts[:timeout], "timeout", color: :warn), counted(counts[:resource_limit], "resource limit"),
          error_part(report, counts[:error]), counted(counts[:unverified], "unverified", plural: false),
          ("#{untested} subject#{'s' unless untested == 1} untested" if untested.positive?)].compact

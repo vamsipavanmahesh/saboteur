@@ -205,7 +205,7 @@ module Saboteur
 
     # A subject fails a gate when at least one of its mutants survived.
     def failing_subjects(scored)
-      scored.select { |result| result.status == :survived }.map(&:subject).uniq.size
+      scored.select(&:survived?).map(&:subject).uniq.size
     end
 
     def over?(count, limit, executed)

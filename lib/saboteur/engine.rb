@@ -31,11 +31,6 @@ module Saboteur
     include GatedRun
     include SelectionAnnouncement
 
-    # Confirmation only guards a partial coverage map, so it is silent unless
-    # the user opted into partial_coverage = use (#1228).
-    CONFIRMATION_SKIPPED = "survivor confirmation skipped: partial_coverage = use applies only to a cached " \
-                           "whole-suite run (no --test, one coverage part)"
-
     # Everything besides sources and tests that can change a verdict.
     VERDICT_INPUTS = %w[integration require rspec_args rails reeval sources operators exclude_operators arid
                         timeout_factor timeout_min
@@ -298,15 +293,21 @@ module Saboteur
       confirm_survivors(run_candidates(subjects, lists, scheduler, cache, ignore_list), scheduler, cache, ignore_list)
     end
 
+    # Confirm each live survivor against the whole-suite coverage map (#1286):
+    # the covering specs the run's own selection never loaded get one budgeted
+    # run. Scoped runs (--since, --subject, pr) are the point, so nothing here
+    # depends on partial_coverage or on the run being unscoped. Without a
+    # whole-suite map there is nothing to confirm against; the run says so
+    # elsewhere (survivors unconfirmed: no whole-suite coverage map).
     def confirm_survivors(results, scheduler, cache, ignore_list)
-      unless CoveragePartial.use?(config, config["coverage_parts"])
-        live = results.any? { |result| result.survived? && !ignore_list.accepts?(result) }
-        @diagnostics.inform(CONFIRMATION_SKIPPED) if live && config["partial_coverage"] == "use"
-        return results
-      end
+      return results if results.none? { |result| result.survived? && !ignore_list.accepts?(result) }
 
-      SurvivorConfirmation.new(config: config, map: scheduler.map, scheduler: scheduler, diagnostics: @diagnostics,
-                               budget_exceeded: method(:budget_exceeded?), cache: cache)
+      whole = whole_suite_coverage_map
+      return results if whole.nil?
+
+      SurvivorConfirmation.new(config: config, map: whole, scheduler: scheduler, diagnostics: @diagnostics,
+                               budget_exceeded: method(:budget_exceeded?), cache: cache,
+                               load_specs: ->(files) { scheduler.runner.integration.load_spec_files(files) })
                           .call(results, ignore_list: ignore_list, early_stop: @early_stop)
     end
 
