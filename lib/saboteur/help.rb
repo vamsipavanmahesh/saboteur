@@ -140,15 +140,15 @@ module Saboteur
         name: "survivors",
         summary: "Browse a report's survivors in the terminal, read-only",
         description: "Reads the Stryker JSON report without booting the project or rerunning tests. " \
-                     "Lists every survivor with rank, file, line, operator, digest and triage label; " \
-                     "filters with --file, --operator and --triage; --ranked uses the report's ranked " \
-                     "findings order. --show DIGEST prints the diff, the exact replay command and an " \
-                     "ignore-file entry template for that mutant. It never edits the ignore file.",
+                     "Lists every survivor with rank, file, line, operator, digest and triage label, " \
+                     "in the report's ranked findings order; filters with --file, --operator and " \
+                     "--triage; --ranked is kept for compatibility. --show DIGEST prints the diff, " \
+                     "the exact replay command and an ignore-file entry template for that mutant. " \
+                     "It never edits the ignore file.",
         takes_options: false,
         exit_codes: { 0 => "Survivors listed or shown (including none).",
                       2 => "Missing, malformed or unreadable report; bad arguments." },
         examples: [["List survivors from the last run", "saboteur survivors .saboteur/report.json"],
-                   ["Review-priority order", "saboteur survivors .saboteur/report.json --ranked"],
                    ["Diff, replay command and ignore template for one mutant",
                     "saboteur survivors .saboteur/report.json --show 1a2b3c4d5e6f7a8b"]]
       ),

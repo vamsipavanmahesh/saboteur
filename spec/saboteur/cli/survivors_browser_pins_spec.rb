@@ -49,30 +49,102 @@ RSpec.describe Saboteur::CLI::SurvivorsBrowser, "output pins (#520)" do
 
   let(:browser) { described_class.new(report) }
 
-  it "lists by path, line and digest - killed mutants excluded - with exact header and rows" do
+  # #1150: one ordering everywhere - the terminal's ranked order is the
+  # default, and sibling mutants on one statement collapse into one row.
+  it "ranks findings first by default, collapsing siblings on one statement - killed mutants excluded" do
     expect(browser.list).to eq(
-      ["7 survivors (the report's ranked findings name only the first 10)",
-       "  1. lib/alpha.rb:9  body_nil                     ffffffffffffffff  -",
-       "  2. lib/order.rb:3  and_to_or                    bbbbbbbbbbbbbbbb  -",
-       "  3. lib/order.rb:4  condition_true               eeeeeeeeeeeeeeee  order_dependent",
-       "  4. lib/order.rb:5  sum_to_map_sum               aaaaaaaaaaaaaaaa  boundary",
-       "  5. lib/order.rb:7  comparison                   0000000000000000  -",
-       "  6. lib/order.rb:7  literal_number               hhhhhhhhhhhhhhhh  -",
-       "  7. lib/zeta.rb:1  literal_string               dddddddddddddddd  -"]
-    )
-  end
-
-  it "ranks findings first, then unranked by coverage count, path, line and digest" do
-    expect(browser.list(ranked: true)).to eq(
       ["7 survivors (the report's ranked findings name only the first 10)",
        "  1. lib/order.rb:4  condition_true               eeeeeeeeeeeeeeee  order_dependent",
        "  2. lib/order.rb:5  sum_to_map_sum               aaaaaaaaaaaaaaaa  boundary",
        "  3. lib/zeta.rb:1  literal_string               dddddddddddddddd  -",
        "  4. lib/alpha.rb:9  body_nil                     ffffffffffffffff  -",
        "  5. lib/order.rb:3  and_to_or                    bbbbbbbbbbbbbbbb  -",
-       "  6. lib/order.rb:7  comparison                   0000000000000000  -",
-       "  7. lib/order.rb:7  literal_number               hhhhhhhhhhhhhhhh  -"]
+       "  6. lib/order.rb:7  comparison                   0000000000000000  -  (+1 here: hhhhhhhhhhhhhhhh)"]
     )
+  end
+
+  # #1150: the collapse suffix names at most three sibling digests, joined
+  # by ", "; exactly three leaves no "+N more" tail.
+  it "names all three siblings at the digest cap, with no overflow tail" do
+    report = { "schemaVersion" => "2", "config" => { "seed" => 7 },
+               "files" => { "lib/solo.rb" => { "language" => "ruby", "source" => "a\nb\n",
+                                               "mutants" => [mut("1" * 16, "negation", 2, []),
+                                                             mut("2" * 16, "negation", 2, []),
+                                                             mut("3" * 16, "negation", 2, []),
+                                                             mut("4" * 16, "negation", 2, [])] } },
+               "saboteur" => { "findings" => { "version" => 1, "survivors" => [], "accepted" => [] } } }
+    expect(described_class.new(report).list).to eq(
+      ["4 survivors",
+       "  1. lib/solo.rb:2  negation                     #{'1' * 16}  -  " \
+       "(+3 here: #{'2' * 16}, #{'3' * 16}, #{'4' * 16})"]
+    )
+  end
+
+  it "names three siblings and counts the rest past the digest cap" do
+    report = { "schemaVersion" => "2", "config" => { "seed" => 7 },
+               "files" => { "lib/solo.rb" => { "language" => "ruby", "source" => "a\nb\n",
+                                               "mutants" => [mut("1" * 16, "negation", 2, []),
+                                                             mut("2" * 16, "negation", 2, []),
+                                                             mut("3" * 16, "negation", 2, []),
+                                                             mut("4" * 16, "negation", 2, []),
+                                                             mut("5" * 16, "negation", 2, []),
+                                                             mut("6" * 16, "negation", 2, [])] } },
+               "saboteur" => { "findings" => { "version" => 1, "survivors" => [], "accepted" => [] } } }
+    expect(described_class.new(report).list).to eq(
+      ["6 survivors",
+       "  1. lib/solo.rb:2  negation                     #{'1' * 16}  -  " \
+       "(+5 here: #{'2' * 16}, #{'3' * 16}, #{'4' * 16}, +2 more)"]
+    )
+  end
+
+  # #1150: without an "order" key the fallback is survivors-then-accepted,
+  # concatenated - an accepted digest keeps its fallback rank even against a
+  # heavily covered unlisted survivor.
+  it "falls back to survivors-then-accepted when the report carries no order key" do
+    report = { "schemaVersion" => "2", "config" => { "seed" => 7 },
+               "files" => { "lib/solo.rb" => { "language" => "ruby", "source" => "a\nb\nc\n",
+                                               "mutants" => [mut("a" * 16, "negation", 1, %w[t1 t2 t3 t4]),
+                                                             mut("d" * 16, "negation", 2, []),
+                                                             mut("c" * 16, "negation", 3, %w[t1 t2 t3 t4])] } },
+               "saboteur" => { "findings" => { "version" => 1,
+                                               "survivors" => [{ "digest" => "a" * 16, "subject" => "S#a" }],
+                                               "accepted" => [{ "digest" => "d" * 16, "subject" => "S#d" }] } } }
+    expect(described_class.new(report).list.drop(1).map { |row| row[/#{'[0-9a-f]' * 16}/] }).to eq(
+      ["a" * 16, "d" * 16, "c" * 16]
+    )
+  end
+
+  it "follows the report's order key verbatim when present, ahead of the fallback" do
+    report = { "schemaVersion" => "2", "config" => { "seed" => 7 },
+               "files" => { "lib/solo.rb" => { "language" => "ruby", "source" => "a\nb\nc\n",
+                                               "mutants" => [mut("a" * 16, "negation", 1, %w[t1 t2 t3 t4]),
+                                                             mut("d" * 16, "negation", 2, []),
+                                                             mut("c" * 16, "negation", 3, %w[t1 t2 t3 t4])] } },
+               "saboteur" => { "findings" => { "version" => 1,
+                                               "survivors" => [{ "digest" => "a" * 16, "subject" => "S#a" }],
+                                               "accepted" => [{ "digest" => "d" * 16, "subject" => "S#d" }],
+                                               "order" => ["d" * 16, "a" * 16, "c" * 16] } } }
+    expect(described_class.new(report).list.drop(1).map { |row| row[/#{'[0-9a-f]' * 16}/] }).to eq(
+      ["d" * 16, "a" * 16, "c" * 16]
+    )
+  end
+
+  # #1150: within the unranked tail, more-covered survivors list first -
+  # both the key's presence and its descending sign are pinned.
+  it "ranks more-covered survivors first within the unranked tail" do
+    report = { "schemaVersion" => "2", "config" => { "seed" => 7 },
+               "files" => { "lib/aaa.rb" => { "language" => "ruby", "source" => "a\n",
+                                              "mutants" => [mut("a" * 16, "negation", 1, [])] },
+                            "lib/zzz.rb" => { "language" => "ruby", "source" => "z\n",
+                                              "mutants" => [mut("c" * 16, "negation", 1, %w[t1 t2])] } },
+               "saboteur" => { "findings" => { "version" => 1, "survivors" => [], "accepted" => [] } } }
+    expect(described_class.new(report).list.drop(1).map { |row| row[/[0-9a-f]{16}/] }).to eq(
+      ["c" * 16, "a" * 16]
+    )
+  end
+
+  it "treats --ranked as a compatibility alias for the default ordering" do
+    expect(browser.list(ranked: true)).to eq(browser.list)
   end
 
   it "prints the singular header and triage note when a filter selects exactly one" do

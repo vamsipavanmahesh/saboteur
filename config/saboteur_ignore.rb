@@ -1074,13 +1074,6 @@ Saboteur.ignore do |i|
                      "source (both come from one report entry), so lines[i] is a String and its to_s is " \
                      "identity - hand-applied mutant leaves all 16 browser pin examples green"
 
-  i.mutation "49370ec53fcedd1f",
-             subject: "Saboteur::CLI::SurvivorsBrowser#ranked_order",
-             reason: "digest is the final tie-break of the ranked sort key and only decides under a full " \
-                     "[rank, -coverage, path, line] tie; removing it leaves equal keys whose order Ruby's " \
-                     "sort_by leaves unspecified, which no deterministic spec can pin - hand-applied mutant " \
-                     "leaves all 16 browser pin examples green"
-
   i.mutation "b0bb0f4caea86dcc",
              subject: "Saboteur::Engine::BaselineGuard#warn_minitest_signature",
              reason: "equivalent on reachable inputs: errors.empty? returns before pluralization at zero; " \
@@ -1586,21 +1579,6 @@ i.mutation "fdc4600f4e8e8625",
              subject: "Saboteur::Reporter::Diff#hunks",
              reason: "equivalent: ranges arrive sorted, so `to` is never below the previous range end and [to].max equals the max"
 
-  i.mutation "834259d03f636504",
-             subject: "Saboteur::CLI::SurvivorsCommand#survivors_command_inner",
-             reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not position - the swapped call builds the identical parser entry; `survivors --help` is byte-identical and the cli specs stay green"
-  i.mutation "4fdacc67fb85cf7f",
-             subject: "Saboteur::CLI::SurvivorsCommand#survivors_command_inner",
-             reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not position - the swapped call builds the identical parser entry; `survivors --help` is byte-identical and the cli specs stay green"
-  i.mutation "03f7ea8cbca5301a",
-             subject: "Saboteur::CLI::SurvivorsCommand#survivors_command_inner",
-             reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not position - the swapped call builds the identical parser entry; `survivors --help` is byte-identical and the cli specs stay green"
-  i.mutation "975c0d526b4b83d6",
-             subject: "Saboteur::CLI::SurvivorsCommand#survivors_command_inner",
-             reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not position - the swapped call builds the identical parser entry; `survivors --help` is byte-identical and the cli specs stay green"
-  i.mutation "daa77f975c49c420",
-             subject: "Saboteur::CLI::SurvivorsCommand#survivors_command_inner",
-             reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not position - the swapped call builds the identical parser entry; `survivors --help` is byte-identical and the cli specs stay green"
   i.mutation "0ff3020f3d37db9c",
              subject: "Saboteur::CLI::HistoryCommand#badge_parser",
              reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not position - the swapped call builds the identical parser entry and history_command_spec stays green"
@@ -2798,4 +2776,44 @@ i.mutation "fdc4600f4e8e8625",
              subject: "Saboteur::CLI::SelectionOptions#define_selection_options",
              reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not " \
                      "position - hand-applied swap leaves run --help byte-identical"
+
+  # OptionParser#on classifies flag vs description strings by shape, not
+  # position - each swap leaves `survivors --help` byte-identical (same
+  # probe as 455660d7ea53007b).
+  i.mutation "c5f33c4a21fc7aa5",
+             subject: "Saboteur::CLI::SurvivorsCommand#survivors_parser",
+             reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not " \
+                     "position - hand-applied swap leaves survivors --help byte-identical"
+  i.mutation "ad78a382e76a8e27",
+             subject: "Saboteur::CLI::SurvivorsCommand#survivors_parser",
+             reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not " \
+                     "position - hand-applied swap leaves survivors --help byte-identical"
+  i.mutation "350f710e83d9b95d",
+             subject: "Saboteur::CLI::SurvivorsCommand#survivors_parser",
+             reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not " \
+                     "position - hand-applied swap leaves survivors --help byte-identical"
+  i.mutation "b2457fc1a14fe3f2",
+             subject: "Saboteur::CLI::SurvivorsCommand#survivors_parser",
+             reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not " \
+                     "position - hand-applied swap leaves survivors --help byte-identical"
+  i.mutation "dfb6bf186eaa391b",
+             subject: "Saboteur::CLI::SurvivorsCommand#survivors_parser",
+             reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not " \
+                     "position - hand-applied swap leaves survivors --help byte-identical"
+  i.mutation "c37dcff14a3ed2e3",
+             subject: "Saboteur::CLI::SurvivorsCommand#survivors_parser",
+             reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not " \
+                     "position - hand-applied swap leaves survivors --help byte-identical"
+  i.mutation "32c70e310d4606f3",
+             subject: "Saboteur::CLI::SurvivorsCommand#survivors_parser",
+             reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not " \
+                     "position - hand-applied swap leaves survivors --help byte-identical"
+
+  # format("%<suffix>s", suffix: nil) renders "" - the early return value is
+  # unobservable through the only caller (rows).
+  i.mutation "7f81a510551f1412",
+             subject: "Saboteur::CLI::SurvivorsBrowser#siblings_suffix",
+             reason: "equivalent: the only caller interpolates via format %s, which renders nil " \
+                     "as the empty string"
+
 end

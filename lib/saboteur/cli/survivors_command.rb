@@ -2,8 +2,10 @@
 # frozen_string_literal: true
 
 require "json"
+require "stringio"
 
 require_relative "../survivor_guidance"
+require_relative "../reporter/palette"
 require_relative "../reporter/survivor_hints"
 
 module Saboteur
@@ -17,6 +19,11 @@ module Saboteur
       # Where `saboteur run` writes the JSON report unless configured otherwise.
       DEFAULT_REPORT = Config::DEFAULTS["json_report"]
 
+      # survivors owns its usage line (#1150): the report path is optional
+      # because the run always writes the same default.
+      SURVIVORS_USAGE = "Usage: saboteur survivors [options] [REPORT] - REPORT defaults to " \
+                        ".saboteur/report.json"
+
       private
 
       def survivors_command
@@ -27,26 +34,48 @@ module Saboteur
       end
 
       def survivors_command_inner
-        parser = OptionParser.new do |opts|
-          opts.on("--ranked", "Review-priority order: the report's ranked findings first")
+        options = {}
+        parser = survivors_parser(options)
+        args = parse_survivors_args(parser, options)
+        if options[:help]
+          @out.puts(parser)
+          return EXIT_OK
+        end
+        path = args.shift || DEFAULT_REPORT
+        raise UsageError, "unexpected arguments: #{args.join(' ')}\n#{parser}" if args.any?
+
+        report = load_survivor_report(path)
+        browser = SurvivorsBrowser.new(report, palette: Reporter::Palette.for(@out, mode: options.fetch(:color, :auto)))
+        if options[:show]
+          @out.puts(browser.show(options[:show]))
+        else
+          @out.puts(browser.list(**options.slice(:file, :operator, :triage)))
+        end
+        EXIT_OK
+      end
+
+      # The same colour flags as run (#1150), plus the browser filters.
+      def survivors_parser(options)
+        OptionParser.new do |opts|
+          opts.banner = SURVIVORS_USAGE
+          opts.on("--ranked", "Review-priority order (the default): the terminal report's ordering")
           opts.on("--file SUBSTR", "Only survivors whose path contains SUBSTR")
           opts.on("--operator NAME", "Only survivors of operator NAME")
           opts.on("--triage LABEL", "Only survivors classified LABEL (for example boundary)")
           opts.on("--show DIGEST", "Diff, replay command and ignore template for one survivor")
+          opts.on("--color [MODE]", %w[always never auto],
+                  "Colour the output: always, never, or auto when MODE is omitted") do |mode|
+            options[:color] = (mode || :always).to_sym
+          end
+          opts.on("--no-color", "Alias for --color=never") { options[:color] = :never }
+          opts.on("--help", "Show this help") { options[:help] = true }
         end
-        options = {}
-        args = parser.parse!(@argv, into: options)
-        path = args.shift || DEFAULT_REPORT
-        raise UsageError, "unexpected arguments: #{args.join(' ')}" if args.any?
+      end
 
-        report = load_survivor_report(path)
-        browser = SurvivorsBrowser.new(report)
-        if options[:show]
-          @out.puts(browser.show(options[:show]))
-        else
-          @out.puts(browser.list(**options.slice(:ranked, :file, :operator, :triage)))
-        end
-        EXIT_OK
+      def parse_survivors_args(parser, options)
+        parser.parse!(@argv, into: options)
+      rescue OptionParser::ParseError => e
+        raise UsageError, "#{e.message}\n#{parser}"
       end
 
       def load_survivor_report(path)
@@ -64,14 +93,21 @@ module Saboteur
     # Reads the report's files section (the complete mutant list), not the
     # capped findings, so survivors beyond the findings limit still list.
     class SurvivorsBrowser
-      def initialize(report)
+      # Sibling digests named on a collapse line; the rest are a count - the
+      # same shape the terminal report's collapse uses (#1150).
+      SIBLING_DIGEST_CAP = 3
+
+      def initialize(report, palette: Reporter::Palette.for(StringIO.new))
         @report = report
         @findings = report.dig("saboteur", "findings") || {}
+        @palette = palette
       end
 
-      def list(ranked: false, file: nil, operator: nil, triage: nil)
-        survivors = filtered(file, operator, triage)
-        survivors = ranked_order(survivors) if ranked
+      # One ordering everywhere (#1150): the terminal report's ranked order
+      # is the default, exactly as the findings carry it; --ranked stays
+      # accepted for compatibility.
+      def list(file: nil, operator: nil, triage: nil, **)
+        survivors = ranked_order(filtered(file, operator, triage))
         return "no survivors#{filters_note(file, operator, triage)}" if survivors.empty?
 
         [header(survivors.size, file, operator, triage), *rows(survivors)]
@@ -160,17 +196,30 @@ module Saboteur
       def header(size, file, operator, triage)
         text = "#{size} survivor#{'s' unless size == 1}#{filters_note(file, operator, triage)}"
         truncated = @findings["survivorsTruncated"].to_i
-        return text unless truncated.positive?
-
-        "#{text} (the report's ranked findings name only the first #{@findings['limit'] || 10})"
+        if truncated.positive?
+          text = "#{text} (the report's ranked findings name only the first #{@findings['limit'] || 10})"
+        end
+        @palette.paint(:head, text)
       end
 
+      # The terminal collapse: sibling mutants on one statement fold into the
+      # first row, which names up to SIBLING_DIGEST_CAP of their digests.
       def rows(survivors)
-        survivors.each_with_index.map do |s, i|
-          format("%3<i>d. %<path>s:%<line>d  %-28<operator>s %<digest>s  %<classification>s",
-                 i: i + 1, path: s[:path], line: s[:line], operator: s[:operator], digest: s[:digest],
-                 classification: s[:classification] || "-")
+        survivors.group_by { |s| [s[:path], s[:line]] }.values.each_with_index.map do |group, i|
+          first, *siblings = group
+          format("%3<i>d. %<path>s:%<line>d  %-28<operator>s %<digest>s  %<classification>s%<suffix>s",
+                 i: i + 1, path: first[:path], line: first[:line], operator: first[:operator],
+                 digest: first[:digest], classification: first[:classification] || "-",
+                 suffix: siblings_suffix(siblings))
         end
+      end
+
+      def siblings_suffix(siblings)
+        return "" if siblings.empty?
+
+        named = siblings.first(SIBLING_DIGEST_CAP).map { |s| s[:digest] }.join(", ")
+        rest = siblings.size - SIBLING_DIGEST_CAP
+        "  (+#{siblings.size} here: #{named}#{", +#{rest} more" if rest.positive?})"
       end
 
       def ignore_entry(survivor, subject)
@@ -192,12 +241,17 @@ module Saboteur
                 subject: m["subject"], covered: m["coveredBy"] || [], source: entry["source"] }
             end
           end
-          survivors.sort_by { |s| [s[:path], s[:line], s[:digest]] }
+          survivors
         end
       end
 
+      # Ranked order straight from the report: the uncapped findings "order"
+      # list first, with the capped findings as the fallback for older
+      # reports; anything unknown trails in file order.
       def ranked_order(survivors)
-        rank = @findings.fetch("survivors", []).each_with_index.to_h { |f, i| [f["digest"], i] }
+        order = @findings["order"] ||
+                (@findings.fetch("survivors", []) + @findings.fetch("accepted", [])).map { |f| f["digest"] }
+        rank = order.each_with_index.to_h
         survivors.sort_by { |s| [rank[s[:digest]] || Float::INFINITY, -s[:covered].size, s[:path], s[:line], s[:digest]] }
       end
 
