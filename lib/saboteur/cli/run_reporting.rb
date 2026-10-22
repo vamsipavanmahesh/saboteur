@@ -81,7 +81,7 @@ module Saboteur
 
         # Text mode only: the engine prints a per-subject marks line when
         # --verbose is on (#262); --agent output stays as it is.
-        engine = Engine.new(config, **arguments, verbose: @verbose || false)
+        engine = Engine.new(config, **arguments, verbose: @verbose || false, quiet: @quiet || false)
         text_run(engine.call, engine)
       end
 

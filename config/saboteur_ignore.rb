@@ -1760,10 +1760,6 @@ i.mutation "fdc4600f4e8e8625",
   i.mutation "355e476e76941ff6",
              subject: "Saboteur::CLI::SelectionOptions#define_selection_options",
              reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not position - the swapped call builds the identical parser entry; `run --help` is byte-identical and the selection specs stay green"
-  i.mutation "043ca90766f31ed6",
-             subject: "Saboteur::CLI::SelectionOptions#define_selection_options",
-             reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not position - the swapped call builds the identical parser entry; `run --help` is byte-identical and the selection specs stay green"
-
   i.mutation "d36f6a7ad221979b",
              subject: "Saboteur::ConstantReads#bare_match?",
              reason: "equivalent: bare_match? is only used as the last operand of an `if` condition, where nil and false both skip the branch"
@@ -2705,16 +2701,7 @@ i.mutation "fdc4600f4e8e8625",
              subject: "Saboteur::Reporter::Terminal#error_part",
              reason: "equivalent: rejected > 1 -> rejected != 1 sits behind rejected.positive?, " \
                      "and for integers >= 1 the two predicates agree"
-  # selection_options.rb:25/26 --ignore-empty flag<->help argument_swap - OptionParser#on
-  # classifies its string arguments by shape, not position, so the swap builds the
-  # identical parser entry (same equivalence as 455660d7ea53007b above). Hand-probed:
-  # the swap leaves `run --help` byte-identical.
-  i.mutation "79a0a3ee707564ea",
-             subject: "Saboteur::CLI::SelectionOptions#define_selection_options",
-             reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not " \
-                     "position - hand-applied swap leaves run --help byte-identical"
-
-  # identical parser entry (same equivalence as 79a0a3ee707564ea above). Hand-probed:
+  # identical parser entry (same equivalence as b912933c03c1ed3e). Hand-probed:
   # the swap leaves `run --help` byte-identical.
   i.mutation "36843d3184cc0e07",
              subject: "Saboteur::CLI::RunBudgetOptions#add_run_budget_options",
@@ -2795,4 +2782,20 @@ i.mutation "fdc4600f4e8e8625",
                subject: "Saboteur::Reporter::SurvivorList#wrap",
                reason: "equivalent: same invariant - first.empty? agrees with last.empty? on every " \
                        "reachable accumulator state, so the join text is unchanged"
+
+  # OptionParser#on classifies flag vs description strings by shape, not
+  # position - the swap leaves `run --help` byte-identical (same probe as
+  # 455660d7ea53007b).
+  i.mutation "b912933c03c1ed3e",
+             subject: "Saboteur::CLI::SelectionOptions#define_selection_options",
+             reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not " \
+                     "position - hand-applied swap leaves run --help byte-identical"
+
+  # Refreshed digest for the --subject swap: 043ca90766f31ed6 went stale on an
+  # earlier shift of define_selection_options; the same OptionParser#on
+  # shape-classification swap now lives at selection_options.rb:30.
+  i.mutation "4ce69cedd12d2eb8",
+             subject: "Saboteur::CLI::SelectionOptions#define_selection_options",
+             reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not " \
+                     "position - hand-applied swap leaves run --help byte-identical"
 end

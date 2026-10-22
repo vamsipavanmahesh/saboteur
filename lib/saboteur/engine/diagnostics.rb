@@ -17,6 +17,12 @@ module Saboteur
       # be watched: the heartbeat then adds the count, the percentage and an
       # estimate of the time left to its elapsed-time line.
       class ProgressHeartbeat
+        # --quiet substitute: responds to the supervisor's calls, prints nothing.
+        NULL = Object.new.tap do |noop|
+          def noop.watch(*) = self
+          def noop.tick = nil
+        end
+
         COUNT = %r{(\d+)/([1-9]\d*) examples finished}
         TAIL_BYTES = 4096
 
@@ -91,9 +97,10 @@ module Saboteur
       attr_reader :warnings, :live_announced, :invalid_mutations, :generation_events, :omissions, :discovery_failures,
                   :hazard_suppressions, :inline_suppressions, :verbose, :quiet_start
 
-      def initialize(err, verbose: false, palette: nil, quiet_start: true)
+      def initialize(err, verbose: false, palette: nil, quiet_start: true, quiet: false)
         @err = err
         @verbose = verbose
+        @quiet = quiet
         @quiet_start = quiet_start
         @palette = palette || Reporter::Palette.for(err)
         @warnings = []
@@ -183,7 +190,7 @@ module Saboteur
       # Chatter the default view folds into the quiet-start lines;
       # --verbose prints it byte-for-byte as before.
       def detail(message)
-        inform(message) if @verbose || !@quiet_start
+        inform(message) if !@quiet && (@verbose || !@quiet_start)
       end
 
       # A selection explanation the default view carries as one dim
@@ -199,7 +206,7 @@ module Saboteur
       # The quiet start: three lines, then progress. --verbose keeps
       # today's chatter instead and never prints these.
       def quiet_start_header(scope:, seed:, operators:)
-        return if @verbose || !@quiet_start
+        return if @quiet || @verbose || !@quiet_start
 
         dot = @palette.glyph(:middot)
         line = "saboteur #{Saboteur::VERSION} #{dot} #{scope} #{dot} seed #{seed} #{dot} " \
@@ -208,7 +215,7 @@ module Saboteur
       end
 
       def quiet_baseline(passes:, elapsed:, tests:, cached:)
-        return if @verbose || !@quiet_start
+        return if @quiet || @verbose || !@quiet_start
 
         check = @palette.paint(:pass, @palette.glyph(:check))
         suffix = cached ? " (cached)" : ""
@@ -219,7 +226,7 @@ module Saboteur
       end
 
       def quiet_inference(spec_count)
-        return if spec_count.nil? || @verbose || !@quiet_start
+        return if spec_count.nil? || @quiet || @verbose || !@quiet_start
 
         files = spec_count == 1 ? "spec file" : "spec files"
         @err.puts(@palette.paint(:dim, "spec inference: #{spec_count} #{files} (details: --verbose)"))
@@ -252,6 +259,10 @@ module Saboteur
       # fork time. Prints "<label>: N s elapsed" about every interval
       # seconds, so a long phase does not look stuck.
       def progress_heartbeat(label, interval: 30)
+        # --quiet: the contract is findings, score and verdict - no elapsed
+        # chatter; the heartbeat's ticks become no-ops.
+        return ProgressHeartbeat::NULL if @quiet
+
         ProgressHeartbeat.new(self, label, interval: interval)
       end
 
@@ -261,6 +272,8 @@ module Saboteur
       # The count lives in one file the workers inherit, so every worker adds
       # to the same number.
       def start_progress(total)
+        return if @quiet
+
         @progress_total = total
         @progress_started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
         @progress_file = Tempfile.new("saboteur-progress")
@@ -271,6 +284,8 @@ module Saboteur
       end
 
       def progress(result)
+        return if @quiet
+
         mark = MARKS.fetch(result.status, "?")
         return plain_progress(painted_mark(mark)) unless @progress_file
 
