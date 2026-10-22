@@ -42,7 +42,9 @@ RSpec.describe Saboteur::Engine, "heap preparation" do
     record_candidate_lists(engine, events, box)
     expect_run_diagnostics(engine, subjects, map)
     report = engine.call
-    expect(diagnostics_output.string).to include("#{subjects.size} subjects, 1 tests") unless subjects.empty?
+    unless subjects.empty?
+      expect(diagnostics_output.string).to include("#{Saboteur::Text.counted(subjects.size, 'subject')}, 1 test")
+    end
     expect(report.subjects).to eq(subjects)
     expect(report.skipped_subjects).to eq({}) if subjects.empty?
     [box[:lists], box[:run_args]]
