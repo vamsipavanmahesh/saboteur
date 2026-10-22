@@ -394,6 +394,13 @@ RSpec.describe Saboteur::Doctor do
     expect { doctor.send(:check_runtime) }.to raise_error(Saboteur::ConfigError, /rspec/)
   end
 
+  it "prints the terse state line, not the boot note, when coverage is not suspended" do
+    allow(Coverage).to receive(:state).and_return(:running)
+    expect { doctor.send(:check_coverage) }.to raise_error(Saboteur::Error, /Coverage must be suspended/)
+    expect(out.string).to include("Coverage: running")
+    expect(out.string).not_to include("suspended during boot")
+  end
+
   it "requires both suspended coverage and line support" do
     allow(Coverage).to receive(:state).and_return(:running)
     expect { doctor.send(:check_coverage) }.to raise_error(Saboteur::Error, /Coverage must be suspended/)

@@ -62,6 +62,31 @@ RSpec.describe Saboteur::CLI::RunCommand do
     end
   end
 
+  it "names a custom --config path in the missing-config notice (#1172)" do
+    Dir.mktmpdir do |dir|
+      Dir.chdir(dir) do
+        run = cli("--all", "--config", "config/custom.rb")
+        allow(run).to receive(:refuse_empty_source_set)
+        allow(run).to receive(:execute_run).and_raise(Saboteur::Error, "stop")
+        run.call
+        expect(err.string).to include("saboteur: no config/custom.rb - using defaults " \
+                                      "(Rails: bundle exec rails generate saboteur:install writes one)")
+      end
+    end
+  end
+
+  it "prints the missing-config notice for an explicit non-agent format (#1172)" do
+    Dir.mktmpdir do |dir|
+      Dir.chdir(dir) do
+        run = cli("--all", "--format", "text")
+        allow(run).to receive(:refuse_empty_source_set)
+        allow(run).to receive(:execute_run).and_raise(Saboteur::Error, "stop")
+        run.call
+        expect(err.string).to include("using defaults")
+      end
+    end
+  end
+
   it "keeps the missing-config line out of agent output (#1172)" do
     Dir.mktmpdir do |dir|
       Dir.chdir(dir) do
