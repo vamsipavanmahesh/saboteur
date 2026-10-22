@@ -27,7 +27,7 @@ RSpec.describe Saboteur::Baseline::Workflow do
 
   def stub_run
     report = instance_double(Saboteur::Report, run_evidence: document)
-    engine = instance_double(Saboteur::Engine, call: report)
+    engine = engine_double(call: report)
     allow(Saboteur::Engine).to receive(:new).and_return(engine)
   end
 
@@ -109,7 +109,7 @@ RSpec.describe Saboteur::Baseline::Workflow do
     incomplete = document.merge("complete" => false, "proposable" => false,
                                 "issues" => ["missing_result"], "blockers" => ["missing_result"])
     report = instance_double(Saboteur::Report, run_evidence: incomplete)
-    allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, call: report))
+    allow(Saboteur::Engine).to receive(:new).and_return(engine_double(call: report))
     payload = workflow.check(path: path)
     expect(payload.fetch("state")).to eq("incomplete")
     expect(payload.fetch("exit_code")).to eq(3)
@@ -233,7 +233,7 @@ RSpec.describe Saboteur::Baseline::Workflow do
     report = instance_double(Saboteur::Report, run_evidence: document)
     allow(Saboteur::Engine).to receive(:new) do
       File.write(path, JSON.generate(manifest).concat(" "))
-      instance_double(Saboteur::Engine, call: report)
+      engine_double(call: report)
     end
     expect { workflow.check(path: path) }.to raise_error(Saboteur::ConfigError, /changed during check/)
   end
@@ -241,7 +241,7 @@ RSpec.describe Saboteur::Baseline::Workflow do
   it "does not publish a proposal from an incomplete run even with no survivors" do
     evidence = document.merge("proposable" => false, "candidates" => [])
     report = instance_double(Saboteur::Report, run_evidence: evidence, results: [])
-    allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, call: report))
+    allow(Saboteur::Engine).to receive(:new).and_return(engine_double(call: report))
     expect { workflow.propose(proposal: File.join(@root, "p.json"), destination: File.join(@root, "b.json")) }
       .to raise_error(Saboteur::Error, /needs a proposable run/)
     expect(File.exist?(File.join(@root, "p.json"))).to be(false)

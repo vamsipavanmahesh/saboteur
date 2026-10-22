@@ -12,7 +12,7 @@ RSpec.describe Saboteur::CLI, "terminal options" do
   let(:reporter) { instance_double(Saboteur::Reporter::Terminal, call: nil) }
 
   before do
-    engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of(result_for(:killed)))
+    engine = engine_double(guessed_tests: nil, call: report_of(result_for(:killed)))
     allow(Saboteur::Engine).to receive(:new).and_return(engine)
     allow(Saboteur::Reporter::Terminal).to receive(:new) { |*_a, **_kw| reporter }
   end
@@ -26,7 +26,9 @@ RSpec.describe Saboteur::CLI, "terminal options" do
     expect(Saboteur::Reporter::Terminal).to have_received(:new)
       .with(out, verbose: false, quiet: false, color: :auto, overrides: {}, replay_command: kind_of(Proc),
                  all_mutants: false, exit_code: 0, threshold: nil, previous_score: nil, baseline_gate: nil,
-                 scope: "whole project")
+                 scope: "whole project",
+                 whole_suite_map: Saboteur::Reporter::SurvivorList::NO_WHOLE_SUITE_LOOKUP,
+                 run_map: nil)
   end
 
   it "passes --verbose to the reporter" do
@@ -34,7 +36,9 @@ RSpec.describe Saboteur::CLI, "terminal options" do
     expect(Saboteur::Reporter::Terminal).to have_received(:new)
       .with(out, verbose: true, quiet: false, color: :auto, overrides: {}, replay_command: kind_of(Proc),
                  all_mutants: false, exit_code: 0, threshold: nil, previous_score: nil, baseline_gate: nil,
-                 scope: "whole project")
+                 scope: "whole project",
+                 whole_suite_map: Saboteur::Reporter::SurvivorList::NO_WHOLE_SUITE_LOOKUP,
+                 run_map: nil)
   end
 
   it "passes --color and --no-color to the reporter" do
@@ -42,12 +46,16 @@ RSpec.describe Saboteur::CLI, "terminal options" do
     expect(Saboteur::Reporter::Terminal).to have_received(:new)
       .with(out, verbose: false, quiet: false, color: :always, overrides: {}, replay_command: kind_of(Proc),
                  all_mutants: false, exit_code: 0, threshold: nil, previous_score: nil, baseline_gate: nil,
-                 scope: "whole project")
+                 scope: "whole project",
+                 whole_suite_map: Saboteur::Reporter::SurvivorList::NO_WHOLE_SUITE_LOOKUP,
+                 run_map: nil)
     run_with("--no-color")
     expect(Saboteur::Reporter::Terminal).to have_received(:new)
       .with(out, verbose: false, quiet: false, color: :never, overrides: {}, replay_command: kind_of(Proc),
                  all_mutants: false, exit_code: 0, threshold: nil, previous_score: nil, baseline_gate: nil,
-                 scope: "whole project")
+                 scope: "whole project",
+                 whole_suite_map: Saboteur::Reporter::SurvivorList::NO_WHOLE_SUITE_LOOKUP,
+                 run_map: nil)
   end
 
   it "passes --quiet to the reporter" do
@@ -55,7 +63,9 @@ RSpec.describe Saboteur::CLI, "terminal options" do
     expect(Saboteur::Reporter::Terminal).to have_received(:new)
       .with(out, verbose: false, quiet: true, color: :auto, overrides: {}, replay_command: kind_of(Proc),
                  all_mutants: false, exit_code: 0, threshold: nil, previous_score: nil, baseline_gate: nil,
-                 scope: "whole project")
+                 scope: "whole project",
+                 whole_suite_map: Saboteur::Reporter::SurvivorList::NO_WHOLE_SUITE_LOOKUP,
+                 run_map: nil)
   end
 
   it "passes --all-mutants to the reporter, defaulting to collapsed findings" do
@@ -63,7 +73,9 @@ RSpec.describe Saboteur::CLI, "terminal options" do
     expect(Saboteur::Reporter::Terminal).to have_received(:new)
       .with(out, verbose: false, quiet: false, color: :auto, overrides: {}, replay_command: kind_of(Proc),
                  all_mutants: true, exit_code: 0, threshold: nil, previous_score: nil, baseline_gate: nil,
-                 scope: "whole project")
+                 scope: "whole project",
+                 whole_suite_map: Saboteur::Reporter::SurvivorList::NO_WHOLE_SUITE_LOOKUP,
+                 run_map: nil)
   end
 
   describe "--fail-fast" do
@@ -76,7 +88,7 @@ RSpec.describe Saboteur::CLI, "terminal options" do
 
     def run_recording(report, *flags)
       allow(Saboteur::Engine).to receive(:new).and_return(
-        instance_double(Saboteur::Engine, guessed_tests: nil, call: report)
+        engine_double(guessed_tests: nil, call: report)
       )
       Dir.mktmpdir do |dir|
         json = File.join(dir, "r.json")

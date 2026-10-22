@@ -117,6 +117,24 @@ module Saboteur
       warnings + map.duplicate_keys(path).map { |key| "duplicate custom map key #{key}: Ruby keeps the last" }
     end
 
+    # The map this run selected tests from: survivor presentation compares
+    # it against the cached whole-suite map (review C1).
+    def run_coverage_map
+      @coverage_store&.fetched_map
+    end
+
+    # The cached whole-suite map on this tree, for survivor presentation
+    # in scoped runs; nil when caching is off or no full build ran (review C1).
+    def whole_suite_coverage_map
+      @coverage_store&.whole_suite_map
+    end
+
+    # False when caching is off, where no coverage build can ever leave a
+    # whole-suite map to consult, so advising one would be wrong (review C1).
+    def whole_suite_map_lookup?
+      config["cache"] ? true : false
+    end
+
     private
 
     # Inferred test selection, the default since 0.7.0: scope the run to the
@@ -319,11 +337,21 @@ module Saboteur
       ThreadWarnings.warn(@diagnostics, rails: config["rails"])
     end
 
+    # This run's map is the whole-suite map only when nothing scoped it:
+    # no --since, no subjects, and tests either unset or inferred over every
+    # included file (never an explicit --test list) (review C1).
+    def whole_suite_run?
+      config["since"].nil? && config["subjects"].empty? &&
+        (config["tests"].empty? || !@guessed_tests.nil?)
+    end
+
     def coverage_store(integration, load_lines, load_methods = {})
-      CoverageStore.new(config: config, integration: integration, hooks: hooks, load_lines:, load_methods:,
-                        supervisor: supervisor(memory_factor: 4), diagnostics: @diagnostics,
-                        timeout_cap: method(:budget_capped_timeout),
-                        parts: config["coverage_parts"])
+      @coverage_store ||=
+        CoverageStore.new(config: config, integration: integration, hooks: hooks, load_lines:, load_methods:,
+                          whole_suite_run: whole_suite_run?,
+                          supervisor: supervisor(memory_factor: 4), diagnostics: @diagnostics,
+                          timeout_cap: method(:budget_capped_timeout),
+                          parts: config["coverage_parts"])
     end
 
     def check_baseline(integration, full_passes)

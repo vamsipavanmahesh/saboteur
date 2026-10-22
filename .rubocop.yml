@@ -30,6 +30,15 @@ Metrics/AbcSize:
 Metrics/MethodLength:
   Max: 25
 # The explain command's dispatch entry takes CLI#call to 13.
+Metrics/ModuleLength:
+  # RunReporting's replay command narrows to the mutant's covering specs
+  # (#1148), one line over the default; text_run's whole-suite covering-map
+  # plumbing and its cache-off gate (review C1) take it to 107.
+  Max: 107
+  # OperatorExplain carries the curated survives/kill guidance for all 37
+  # registry operators; those content lines are intrinsic to the feature.
+  Exclude:
+    - lib/saboteur/mutation_source/operator_explain.rb
 Metrics/CyclomaticComplexity:
   Max: 13
 Metrics/PerceivedComplexity:
@@ -47,15 +56,6 @@ Metrics/ClassLength:
   # the PR6 clean-run screen and baseline-tail guard take it to 428; the
   # clean screen's phase lines (baseline, coverage, dots) take it to 442.
   Max: 442
-Metrics/ModuleLength:
-  # RunReporting's replay command narrows to the mutant's covering specs
-  # (#1148), one line over the default.
-  Max: 101
-  # OperatorExplain carries the curated survives/kill guidance for all 37
-  # registry operators; those content lines are intrinsic to the feature.
-  Exclude:
-    - lib/saboteur/mutation_source/operator_explain.rb
-
 Metrics/ParameterLists:
   CountKeywordArgs: false
 

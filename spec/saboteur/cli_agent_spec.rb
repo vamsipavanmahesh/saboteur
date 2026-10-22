@@ -18,7 +18,7 @@ RSpec.describe Saboteur::CLI, "agent mode" do
   end
 
   def run_agent(report, *flags)
-    engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report)
+    engine = engine_double(guessed_tests: nil, call: report)
     allow(Saboteur::Engine).to receive(:new).and_return(engine)
     Dir.mktmpdir do |dir|
       code = cli("run", *flags, "--json", File.join(dir, "r.json"), "--html", File.join(dir, "r.html")).call
@@ -49,7 +49,7 @@ RSpec.describe Saboteur::CLI, "agent mode" do
   it "prints only the JSON payload on stdout, and still writes the report files" do
     Dir.mktmpdir do |dir|
       json = File.join(dir, "r.json")
-      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of(result_for(:killed)))
+      engine = engine_double(guessed_tests: nil, call: report_of(result_for(:killed)))
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       cli("run", "--format", "agent", "--json", json).call
       expect(JSON.parse(out.string)["status"]).to eq("complete")
@@ -59,7 +59,7 @@ RSpec.describe Saboteur::CLI, "agent mode" do
 
   it "keeps the classic exit code for a mixed run without --agent" do
     report = report_of(result_for(:killed), result_for(:error, replacement: "<"))
-    engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report)
+    engine = engine_double(guessed_tests: nil, call: report)
     allow(Saboteur::Engine).to receive(:new).and_return(engine)
     expect(cli("run", "--json", File.join(Dir.mktmpdir, "r.json")).call).to eq(0)
     expect(out.string).to include("Score: 100.0% (1/1 killed, tested subjects)")
