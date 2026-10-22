@@ -69,11 +69,36 @@ RSpec.describe Saboteur::CLI, "explain (#1097)" do
     )
   end
 
-  it "exits 2 for an unknown operator, naming it and listing the valid names" do
+  # Exact bytes: the ", " separator, the prefixed list line and the absent
+  # empty-suggestion line are all pinned, so a joined-without-separator,
+  # interpolation-free or always-printed suggestion mutant cannot pass.
+  it "exits 2 for an unknown operator, with the exact stderr card" do
     expect(cli("explain", "not_an_operator").call).to eq(2)
-    expect(err.string).to include("saboteur: unknown operator: not_an_operator")
-    expect(err.string).to include("operand_replacement", "condition_negation", "body_nil")
+    expect(err.string).to eq(
+      "saboteur: unknown operator: not_an_operator\n" \
+      "saboteur: operators: #{Saboteur::MutationSource::OperatorRegistry::DESCRIPTIONS.keys.join(', ')}\n"
+    )
     expect(out.string).to eq("")
+  end
+
+  # The palette keyword is behaviour, not decoration: on a tty the card is
+  # painted through the auto palette, so dropping it (and falling back to
+  # the monochrome default) cannot pass. The colour env keys are scrubbed
+  # so the answer does not depend on the ambient terminal.
+  it "colours the card when the output stream is a tty" do
+    tty = StringIO.new.tap { |io| allow(io).to receive(:tty?).and_return(true) }
+    with_colour_env do
+      expect(described_class.new(%w[explain operand_replacement], out: tty, err:).call).to eq(0)
+      expect(tty.string).to include("\e[1mOperator:\e[0m")
+    end
+  end
+
+  def with_colour_env
+    keys = %w[NO_COLOR FORCE_COLOR CLICOLOR_FORCE TERM]
+    saved = keys.to_h { |k| [k, ENV.delete(k)] }
+    yield
+  ensure
+    keys.each { |k| saved[k] ? ENV[k] = saved[k] : ENV.delete(k) }
   end
 
   it "suggests the closest operator for a typo" do
