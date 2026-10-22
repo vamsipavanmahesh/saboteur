@@ -22,7 +22,7 @@ module Saboteur
       # there is no init command - the Rails generator writes the config.
       def announce_missing_config_file(palette)
         # @format, not agent_requested?: parse! has already eaten --format.
-        return if @format == "agent" || config.config_file_present
+        return if @format == "agent" || options[:quiet] || config.config_file_present
 
         path = options[:config] || Config::FILE
         notice =

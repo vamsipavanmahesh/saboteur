@@ -269,6 +269,80 @@ RSpec.describe Saboteur::Engine::CoverageStore do
     expect(err.string).to include("building coverage map (runs the selected specs once)")
   end
 
+  # First-run notices (#1264): the miss line and the build line, in the
+  # whole-suite and --test wordings, off with cache: false and under --quiet.
+  describe "first-run notices (#1264)" do
+    let(:built) { Saboteur::Selection::CoverageMap.new(lines: { file => { 1 => ["t1"] } }, tests: ["t1"]) }
+    let(:ok) do
+      Saboteur::Execution::Supervisor::Result.new(payload: built.to_json, exit_status: nil, stopped_by: nil,
+                                                  detail: nil, runtime: 1.0, leftover_pids: [])
+    end
+
+    before do
+      allow(supervisor).to receive(:run).and_return(ok)
+      allow(Coverage).to receive(:state).and_return(:suspended)
+    end
+
+    def fetch_with(settings = {}, quiet: false)
+      err = StringIO.new
+      config = Saboteur::Config.new(settings, root: @root)
+      described_class.new(config: config, integration: integration, hooks: Saboteur::Hooks.new,
+                          supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(err, quiet: quiet))
+                     .fetch([file])
+      err.string
+    end
+
+    it "explains a whole-suite miss with the hint, and a --test miss without it" do
+      whole = fetch_with
+      expect(whole).to include("saboteur: coverage cache miss: no earlier map to compare with; " \
+                               "the map build runs the whole suite once")
+      expect(whole).to include(Saboteur::Engine::CoverageMissNote::HINT)
+      FileUtils.rm_rf(File.join(@root, ".saboteur"))
+      scoped = fetch_with({ "tests" => ["spec/one_spec.rb"] })
+      expect(scoped).to include("the map build runs the selected specs once")
+      expect(scoped).not_to include(Saboteur::Engine::CoverageMissNote::HINT)
+    end
+
+    it "prints no miss line with cache: false, and no notices at all under --quiet" do
+      expect(fetch_with({ "cache" => false })).not_to include("coverage cache miss")
+      FileUtils.rm_rf(File.join(@root, ".saboteur"))
+      expect(fetch_with({}, quiet: true)).to eq("")
+    end
+
+    it "says how many parallel parts build the map" do
+      allow(integration).to receive(:test_files).and_return(%w[/s/a_spec.rb /s/b_spec.rb /s/c_spec.rb])
+      allow(integration).to receive(:example_count).and_return(1)
+      allow(integration).to receive(:example_count).with(no_args).and_return(3)
+      results = %w[t1 t2 t3].map do |name|
+        map = Saboteur::Selection::CoverageMap.new(lines: { file => { 1 => [name] } }, tests: [name])
+        Saboteur::Execution::Supervisor::Result.new(payload: map.to_json, exit_status: nil, stopped_by: nil,
+                                                    detail: nil, runtime: 1.0, leftover_pids: [])
+      end
+      allow(supervisor).to receive(:run_many).and_return(results)
+      err = StringIO.new
+      described_class.new(config: Saboteur::Config.new({}, root: @root), integration: integration,
+                          hooks: Saboteur::Hooks.new, supervisor: supervisor,
+                          diagnostics: Saboteur::Engine::Diagnostics.new(err), parts: 3).fetch([file])
+      expect(err.string).to include("building coverage map (runs the suite once, in 3 parallel parts)")
+    end
+
+    it "says how many saved parts a rebuild reuses" do
+      allow(integration).to receive(:test_files).and_return(%w[/s/a_spec.rb /s/b_spec.rb /s/c_spec.rb])
+      allow(integration).to receive(:example_count).and_return(1)
+      allow(integration).to receive(:example_count).with(no_args).and_return(3)
+      maps = %w[t1 t2 t3].map do |name|
+        Saboteur::Selection::CoverageMap.new(lines: { file => { 1 => [name] } }, tests: [name])
+      end
+      err = StringIO.new
+      store = described_class.new(config: Saboteur::Config.new({}, root: @root), integration: integration,
+                                  hooks: Saboteur::Hooks.new, supervisor: supervisor,
+                                  diagnostics: Saboteur::Engine::Diagnostics.new(err), parts: 3)
+      allow(store).to receive_messages(saved_parts: [maps[0], nil, nil], run_parts: maps.drop(1))
+      store.fetch([file])
+      expect(err.string).to include("building coverage map (runs the suite once, in 3 parallel parts, reusing 1 saved)")
+    end
+  end
+
   # A child that dies before reporting (a crash in a native extension, an
   # exit! in the suite) must leave enough to find out why.
   [[{ signaled?: true, termsig: 11 }, "was killed by signal SEGV"],

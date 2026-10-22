@@ -62,6 +62,18 @@ RSpec.describe Saboteur::CLI::RunCommand do
     end
   end
 
+  it "keeps the missing-config notice off stderr under --quiet (#1264)" do
+    Dir.mktmpdir do |dir|
+      Dir.chdir(dir) do
+        run = cli("--all", "--quiet")
+        allow(run).to receive(:refuse_empty_source_set)
+        allow(run).to receive(:execute_run).and_raise(Saboteur::Error, "stop")
+        run.call
+        expect(err.string).not_to include("using defaults")
+      end
+    end
+  end
+
   it "announces the Rails app/** default when no config file exists on a Rails app (#1171)" do
     Dir.mktmpdir do |dir|
       FileUtils.mkdir_p(File.join(dir, "config"))
