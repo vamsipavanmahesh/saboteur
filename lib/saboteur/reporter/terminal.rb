@@ -332,7 +332,8 @@ module Saboteur
         parts = state_parts(report)
         parts << "no mutants" if parts.empty?
         line = "saboteur: #{parts.join(', ')} in #{duration(report.wall_time)}"
-        line += " - score #{painted_score(report.score)}"
+        # The headline withholds the score on an error-dominated run (#557); so does this line (#1271).
+        line += " - score #{painted_score(report.majority_errored? ? nil : report.score)}"
         line += " (threshold #{format('%g', @threshold)})" if @threshold
         @out.puts line
       end

@@ -651,6 +651,13 @@ RSpec.describe Saboteur::Reporter::Terminal do
     text = render(report_of(result_for(:killed), *Array.new(3) { result_for(:error) }))
     expect(text).to include("Score: n/a (1 of 4 mutants scored, 100.0 % of scored)")
   end
+
+  # #1271: the closing line quoted "score 100.0%" under the n/a headline.
+  it "prints score n/a on the closing line when most executed mutants errored" do
+    text = render(report_of(result_for(:killed), *Array.new(3) { result_for(:error) }))
+    expect(text).to match(%r{^saboteur: 1 killed, 3 errors in \d+s - score n/a$})
+    expect(text).not_to include("score 100.0%")
+  end
 end
 
 RSpec.describe Saboteur::Reporter::Terminal, "details" do
