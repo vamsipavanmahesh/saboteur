@@ -18,10 +18,13 @@ module Saboteur
       # else the class of the error it died with (a crash, not a check).
       # executed_ids: the tests the child reports it ran; empty when it could
       # not say (a test called exit).
+      # value_differed: whether the mutated expression ever produced a value
+      # different from the original (SiteProbe); nil when the site is not
+      # probeable, never ran, or the run did not survive (#1290).
       Outcome = Data.define(:status, :runtime, :failed_ids, :message, :leftover_pids, :kill_cause,
-                            :executed_ids) do
+                            :executed_ids, :value_differed) do
         def initialize(status:, runtime:, failed_ids: [], message: nil, leftover_pids: [], kill_cause: nil,
-                       executed_ids: [])
+                       executed_ids: [], value_differed: nil)
           super
         end
       end
@@ -98,6 +101,7 @@ module Saboteur
       def run(subject:, text:, test_ids:, timeout:, mutation: nil, eval_prefix: nil)
         @hooks.run(:before_fork, mutation)
         @sequence = @sequence.to_i + 1
+        text = SiteProbe.text(subject, mutation, text) || text if mutation
         job = Job.new(subject:, text:, test_ids:, timeout:, mutation:, eval_prefix:,
                       log_path: File.join(@log_dir, "child-#{Process.pid}-#{@sequence}.log"))
         log_file = open_log(job)
@@ -132,6 +136,7 @@ module Saboteur
         # Before the evaluation: a whole-file subject runs the file's own
         # top-level code there, and it must see the run's random numbers.
         Kernel.srand(@seed)
+        SiteProbe.reset
         evaluate_mutant(writer, job)
         stale = stale_captures(job)
         Protocol.emit(writer, "captures", site: stale.first, stale: stale.size) if stale.any?
@@ -170,7 +175,8 @@ module Saboteur
           Protocol.emit(writer, "error", message: "around_mutant hook did not run the tests")
         else
           called = flags[:replacement_called]
-          Protocol.emit(writer, "result", **with_crash_detail(result, started_at), replacement_called: called)
+          Protocol.emit(writer, "result", **with_crash_detail(result, started_at), replacement_called: called,
+                                                                                   value_differed: SiteProbe.differed)
           # A reload after the mutant already ran (an after-hook restore)
           # is no reason to doubt the verdict; only a never-invoked mutant
           # can have been hidden by the overwrite.
@@ -394,7 +400,8 @@ module Saboteur
           return mismatch(runtime, "executed #{executed.size} of #{test_ids.size} requested tests")
         end
 
-        Outcome.new(status: :survived, runtime: runtime, executed_ids: executed)
+        Outcome.new(status: :survived, runtime: runtime, executed_ids: executed,
+                    value_differed: result["value_differed"])
       end
 
       def killed_outcome(result, runtime, failed, executed, verbose_failure)

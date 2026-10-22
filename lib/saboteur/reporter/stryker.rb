@@ -142,6 +142,9 @@ module Saboteur
           # Additive (#1286): confirmed, killed_by_confirmation or unconfirmed.
           # An unconfirmed survivor reports Ignored: outside the score.
           confirmation: result.confirmation_state,
+          # Additive (#1290): whether the mutated expression ever produced a
+          # different value from the original; absent when not probed.
+          valueDiffered: result.value_differed,
           creditedTest: result.credited_test&.then { |name| test_ids.fetch(name) },
           killedBy: result.killed_by.map { |name| test_ids.fetch(name) }.then { |ids| ids.empty? ? nil : ids },
           coveredBy: result.covered_by.map { |name| test_ids.fetch(name) }.then { |ids| ids.empty? ? nil : ids },
