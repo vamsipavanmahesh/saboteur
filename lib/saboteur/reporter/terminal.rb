@@ -28,14 +28,13 @@ module Saboteur
       def initialize(out, verbose: false, quiet: false, color: :auto, overrides: nil,
                      replay_command: nil, all_mutants: false, exit_code: nil,
                      threshold: nil, previous_score: nil, baseline_gate: nil,
-                     scope: "whole project", html_report: nil, baseline: nil, coverage: nil, mutant_phase: nil)
+                     scope: "whole project", baseline: nil, coverage: nil, mutant_phase: nil)
         @out = SafeOut.new(out)
         @all_mutants = all_mutants
         @verbose = verbose
         @quiet = quiet
-        # Clean-screen context: scope and report path from the CLI; PR4a plumbs the phase stats.
+        # Clean-screen context: scope from the CLI; PR4a plumbs the phase stats.
         @scope = scope
-        @html_report = html_report
         @baseline = baseline
         @coverage = coverage
         @mutant_phase = mutant_phase
@@ -188,7 +187,9 @@ module Saboteur
         untested = untested_subjects(report)
         @out.puts "  #{@palette.paint(:warn, Wording.untested_win_note(untested))}" if untested.any?
         ReuseNote.new(@out).print(report)
-        clean_reports_line
+        # The footer owns the report paths (#1187); the clean screen's own
+        # hint is the follow-up run a whole-project win suggests.
+        @out.puts "  #{@palette.paint(:dim, 'next: saboteur run --since origin/main')}" if @scope == "whole project"
       end
 
       # The phase lines and the progress-dots line print only when their data
@@ -208,14 +209,6 @@ module Saboteur
 
       def win_tally(report)
         "#{report.counts[:killed]}/#{report.executed.size} mutants killed"
-      end
-
-      def clean_reports_line
-        return unless @html_report
-
-        line = "reports: #{@html_report}"
-        line += " #{middot} next: saboteur run --since origin/main" if @scope == "whole project"
-        @out.puts "  #{@palette.paint(:dim, line)}"
       end
 
       def hazard_suppressions(report)

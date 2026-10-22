@@ -32,14 +32,14 @@ RSpec.describe Saboteur::Reporter::Terminal, "clean screen pins" do
   end
 
   let(:report) { clean_report(killed_result, killed_result) }
-  let(:options) { { exit_code: 0, scope: "whole project", html_report: ".saboteur/report.html" } }
+  let(:options) { { exit_code: 0, scope: "whole project" } }
 
   it "prints the golden success screen in monochrome" do
     expect(render(report, **options)).to eq(<<~TEXT)
       saboteur #{Saboteur::VERSION} · whole project · seed 1
 
       ✓ 2/2 mutants killed · score 100.0% · 2.3s total
-        reports: .saboteur/report.html · next: saboteur run --since origin/main
+        next: saboteur run --since origin/main
     TEXT
   end
 
@@ -48,7 +48,7 @@ RSpec.describe Saboteur::Reporter::Terminal, "clean screen pins" do
       \e[2msaboteur #{Saboteur::VERSION} · whole project · seed 1\e[0m
 
       \e[32m✓ 2/2 mutants killed · score 100.0%\e[0m \e[2m· 2.3s total\e[0m
-        \e[2mreports: .saboteur/report.html · next: saboteur run --since origin/main\e[0m
+        \e[2mnext: saboteur run --since origin/main\e[0m
     TEXT
   end
 
@@ -70,7 +70,6 @@ RSpec.describe Saboteur::Reporter::Terminal, "clean screen pins" do
   it "names the diff scope and drops the whole-project next hint" do
     text = render(clean_report(killed_result), **options, scope: "--since origin/main")
     expect(text).to include("saboteur #{Saboteur::VERSION} · --since origin/main · seed 1\n")
-    expect(text).to include("  reports: .saboteur/report.html\n")
     expect(text).not_to include("next:")
   end
 

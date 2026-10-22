@@ -431,7 +431,22 @@ fence="$(awk 'BEGIN { longest = 2 } { while (match($0, /`+/)) { if (RLENGTH > lo
       *) echo "**saboteur stopped with exit code $saboteur_status before producing a trusted result.** Read the saboteur output below." ;;
     esac
   elif [ "$score" = "n/a" ]; then
-    echo "No mutant was scored. $uncovered had no coverage or were ignored, and $errors errored or hit a resource limit."
+    # An empty selection is vacuously green (#1186): the report's empty
+    # files object identifies it, not the log wording. The saboteur log
+    # line supplies only the human reason, rendered in a code span with
+    # backticks stripped so repo-controlled names cannot break out into
+    # step-summary markdown.
+    if [ "$report_valid" = "true" ] && [ "$(jq -r '.files | length' "$report_path")" = "0" ]; then
+      nothing_line="$(grep -m1 '^saboteur: .*nothing to test' "$log_file" || true)"
+      reason="$(printf '%s' "${nothing_line#saboteur: }" | tr -d '`' | tr '\n' ' ')"
+      if [ -n "$reason" ]; then
+        echo "**Nothing to test in this diff.** \`$reason\`"
+      else
+        echo "**Nothing to test in this diff.** The selection held no subjects to mutate."
+      fi
+    else
+      echo "No mutant was scored. $uncovered had no coverage or were ignored, and $errors errored or hit a resource limit."
+    fi
   else
     echo "Covered score: **$score %** = (killed + timeout) / (killed + timeout + survived), over $scored scored mutants."
     echo "Killed $killed, timeout $timed_out, survived $survivors, survived and accepted by the ignore list $accepted."

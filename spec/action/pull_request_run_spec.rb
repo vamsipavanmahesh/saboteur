@@ -489,6 +489,37 @@ RSpec.describe "action/run-saboteur" do
       expect(outputs).to include("report-valid" => "true", "score" => "n/a")
     end
 
+    it "summarizes an empty-diff run as nothing to test, quoting saboteur's reason (#1186)" do
+      run_action({}, report: '{"schemaVersion":"2","files":{}}',
+                     log_text: "saboteur: --since abc: nothing to test - the resolved range has no changes\n")
+      summary = File.read(step_summary, encoding: "UTF-8")
+      expect(summary).to include("**Nothing to test in this diff.** " \
+                                 "`--since abc: nothing to test - the resolved range has no changes`")
+      expect(summary).not_to include("No mutant was scored")
+    end
+
+    it "says nothing to test without a matching log line, from the empty files object alone (#1186)" do
+      run_action({}, report: '{"schemaVersion":"2","files":{}}')
+      expect(File.read(step_summary, encoding: "UTF-8"))
+        .to include("**Nothing to test in this diff.** The selection held no subjects to mutate.")
+    end
+
+    it "keeps the zero-tally line when mutants exist but none scored, even if the log says nothing to test (#1186)" do
+      run_action({}, report: %w[NoCoverage],
+                     log_text: "saboteur: --since abc: nothing to test - printed by a spec, not the selection\n")
+      summary = File.read(step_summary, encoding: "UTF-8")
+      expect(summary).to include("No mutant was scored.")
+      expect(summary).not_to include("Nothing to test")
+    end
+
+    it "renders the saboteur reason in a code span with backticks stripped, so names cannot inject markdown (#1186)" do
+      run_action({}, report: '{"schemaVersion":"2","files":{}}',
+                     log_text: "saboteur: --since abc: nothing to test - changed [x](http://evil) `rm` files\n")
+      line = File.read(step_summary, encoding: "UTF-8").lines.find { |l| l.include?("Nothing to test") }
+      expect(line).to include("`--since abc: nothing to test - changed [x](http://evil) rm files`")
+      expect(line).not_to include("`rm`")
+    end
+
     it "fails when the old report cannot be removed" do
       FileUtils.mkdir_p(File.join(workspace, ".saboteur", "report.json", "inside"))
       output, status = run_action({})
