@@ -96,7 +96,8 @@ module Saboteur
       LABEL_REASONS = {
         "likely_equivalent" => "compiles to the same instructions as the original",
         "arid" => "every edited line matches an arid pattern",
-        "tool_limit" => "the tool could not observe this mutant faithfully"
+        "tool_limit" => "the tool could not observe this mutant faithfully",
+        "input_gap" => "no test reached this mutant, so its input never varied"
       }.merge(GapKinds::REASONS).freeze
 
       module_function

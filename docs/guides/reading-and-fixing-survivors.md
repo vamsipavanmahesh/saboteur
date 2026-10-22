@@ -70,9 +70,9 @@ that covered it:
 }
 ```
 
-Survivors also carry a `classification` (`likely_equivalent`, `arid`, or a
-gap kind such as `boundary`) when a heuristic matches - a triage-order hint that never
-changes the score or the exit code. None fired on this batch; the terminal
+Survivors also carry a `classification` (`likely_equivalent`, `arid`, `tool_limit`,
+`input_gap`, or a gap kind such as `boundary`) when a heuristic matches - a triage-order
+hint that never changes the score or the exit code. None fired on this batch; the terminal
 hints were the only guidance, and they were right.
 
 ## 4. Fix with tests, not edits

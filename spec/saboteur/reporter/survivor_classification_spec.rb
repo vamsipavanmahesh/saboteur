@@ -151,10 +151,25 @@ RSpec.describe Saboteur::Reporter::SurvivorClassification do
     expect(described_class.label(result)).to eq("arid")
   end
 
-  it "leaves an uncovered survivor with no signal unlabeled" do
+  it "labels an uncovered survivor with no signal as input_gap" do
     result = survivor_for("class A\n  def adult?(age)\n    age >= 18\n  end\nend\n", from: ">=", to: ">",
                                                                                      covered_by: [])
-    expect(described_class.label(result)).to be_nil
+    expect(described_class.label(result)).to eq("input_gap")
+  end
+
+  # D6 ladder pin: covered -> gap kind, uncovered -> input_gap, coarse -> nil,
+  # and the external runner's pseudo id keeps its tool_limit precedence (#305).
+  it "pins the covered/uncovered/coarse ladder with the pseudo-id precedence" do
+    source = "class A\n  def adult?(age)\n    age >= 18\n  end\nend\n"
+    covered = survivor_for(source, from: ">=", to: ">", operator: "comparison")
+    uncovered = survivor_for(source, from: ">=", to: ">", covered_by: [])
+    coarse = survivor_for(source, from: ">=", to: ">", covered_by: [], coarse: true)
+    pseudo = survivor_for(source, from: ">=", to: ">",
+                                  covered_by: [Saboteur::Execution::ExternalRunner::PSEUDO_TEST])
+    expect(described_class.label(covered)).to eq("boundary")
+    expect(described_class.label(uncovered)).to eq("input_gap")
+    expect(described_class.label(coarse)).to be_nil
+    expect(described_class.label(pseudo)).to eq("tool_limit")
   end
 
   it "labels a survivor observed only by the external runner's pseudo id as tool_limit (#1071)" do
@@ -187,7 +202,7 @@ RSpec.describe Saboteur::Reporter::SurvivorClassification do
   it "does not label an edit arid when it spans a logging call and following code" do
     result = survivor_for("class A\n  def tell(msg)\n    logger.info(msg)\n    msg\n  end\nend\n",
                           from: "logger.info(msg)\n    msg", to: "nil", covered_by: [])
-    expect(described_class.label(result)).to be_nil
+    expect(described_class.label(result)).to eq("input_gap")
   end
 
   it "labels a chained logger call as arid (#665)" do
@@ -264,7 +279,7 @@ RSpec.describe Saboteur::Reporter::SurvivorClassification do
       end
     RUBY
     result = survivor_for(source, from: "paid?", to: "!paid?", covered_by: [])
-    expect(described_class.label(result)).to be_nil
+    expect(described_class.label(result)).to eq("input_gap")
   end
 
   # Each boundary term of call_head's || chain decides a shape the others
@@ -280,7 +295,7 @@ RSpec.describe Saboteur::Reporter::SurvivorClassification do
       end
     RUBY
     result = survivor_for(source, from: "paid?", to: "!paid?", covered_by: [])
-    expect(described_class.label(result)).to be_nil
+    expect(described_class.label(result)).to eq("input_gap")
   end
 
   it "stops the head at the first argument of a multi-argument call without parens (#665)" do
@@ -294,7 +309,7 @@ RSpec.describe Saboteur::Reporter::SurvivorClassification do
       end
     RUBY
     result = survivor_for(source, from: "paid?", to: "!paid?", covered_by: [])
-    expect(described_class.label(result)).to be_nil
+    expect(described_class.label(result)).to eq("input_gap")
   end
 
   it "stops the head at the first argument when the call has no parens (#665)" do
@@ -308,7 +323,7 @@ RSpec.describe Saboteur::Reporter::SurvivorClassification do
       end
     RUBY
     result = survivor_for(source, from: "paid?", to: "!paid?", covered_by: [])
-    expect(described_class.label(result)).to be_nil
+    expect(described_class.label(result)).to eq("input_gap")
   end
 
   # operand_replacement on the head length must not let the whole slice
@@ -325,7 +340,7 @@ RSpec.describe Saboteur::Reporter::SurvivorClassification do
       end
     RUBY
     result = survivor_for(source, from: "paid?", to: "!paid?", covered_by: [])
-    expect(described_class.label(result)).to be_nil
+    expect(described_class.label(result)).to eq("input_gap")
   end
 
   # call_head's contract, pinned directly: the boundary terms decide which
@@ -362,7 +377,7 @@ RSpec.describe Saboteur::Reporter::SurvivorClassification do
       end
     RUBY
     result = survivor_for(source, from: "&.", to: ".", covered_by: [])
-    expect(described_class.label(result)).to be_nil
+    expect(described_class.label(result)).to eq("input_gap")
   end
 
   it "does not label an edit inside a non-arid call's block as arid" do
@@ -377,7 +392,7 @@ RSpec.describe Saboteur::Reporter::SurvivorClassification do
       end
     RUBY
     result = survivor_for(source, from: message, to: '"skip"', covered_by: [])
-    expect(described_class.label(result)).to be_nil
+    expect(described_class.label(result)).to eq("input_gap")
   end
 
   # A file the parser cannot read must not classify from a broken tree.
@@ -416,7 +431,7 @@ RSpec.describe Saboteur::Reporter::SurvivorClassification do
   it "accepts a nondefault arid hint list" do
     result = survivor_for("class A\n  def tell(msg)\n    audit_log msg\n  end\nend\n",
                           from: "audit_log msg", to: "nil", covered_by: [])
-    expect(described_class.label(result)).to be_nil
+    expect(described_class.label(result)).to eq("input_gap")
     expect(described_class.label(result, arid: ["audit_log"])).to eq("arid")
   end
 
@@ -467,7 +482,7 @@ RSpec.describe Saboteur::Reporter::SurvivorClassification do
   it "is not arid when any one edit of several is off an arid line" do
     result = survivor_for_edits("class A\n  def m(a)\n    puts a\n    a >= 18\n  end\nend\n",
                                 [["puts a", "nil"], [">=", ">"]], covered_by: [])
-    expect(described_class.label(result)).to be_nil
+    expect(described_class.label(result)).to eq("input_gap")
   end
 
   it "is not arid for a zero-width edit on a blank line" do
@@ -483,7 +498,7 @@ RSpec.describe Saboteur::Reporter::SurvivorClassification do
                                                       edits: [edit], coarse: false)
     result = Saboteur::MutantResult.new(subject:, mutation:, status: :survived,
                                         mutated_source: subject.apply(mutation.edits), covered_by: [])
-    expect(described_class.label(result)).to be_nil
+    expect(described_class.label(result)).to eq("input_gap")
   end
 
   it "extracts the edited line when nothing precedes it, not even a newline" do
@@ -511,7 +526,7 @@ RSpec.describe Saboteur::Reporter::SurvivorClassification do
   it "reads every line an edit reaches into" do
     result = survivor_for("class A\n  def m(a)\n    puts a\n    a >= 18\n  end\nend\n",
                           from: "puts a\n    a", to: "nil", covered_by: [])
-    expect(described_class.label(result)).to be_nil
+    expect(described_class.label(result)).to eq("input_gap")
   end
 
   it "matches multibyte arid patterns against the decoded line" do
