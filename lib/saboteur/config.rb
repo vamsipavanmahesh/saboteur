@@ -18,6 +18,11 @@ module Saboteur
     LEGACY_IGNORE_FILE = ".saboteur-ignore.yml"
     IGNORE_FILE = "config/saboteur_ignore.rb"
 
+    # A Rails app (config/application.rb + app/) without a config file gets
+    # the generator's include instead of the gem-shaped default, so a first
+    # run mutates app/ rather than refusing over an empty source set (#1171).
+    RAILS_INCLUDE = ["app/**/*.rb"].freeze
+
     # Settings that say where saboteur writes, never what it mutates: left
     # out of the run fingerprint, baseline evidence and score-history scope.
     OUTPUT_KEYS = %w[cache_dir json_report html_report score_history resume].freeze
@@ -145,9 +150,21 @@ module Saboteur
               "saboteur no longer reads #{LEGACY_IGNORE_FILE}; move its entries to #{IGNORE_FILE} (see README)."
       end
 
-      from_file = File.file?(path) ? ConfigFile.load(path) : {}
-      new(from_file.merge(stringify(overrides)), root: root, config_file_present: File.file?(path))
+      file_present = File.file?(path)
+      from_file = file_present ? ConfigFile.load(path) : {}
+      # Only a missing file triggers detection: a written config, even an
+      # empty one, means the defaults were chosen. The detected include is
+      # not an explicit key - the user set nothing.
+      detected = !file_present && rails_app?(root) ? { "include" => RAILS_INCLUDE } : {}
+      cli = stringify(overrides)
+      merged = detected.merge(from_file).merge(cli)
+      new(merged, root: root, explicit: from_file.keys | cli.keys, config_file_present: file_present)
     end
+
+    def self.rails_app?(root)
+      File.file?(File.join(root, "config", "application.rb")) && File.directory?(File.join(root, "app"))
+    end
+    private_class_method :rails_app?
 
     def self.stringify(hash)
       hash.to_h { |key, value| [key.to_s, value] }.compact
