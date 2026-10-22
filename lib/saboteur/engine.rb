@@ -4,6 +4,7 @@
 require "fileutils"
 require "json"
 require_relative "replay"
+require_relative "text"
 require_relative "mutation_source/hazard_guard"
 require_relative "baseline/run_evidence"
 require_relative "engine/early_stop_recording"
@@ -312,7 +313,8 @@ module Saboteur
                                     tests: map.tests.size, cached: @map_cached)
         @diagnostics.quiet_inference(@quiet_spec_count)
       else
-        @diagnostics.inform("#{subjects.size} subjects, #{map.tests.size} tests in coverage map")
+        @diagnostics.inform("#{Text.counted(subjects.size, 'subject')}, " \
+                            "#{Text.counted(map.tests.size, 'test')} in coverage map")
       end
       ThreadWarnings.warn(@diagnostics, rails: config["rails"])
     end

@@ -88,6 +88,12 @@ RSpec.describe Saboteur::Text do
       expect(described_class.display_safe(injected)).to eq("�\\x0a::error::x")
     end
 
+    it "counts nouns in the singular and plural (C9)" do
+      expect(described_class.counted(1, "subject")).to eq("1 subject")
+      expect(described_class.counted(0, "subject")).to eq("0 subjects")
+      expect(described_class.counted(2, "mutant")).to eq("2 mutants")
+    end
+
     it "escapes control characters so an injected newline cannot start a command line (#834)" do
       expect(described_class.display_safe("ok\n::error::boom")).to eq("ok\\x0a::error::boom")
       expect(described_class.display_safe("a\t b\x7f")).to eq("a\\x09 b\\x7f")

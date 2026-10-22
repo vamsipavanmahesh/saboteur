@@ -3,7 +3,7 @@
 A real first session, run end to end against [publify](https://github.com/publify/publify),
 a public Rails 7.2 blog app with RSpec and sqlite. Every output block below is
 copied from that session, trimmed only for width. Rails 7.2 on Ruby 3.4,
-saboteur 0.7.0, Linux.
+saboteur 0.11.2, Linux.
 
 The plan: install, preview the cost, run one small class, read the one
 survivor, kill it with a test, and rerun to a clean exit.
@@ -19,8 +19,8 @@ bundle add saboteur --group development,test
 ```
 
 ```
-Fetching saboteur 0.7.0
-Installing saboteur 0.7.0
+Fetching saboteur 0.11.2
+Installing saboteur 0.11.2
 ```
 
 Nothing else changes. saboteur runs your existing spec suite; there is no
@@ -70,7 +70,7 @@ bundle exec saboteur run app/models/sidebars/authors_sidebar.rb --test spec/mode
 saboteur: checking the unchanged suite twice (seed 1)
 saboteur: building coverage map (runs the selected specs once)
 ...
-saboteur 0.7.0: 1 subjects, 6 mutants, wall 6.81 s, seed 1 (repeat with --seed 1)
+saboteur 0.11.2: 1 subject, 6 mutants, wall 6.81 s, seed 1 (repeat with --seed 1)
 killed 5  survived 1  timeout 0  resource limit 0  error 0  skipped 0
 score 83.3 %
 ```
@@ -142,7 +142,7 @@ bundle exec saboteur run app/models/sidebars/authors_sidebar.rb --test spec/mode
 ```
 
 ```
-saboteur 0.7.0: 1 subjects, 6 mutants, wall 7.25 s, seed 1 (repeat with --seed 1)
+saboteur 0.11.2: 1 subject, 6 mutants, wall 7.25 s, seed 1 (repeat with --seed 1)
 killed 6  survived 0  timeout 0  resource limit 0  error 0  skipped 0
 score 100.0 %
 ```

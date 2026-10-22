@@ -144,9 +144,9 @@ module Saboteur
       # numbers so "4 mutants" is not read as the whole plan (#582).
       def mutant_counts(report)
         planned = report.early_stop&.planned_mutants
-        return "#{report.results.size} mutants" unless planned && planned > report.results.size
+        return Text.counted(report.results.size, "mutant") unless planned && planned > report.results.size
 
-        "#{planned} mutants selected, #{report.results.size} attempted"
+        "#{Text.counted(planned, 'mutant')} selected, #{report.results.size} attempted"
       end
 
       def summary(report)
@@ -154,7 +154,7 @@ module Saboteur
         return clean_screen(report) if !@baseline_gate && clean_run?(report)
 
         seed = report.seed && ", seed #{report.seed} (repeat with --seed #{report.seed})"
-        tally = "saboteur #{VERSION}: #{report.subjects.size} subjects, #{mutant_counts(report)}, " \
+        tally = "saboteur #{VERSION}: #{Text.counted(report.subjects.size, 'subject')}, #{mutant_counts(report)}, " \
                 "wall #{format('%.2f', report.wall_time)} s#{seed}"
         @out.puts @palette.paint(:dim, tally)
         @out.puts report.shard.line if report.shard

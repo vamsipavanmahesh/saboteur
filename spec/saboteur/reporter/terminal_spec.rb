@@ -19,7 +19,7 @@ RSpec.describe Saboteur::Reporter::Terminal do
     text = render(report_of(result_for(:killed, runtime: 0.5), result_for(:survived, runtime: 0.5)),
                   verbose: true)
     expect(text).to include(
-      "1 subjects, 2 mutants, wall 1.25 s, seed 1 (repeat with --seed 1)",
+      "1 subject, 2 mutants, wall 1.25 s, seed 1 (repeat with --seed 1)",
       "Score: 50.0% (1/2 killed, tested subjects)",
       "saboteur: 1 killed, 1 survived in 1s - score 50.0%",
       "mean time per executed mutant 0.500 s",
@@ -40,13 +40,30 @@ RSpec.describe Saboteur::Reporter::Terminal do
 
     out.truncate(0)
     out.rewind
+    # C9: each count pluralizes on its own - singular mutant with plural
+    # subjects, and the selected/attempted line at one planned mutant.
+    two_one = Saboteur::Report.new(results: [result_for(:killed)],
+                                   subjects: [person_subject, person_subject], wall_time: 1.25,
+                                   root: File.dirname(person_subject.file), seed: 1)
+    expect(render(two_one)).to include("2 subjects, 1 mutant, wall 1.25 s")
+
+    out.truncate(0)
+    out.rewind
+    one_planned = Saboteur::EarlyStop.new(reason: "fail_fast", unreached: ["Other#x"], truncated: [],
+                                          unverified: [], planned_mutants: 1)
+    planned = Saboteur::Report.new(results: [], subjects: [person_subject], wall_time: 1.25,
+                                   root: File.dirname(person_subject.file), seed: 1, early_stop: one_planned)
+    expect(render(planned)).to include("1 subject, 1 mutant selected, 0 attempted, wall 1.25 s")
+
+    out.truncate(0)
+    out.rewind
     # A stop without a planned count (budget exhausted in a pre-run phase)
     # keeps the plain headline.
     uncounted = Saboteur::EarlyStop.new(reason: "max_duration", unreached: ["Other#x"], truncated: [],
                                         unverified: [])
     partial = Saboteur::Report.new(results: [result_for(:killed)], subjects: [person_subject], wall_time: 1.25,
                                    root: File.dirname(person_subject.file), seed: 1, early_stop: uncounted)
-    expect(render(partial)).to include("1 subjects, 1 mutants, wall 1.25 s")
+    expect(render(partial)).to include("1 subject, 1 mutant, wall 1.25 s")
 
     out.truncate(0)
     out.rewind
@@ -56,7 +73,7 @@ RSpec.describe Saboteur::Reporter::Terminal do
                                    planned_mutants: 1)
     covered = Saboteur::Report.new(results: [result_for(:killed)], subjects: [person_subject], wall_time: 1.25,
                                    root: File.dirname(person_subject.file), seed: 1, early_stop: full)
-    expect(render(covered)).to include("1 subjects, 1 mutants, wall 1.25 s")
+    expect(render(covered)).to include("1 subject, 1 mutant, wall 1.25 s")
 
     out.truncate(0)
     out.rewind
@@ -68,14 +85,14 @@ RSpec.describe Saboteur::Reporter::Terminal do
     over = Saboteur::Report.new(results: [result_for(:killed), result_for(:survived)],
                                 subjects: [person_subject], wall_time: 1.25,
                                 root: File.dirname(person_subject.file), seed: 1, early_stop: undercounted)
-    expect(render(over)).to include("1 subjects, 2 mutants, wall 1.25 s")
+    expect(render(over)).to include("1 subject, 2 mutants, wall 1.25 s")
   end
 
   it "omits the seed clause when the run has no seed" do
     seedless = Saboteur::Report.new(results: [result_for(:killed)], subjects: [person_subject], wall_time: 1.25,
                                     root: File.dirname(person_subject.file))
     text = render(seedless)
-    expect(text).to include("1 subjects, 1 mutants, wall 1.25 s")
+    expect(text).to include("1 subject, 1 mutant, wall 1.25 s")
     expect(text).not_to include(", seed")
   end
 

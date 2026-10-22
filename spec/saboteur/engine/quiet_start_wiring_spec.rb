@@ -45,7 +45,7 @@ RSpec.describe Saboteur::Engine, "quiet start wiring" do
     /saboteur #{Regexp.escape(Saboteur::VERSION)} · (?<scope>.*) · seed \d+ · \d+ operators \(--list-operators\)\n/
   end
   let(:baseline_re) { /✓ baseline green \(2 passes, \d+\.\ds\)  ✓ coverage map: 1 test(?<cached> \(cached\))?\n/ }
-  let(:old_map_line) { "1 subjects, 1 tests in coverage map" }
+  let(:old_map_line) { "1 subject, 1 test in coverage map" }
   let(:inferred_line) { "spec inference: 1 spec file (details: --verbose)" }
   let(:inferred_paragraph) { "inferred specs: running only spec/since_target_spec.rb." }
 
