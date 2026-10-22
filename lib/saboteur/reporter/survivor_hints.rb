@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require_relative "gap_kinds"
+
 module Saboteur
   module Reporter
     # Suggests a check that might kill a surviving mutant, by operator. It does
@@ -94,9 +96,8 @@ module Saboteur
       LABEL_REASONS = {
         "likely_equivalent" => "compiles to the same instructions as the original",
         "arid" => "every edited line matches an arid pattern",
-        "missing_test" => "the covering specs pass without pinning this change",
         "tool_limit" => "the tool could not observe this mutant faithfully"
-      }.freeze
+      }.merge(GapKinds::REASONS).freeze
 
       module_function
 

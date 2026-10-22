@@ -34,7 +34,7 @@ RSpec.describe Saboteur::CLI, "survivors (#475)" do
     RUBY_SRC
     digest_a = "a" * 16
     mutants = [mutant(id: digest_a, operator: "sum_to_map_sum", line: 3, status: "Survived",
-                      classification: "missing_test", covered: ["0"]),
+                      classification: "boundary", covered: ["0"]),
                mutant(id: "b" * 16, operator: "and_to_or", line: 3, status: "Survived")] + survivors
     report = {
       "schemaVersion" => "2", "thresholds" => { "high" => 80, "low" => 60 },
@@ -45,7 +45,7 @@ RSpec.describe Saboteur::CLI, "survivors (#475)" do
       "saboteur" => { "findings" => { "version" => 1, "survivors" => [
         { "digest" => digest_a, "path" => "lib/order.rb", "line" => 3, "subject" => "Order#total",
           "operator" => "sum_to_map_sum", "original" => "items.sum(&:price)",
-          "replacement" => "items.map(&:price).sum", "classification" => "missing_test" }
+          "replacement" => "items.map(&:price).sum", "classification" => "boundary" }
       ], "survivorsTruncated" => 1, "accepted" => [] } }
     }
     File.write(path = File.join(dir, "report.json"), JSON.generate(report))
@@ -56,7 +56,7 @@ RSpec.describe Saboteur::CLI, "survivors (#475)" do
     Dir.mktmpdir do |dir|
       path = write_report(dir, survivors: [])
       expect(cli("survivors", path).call).to eq(0)
-      expect(out.string).to include("lib/order.rb:3", "sum_to_map_sum", "a" * 16, "missing_test")
+      expect(out.string).to include("lib/order.rb:3", "sum_to_map_sum", "a" * 16, "boundary")
       # b*16 is only in the files section (findings is capped at 10): still listed.
       expect(out.string).to include("b" * 16, "and_to_or")
       expect(out.string).not_to include("Killed")
@@ -132,8 +132,8 @@ RSpec.describe Saboteur::CLI, "survivors (#475)" do
     Dir.mktmpdir do |dir|
       path = write_report(dir, survivors: [])
       expect(cli("survivors", path, "--show", "a" * 16).call).to eq(0)
-      expect(out.string).to include("classification: missing_test - ",
-                                    "the covering specs pass without pinning this change")
+      expect(out.string).to include("classification: boundary - ",
+                                    "the covering specs pass without pinning this boundary")
       expect(out.string).to include("why it matters:")
       expect(out.string).to include("covered by ./spec/order_spec.rb[1:1] - ran, still passed")
     end
@@ -222,7 +222,7 @@ RSpec.describe Saboteur::CLI, "survivors (#475)" do
         report["saboteur"]["findings"]["survivors"].unshift(
           { "digest" => "b" * 16, "path" => "lib/order.rb", "line" => 3, "subject" => "Order#total",
             "operator" => "and_to_or", "original" => "items", "replacement" => "items",
-            "classification" => "missing_test" }
+            "classification" => "boundary" }
         )
         File.write(path, JSON.generate(report))
 
@@ -246,7 +246,7 @@ RSpec.describe Saboteur::CLI, "survivors (#475)" do
     it "filters survivors by classification with --triage" do
       Dir.mktmpdir do |dir|
         path = write_report(dir, survivors: [])
-        expect(cli("survivors", path, "--triage", "missing_test").call).to eq(0)
+        expect(cli("survivors", path, "--triage", "boundary").call).to eq(0)
         expect(out.string).to include("a" * 16)
         expect(out.string).not_to include("b" * 16)
       end
@@ -315,7 +315,7 @@ RSpec.describe Saboteur::CLI, "survivors (#475)" do
     it "does not leak subcommand flags into the CLI's options" do
       Dir.mktmpdir do |dir|
         path = write_report(dir, survivors: [])
-        command = cli("survivors", path, "--triage", "missing_test")
+        command = cli("survivors", path, "--triage", "boundary")
         expect(command.call).to eq(0)
         expect(command.options).to eq({})
       end

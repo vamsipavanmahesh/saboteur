@@ -70,8 +70,8 @@ that covered it:
 }
 ```
 
-Survivors also carry a `classification` (`likely_equivalent`, `arid`,
-`missing_test`) when a heuristic matches - a triage-order hint that never
+Survivors also carry a `classification` (`likely_equivalent`, `arid`, or a
+gap kind such as `boundary`) when a heuristic matches - a triage-order hint that never
 changes the score or the exit code. None fired on this batch; the terminal
 hints were the only guidance, and they were right.
 

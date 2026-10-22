@@ -2,7 +2,7 @@
 # frozen_string_literal: true
 
 RSpec.describe Saboteur::Reporter::ReviewComments do
-  def finding(digest, line: 12, classification: "missing_test", original: "a > b", replacement: "a >= b", **extra)
+  def finding(digest, line: 12, classification: "boundary", original: "a > b", replacement: "a >= b", **extra)
     { "digest" => digest, "path" => "lib/x.rb", "operator" => "comparison", "original" => original,
       "replacement" => replacement, "subject" => "X#go", "classification" => classification,
       "changedLines" => line ? [line, line + 1] : [] }.merge(extra.transform_keys(&:to_s))
