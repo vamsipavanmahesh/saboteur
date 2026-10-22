@@ -14,7 +14,7 @@ All notable changes are documented here. The format follows
   mutated expression actually produced (side-effect-free sites only).
   `input_gap` means the tests never gave the expression an input where its
   value differs, or no test reached it. `assertion_gap` means the value
-  changed and the tests still passed. The JSON report gains `valueDiffed`
+  changed and the tests still passed. The JSON report gains `valueDiffered`
   and `gapKind` fields (#1290, #1305, #1306, #1307).
 
 ### Changed
