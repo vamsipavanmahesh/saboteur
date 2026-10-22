@@ -77,8 +77,8 @@ module Saboteur
         line = MutationText.line(first)
         path = relative(first.subject.file, report.root)
         @out.puts "\n#{@palette.paint(:head, "#{rank}. #{path}:#{line}")} #{first.subject.id} " \
-                  "#{@palette.paint(:dim, label_suffix(first, rank, total))}".rstrip
-        reason = SurvivorHints.label_reason(@classifier.label(first))
+                  "#{@palette.paint(:dim, label_suffix(group, rank, total))}".rstrip
+        reason = SurvivorHints.label_reason(@classifier.group_label(group))
         @out.puts "  #{@palette.paint(:dim, reason)}" if reason
         fence(first, line)
         @out.puts "  #{@palette.paint(:dim, "why it matters: #{why(first.mutation.operator)}")}"
@@ -105,10 +105,10 @@ module Saboteur
       # siblings read "#3 of 14 blocks", never blocks against mutants (#1147).
       # Label and rank stay on the header line; the reason moves to its own
       # dim line so the fixed text cannot push the header past 80 columns.
-      def label_suffix(result, rank, total)
-        label = @classifier.label(result)
+      def label_suffix(group, rank, total)
+        label = @classifier.group_label(group)
         unit = total == 1 ? "block" : "blocks"
-        parts = [("coarse" if result.mutation.coarse), label, "##{rank} of #{total} #{unit}"].compact
+        parts = [("coarse" if group.first.mutation.coarse), label, "##{rank} of #{total} #{unit}"].compact
         "[#{parts.join(' · ')}]"
       end
 

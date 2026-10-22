@@ -93,6 +93,23 @@ RSpec.describe Saboteur::Reporter::SurvivorList, "survivor blocks" do
     TEXT
   end
 
+  it "labels a grouped statement from all its mutants, not the first (#P4)" do
+    number = edited(PINS_CALCULATOR, "1 +", "2 +", operator: "literal_number", dir:,
+                                                   covered_by: ["./spec/calculator_spec.rb[2:1]"])
+    expect(Saboteur::Reporter::SurvivorClassification.label(number)).to eq("number")
+    text = render([number, operand])
+    expect(text).to include("1. calculator.rb:3 Calculator#compound [result unchecked · #1 of 1 block]")
+    expect(text).to include("  the covering specs pass without pinning this result\n")
+  end
+
+  it "marks a group coarse by its first mutant, whatever the label comes from (#P4)" do
+    whole = "principal * (1 + rate)**years"
+    coarse = edited(PINS_CALCULATOR, whole, "nil", operator: "body_nil", dir:, coarse: true,
+                                                   covered_by: ["./spec/calculator_spec.rb[2:1]"])
+    expect(render([coarse, operand])).to include("[coarse · result unchecked · #1 of 1 block]")
+    expect(render([operand, coarse])).to include("[result unchecked · #1 of 1 block]")
+  end
+
   it "renders the golden block with colour tokens" do
     text = render([operand], palette: coloured)
     expect(text).to start_with("\e[1mSurvivors (1) - changes your tests did not catch\e[0m")

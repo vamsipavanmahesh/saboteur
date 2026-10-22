@@ -33,8 +33,11 @@ RSpec.describe "survivor triage labels per statement (end to end)", :e2e do
 
   it "prints one block per statement with its triage label, id and the mutants folded under it" do
     expect(run.out).to include("lib/demo.rb:#{line_of('puts')} Demo#noisy [arid] - ")
-    expect(run.out).to include("lib/demo.rb:#{line_of('count >= 10')} Demo#limit [number] - ")
+    expect(run.out).to include("lib/demo.rb:#{line_of('count >= 10')} Demo#limit [boundary] - ")
     expect(run.out).to include("lib/demo.rb:#{line_of('flag ?')} Demo#pick [branch] - ")
+    # One label per statement from all its mutants (#P4): fetch_name holds a
+    # branch and a result unchecked mutant, and result unchecked outranks it.
+    expect(run.out).to include("lib/demo.rb:#{line_of('hash[:name]')} Demo#fetch_name [result unchecked] - ")
     expect(run.out).to include("Survivors (11) - changes your tests did not catch")
     expect(run.out).to include("#1 of 4 blocks", "#2 of 4 blocks")
     expect(run.out).to include("every edited line matches an arid pattern")

@@ -45,6 +45,94 @@ RSpec.describe Saboteur::Reporter::SurvivorClassification do
     end
   end
 
+  # One label per statement from all its survivors (#P4), not from whichever
+  # mutant sorts first.
+  describe ".group_label" do
+    let(:source) { "class A\n  def go(a, b)\n    a > 1 && b\n  end\nend\n" }
+
+    def group(*kinds)
+      kinds.map do |operator, from, to|
+        survivor_for(source, from: from, to: to, operator: operator)
+      end
+    end
+
+    it "does not let the first mutant decide: a branch condition with a flipped comparison is a branch" do
+      results = group(["comparison", ">", ">="], ["boolean_logic", "&&", "||"])
+      expect(described_class.label(results.first)).to eq("boundary")
+      expect(described_class.group_label(results)).to eq("branch")
+      expect(described_class.group_label(results.reverse)).to eq("branch")
+    end
+
+    it "orders every pair of gap kinds by GapKinds::PRECEDENCE" do
+      operator_for = { "result unchecked" => "body_nil", "error path" => "body_raise", "branch" => "boolean_logic",
+                       "boundary" => "comparison", "effect" => "statement_removal", "number" => "literal_number" }
+      expect(operator_for.keys).to match_array(Saboteur::Reporter::GapKinds::KINDS)
+      Saboteur::Reporter::GapKinds::PRECEDENCE.combination(2).each do |higher, lower|
+        results = [lower, higher].map do |kind|
+          survivor_for(source, from: "b", to: "nil", operator: operator_for[kind])
+        end
+        expect(described_class.group_label(results)).to eq(higher)
+      end
+    end
+
+    # A real survivor must not be hidden by one equivalent sibling, in
+    # either mutant order.
+    it "shows the gap kind when only some mutants are equivalent" do
+      gap = survivor_for(source, from: "&&", to: "||", operator: "boolean_logic")
+      same = survivor_for(source, from: "b", to: "b", operator: "comparison")
+      expect(described_class.label(gap)).to eq("branch")
+      expect(described_class.label(same)).to eq("likely_equivalent")
+      [[gap, same], [same, gap]].each do |order|
+        expect(described_class.group_label(order)).to eq("branch")
+      end
+      expect(described_class.group_label([same, same])).to eq("likely_equivalent")
+    end
+
+    it "takes likely_equivalent, arid or tool_limit only when every mutant shares it" do
+      a = survivor_for(source, from: "b", to: "nil", operator: "body_nil")
+      b = survivor_for(source, from: "b", to: "nil", operator: "body_nil")
+      %w[likely_equivalent arid tool_limit].each do |kind|
+        allow(described_class).to receive(:label).and_return(kind)
+        expect(described_class.group_label([a, b])).to eq(kind)
+        allow(described_class).to receive(:label) { |result| result.equal?(a) ? kind : "branch" }
+        expect(described_class.group_label([a, b])).to eq("branch")
+        expect(described_class.group_label([b, a])).to eq("branch")
+      end
+    end
+
+    it "skips unlabeled mutants when taking the first label" do
+      a = survivor_for(source, from: "b", to: "nil", operator: "body_nil")
+      b = survivor_for(source, from: "b", to: "nil", operator: "body_nil")
+      allow(described_class).to receive(:label) { |result| result.equal?(a) ? nil : "arid" }
+      expect(described_class.group_label([a, b])).to eq("arid")
+    end
+
+    it "keeps input_gap below gap kinds and falls back to the first present label" do
+      a = survivor_for(source, from: "b", to: "nil", operator: "body_nil")
+      b = survivor_for(source, from: "b", to: "nil", operator: "body_nil")
+      allow(described_class).to receive(:label) { |result| result.equal?(a) ? "input_gap" : "branch" }
+      expect(described_class.group_label([a, b])).to eq("branch")
+      expect(described_class.group_label([b, a])).to eq("branch")
+      allow(described_class).to receive(:label) { |result| result.equal?(a) ? "arid" : "likely_equivalent" }
+      expect(described_class.group_label([b, a])).to eq("likely_equivalent")
+    end
+
+    it "falls back to input_gap, and to the first label when none is a known kind" do
+      one = survivor_for(source, from: "b", to: "nil", operator: "body_nil")
+      two = survivor_for(source, from: "b", to: "nil", operator: "body_nil")
+      allow(described_class).to receive(:label) { |result| result.equal?(one) ? "input_gap" : "other" }
+      expect(described_class.group_label([one])).to eq("input_gap")
+      expect(described_class.group_label([one, two])).to eq("input_gap")
+      expect(described_class.group_label([two, one])).to eq("other")
+    end
+
+    it "returns nil for no survivors and for survivors without a label" do
+      allow(described_class).to receive(:label).and_return(nil)
+      expect(described_class.group_label([survivor_for(source, from: "b", to: "nil")])).to be_nil
+      expect(described_class.group_label([])).to be_nil
+    end
+  end
+
   it "labels operand_replacement on a comparison as boundary, from the edit shape" do
     result = survivor_for("class A\n  def adult?(age)\n    age >= 18\n  end\nend\n",
                           from: "age >= 18", to: "age", operator: "operand_replacement")

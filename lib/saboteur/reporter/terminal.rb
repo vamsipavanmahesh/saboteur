@@ -94,7 +94,7 @@ module Saboteur
 
       def quiet_survivor_line(path, line, subject_id, results)
         first, *rest = results
-        label = SurvivorClassification.label(first)
+        label = SurvivorClassification.group_label(results)
         text = "#{path}:#{line} #{subject_id}#{" [#{label}]" if label} - #{first.digest}"
         rest.any? ? "#{text} (+#{rest.size} more)" : text
       end
