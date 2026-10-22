@@ -6,6 +6,35 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-10-22
+
+### Added
+
+- The default report is short: a findings list, the top three expanded
+  survivor blocks and `--details` for the rest, with a per-phase
+  wall-time speed footer and the slowest mutant. Fixed template lines
+  fit 80 columns and the piped-progress margin is wider so the summary
+  fits 80-column logs (#1256, #1152).
+- A run on a Rails app with no `config/saboteur.rb` now defaults
+  `include` to `app/**/*.rb` and says so in the missing-config notice,
+  instead of exiting 2. A written config, even an empty one, keeps the
+  plain defaults, and a CLI `--include` still wins (#1257, #1171).
+- The terminal summary prints one dim line under Score when mutants sit
+  on lines no test runs, saying they are not in the score and that the
+  JSON report lists them as `NoCoverage` (#1259, #1190).
+
+### Changed
+
+- Uncovered survivors are labeled `input_gap`, separate from assertion
+  gaps (#1254, #1157).
+
+### Tests
+
+- End-to-end pins for `--shard K/N` and the score history, badge and
+  trend commands, and for a stub-only method reported as not executed
+  (#1260, #1261, #1158, #1159). The survivor-ranking regression
+  fixture is the real money gem `allocation.rb` (#1262, #1160).
+
 ## [0.11.2] - 2026-10-22
 
 ### Added
