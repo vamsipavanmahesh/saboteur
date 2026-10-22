@@ -443,9 +443,19 @@ module Saboteur
         [prefix.count("\n") + 1, offset - ((prefix.rindex("\n") || -1) + 1)]
       end
 
+      # Durations are compared to the millisecond. Two tests within a
+      # millisecond of each other swap places from one map build to the next,
+      # and with fail-fast the first failing test names a mutant's killer and
+      # kill cause, so sub-millisecond noise must not decide the order (#1274).
+      # Suite order breaks the tie instead.
       def sort_test_ids(ids)
         order = test_order
-        ids.sort_by { |id| [durations.fetch(id, Float::INFINITY), order.fetch(id, Float::INFINITY)] }
+        ids.sort_by { |id| [duration_bucket(id), order.fetch(id, Float::INFINITY)] }
+      end
+
+      def duration_bucket(id)
+        seconds = durations[id]
+        seconds ? (seconds * 1000).ceil : Float::INFINITY
       end
 
       def test_order

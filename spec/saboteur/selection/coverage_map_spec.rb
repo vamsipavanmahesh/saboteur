@@ -155,6 +155,40 @@ RSpec.describe Saboteur::Selection::CoverageMap do
     expect(described_class.from_json(timed.to_json).durations).to eq("t1" => 0.5, "t2" => 0.01)
   end
 
+  # #1274: with fail-fast the first failing test names the killer and its
+  # cause, and two tests a fraction of a millisecond apart swap places from
+  # one map build to the next.
+  it "keeps suite order for tests whose recorded durations are within the same millisecond" do
+    first_build = described_class.new(lines: map.lines, tests: map.tests,
+                                      durations: { "t1" => 0.00031, "t2" => 0.00022, "t3" => 0.00027 })
+    second_build = described_class.new(lines: map.lines, tests: map.tests,
+                                       durations: { "t1" => 0.00019, "t2" => 0.00030, "t3" => 0.00024 })
+
+    expect(first_build.tests_for(subject_under_test)).to eq(%w[t1 t2 t3])
+    expect(second_build.tests_for(subject_under_test)).to eq(%w[t1 t2 t3])
+  end
+
+  it "still puts a test a whole millisecond faster first" do
+    timed = described_class.new(lines: map.lines, tests: map.tests,
+                                durations: { "t1" => 0.0031, "t2" => 0.0002, "t3" => 0.0004 })
+    expect(timed.tests_for(subject_under_test)).to eq(%w[t2 t3 t1])
+  end
+
+  it "rounds a duration up to the next whole millisecond, so exactly one millisecond is one bucket" do
+    timed = described_class.new(lines: map.lines, tests: map.tests,
+                                durations: { "t1" => 0.001, "t2" => 0.0005, "t3" => 0.0011 })
+    expect(timed.tests_for(subject_under_test)).to eq(%w[t1 t2 t3])
+    barely_over = described_class.new(lines: map.lines, tests: map.tests,
+                                      durations: { "t1" => 0.0010005, "t2" => 0.001, "t3" => 0.002 })
+    expect(barely_over.tests_for(subject_under_test)).to eq(%w[t2 t1 t3])
+  end
+
+  it "sorts an id the map has no suite position for after the known ones, without failing" do
+    unknown = described_class.new(lines: { file => { 3 => %w[ghost t2], 4 => %w[t1] } }, tests: %w[t1 t2],
+                                  durations: { "t1" => 0.5, "t2" => 0.5, "ghost" => 0.5 })
+    expect(unknown.tests_for(subject_under_test)).to eq(%w[t1 t2 ghost])
+  end
+
   it "selects tests by line for a single edit" do
     expect(map.tests_for_lines(file, [4])).to eq(%w[t1 t3])
     expect(map.tests_for_lines(file, [99])).to eq([])

@@ -411,9 +411,11 @@ harness problem or a runaway mutant cannot raise the score silently.
   finished (#471). Those mid-run saves are best effort (a failed one is
   retried a save interval later); the final save still raises.
 - Order: tests that killed earlier mutants of the same subject first, then
-  fastest first (suite order breaks ties). With fail-fast, a mutant is killed
-  by its cheapest killing test. The verdict check (section 8) re-runs the
-  exact sequence each kill ran.
+  fastest first, comparing recorded durations to the millisecond; suite order
+  breaks ties within a bucket, so kill attribution does not flip on
+  sub-millisecond timing noise (#1274). With fail-fast, a mutant is killed
+  by its cheapest killing test (to the millisecond). The verdict check
+  (section 8) re-runs the exact sequence each kill ran.
 - Cache: `.saboteur/coverage-<sha256>.json` keyed by the hash of every
   included source file, every test file, the lockfile, the resolved config
   (boot files, integration) and the saboteur version. Any change rebuilds.
