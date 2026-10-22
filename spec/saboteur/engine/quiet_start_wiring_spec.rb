@@ -97,6 +97,17 @@ RSpec.describe Saboteur::Engine, "quiet start wiring" do
     expect(out).not_to include(old_map_line)
   end
 
+  it "names a --subject scope in the header instead of whole project (P6)" do
+    out = run_engine({ "subjects" => ["Ledger::Fee"] })
+    expect(out.match(header_re)[:scope]).to eq("--subject Ledger::Fee")
+  end
+
+  it "joins the diff and subject scopes in the header (P6)" do
+    out = run_engine({ "since" => "HEAD~1", "subjects" => %w[A B] }, changed: 1,
+                                                                     specs: ["spec/since_target_spec.rb"])
+    expect(out.match(header_re)[:scope]).to eq("--since HEAD~1, --subject A, B")
+  end
+
   it "prints the diff scope in the header and folds the inference paragraph into the count line" do
     out = run_engine({ "since" => "HEAD~1" }, changed: 1, specs: ["spec/since_target_spec.rb"])
     expect(out.match(header_re)[:scope]).to eq("--since HEAD~1")

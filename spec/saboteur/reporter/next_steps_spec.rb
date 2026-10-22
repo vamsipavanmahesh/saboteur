@@ -12,11 +12,13 @@ RSpec.describe Saboteur::Reporter::NextSteps do
     out.string
   end
 
-  it "names the replay command with the first live survivor's digest, the ignore file and the agent format" do
-    first = result_for(:survived)
-    second = result_for(:survived, replacement: "<=")
+  it "names the replay command with the top-ranked live survivor's digest, the ignore file and the agent format" do
+    both = [result_for(:survived), result_for(:survived, replacement: "<=")]
+    report = report_of(*both)
+    first = Saboteur::Reporter::SurvivorRanking.ordered(report, both).first
+    second = (both - [first]).first
 
-    text = render(report_of(first, second))
+    text = render(report)
 
     expect(text).to include("\nNext steps:\n", "saboteur run --id #{first.digest}", "config/saboteur_ignore.rb",
                             "saboteur run --agent")
@@ -48,6 +50,18 @@ RSpec.describe Saboteur::Reporter::NextSteps do
       report = Saboteur::Report.new(results: [survivor], subjects: [person_subject], wall_time: 1, root: "/tmp",
                                     seed: seed)
       expect(render(report)).to include("saboteur run --id #{survivor.digest}#{suffix}\n")
+    end
+  end
+
+  it "replays the #1 survivor of the ranked list, whatever order the results hold (P6)" do
+    results = [result_for(:survived), result_for(:survived, replacement: "<=")]
+    report = report_of(*results)
+    ranked = Saboteur::Reporter::SurvivorRanking.ordered(report, results).first
+    expect(results.map(&:digest).minmax).to include(ranked.digest)
+    [results, results.reverse].each do |order|
+      out.truncate(0)
+      out.rewind
+      expect(render(report_of(*order))).to include("--id #{ranked.digest}")
     end
   end
 

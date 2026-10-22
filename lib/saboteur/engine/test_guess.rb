@@ -116,7 +116,8 @@ module Saboteur
         # Why the subjectless files needed no spec.
         def subjectless_message(since:)
           detail = since ? "no changed mutation subjects" : "no mutation subjects"
-          "inferred specs: no spec is required for #{names(subjectless)}: they have #{detail}"
+          who = subjectless.size == 1 ? "it has" : "they have"
+          "inferred specs: no spec is required for #{names(subjectless)}: #{who} #{detail}"
         end
 
         # The per-file warning when the run proceeds with the mapped

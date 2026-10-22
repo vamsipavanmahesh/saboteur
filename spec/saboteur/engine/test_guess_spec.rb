@@ -1994,6 +1994,13 @@ RSpec.describe Saboteur::Engine::TestGuess do
       )
     end
 
+    it "says it has, not they have, for a single subjectless file (P6)" do
+      result = result_with(subjectless: %w[lib/a.rb])
+
+      expect(result.subjectless_message(since: false))
+        .to eq("inferred specs: no spec is required for lib/a.rb: it has no mutation subjects")
+    end
+
     it "names the subjectless files and says why, with and without --since" do
       result = result_with(subjectless: %w[lib/a.rb lib/b.rb])
       lead = "inferred specs: no spec is required for lib/a.rb, lib/b.rb: they have "

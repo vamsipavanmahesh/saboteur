@@ -350,8 +350,17 @@ module Saboteur
     # baseline's own chatter (demoted to --verbose) would start.
     def announce_quiet_start(store, files)
       @map_cached = store.reusable?(files)
-      @diagnostics.quiet_start_header(scope: config["since"] ? "--since #{config['since']}" : "whole project",
+      @diagnostics.quiet_start_header(scope: quiet_scope,
                                       seed: config["seed"], operators: config.operator_policy["effective"].size)
+    end
+
+    # Names what the run covers: the diff, the --subject filter, or the
+    # whole project (P6) - a --subject run is not "whole project".
+    def quiet_scope
+      parts = []
+      parts << "--since #{config['since']}" if config["since"]
+      parts << "--subject #{config['subjects'].join(', ')}" if config["subjects"].any?
+      parts.empty? ? "whole project" : parts.join(", ")
     end
 
     def inform_about_run(subjects, map)
