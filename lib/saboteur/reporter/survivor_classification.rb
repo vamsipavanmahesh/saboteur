@@ -55,6 +55,21 @@ module Saboteur
           nil
         end
 
+        # The label of one statement's surviving mutants as a whole, the
+        # same whichever mutant sorts first. Any gap kind decides, by
+        # GapKinds::PRECEDENCE, so one equivalent, logging or input_gap
+        # sibling never hides a real survivor. With no gap kind, the first
+        # label present stands: likely_equivalent, arid or tool_limit then
+        # describe the statement when all its mutants carry it.
+        #
+        # Among gap kinds, result unchecked wins because it is the strictly
+        # larger gap: nothing pins the statement's value at all, which
+        # subsumes a missing branch, boundary or effect check on it.
+        def group_label(results)
+          labels = results.map { |result| label(result) }.compact
+          GapKinds::PRECEDENCE.find { |kind| labels.include?(kind) } || labels.first
+        end
+
         private
 
         # The mutant's own def text, compiled side by side with the

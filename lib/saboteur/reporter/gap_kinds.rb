@@ -58,6 +58,12 @@ module Saboteur
 
       FALLBACK = "result unchecked"
 
+      # Which kind names a statement when its surviving mutants disagree
+      # (#P4): the first one listed that any of them carries. The broadest
+      # unchecked thing wins, so a branch condition is not called a
+      # boundary because one of its mutants happened to flip a comparison.
+      PRECEDENCE = ["result unchecked", "error path", "branch", "boundary", "effect", "number"].freeze
+
       # The deterministic per-kind reason printed next to a survivor's rank.
       REASONS = {
         "boundary" => "the covering specs pass without pinning this boundary",
