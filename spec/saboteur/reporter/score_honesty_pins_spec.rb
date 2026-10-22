@@ -113,13 +113,13 @@ RSpec.describe "score honesty" do
   it "prints the honest golden, monochrome" do
     expected = <<~TEXT
       saboteur #{Saboteur::VERSION}: 6 subjects, 5 mutants, wall 62.00 s, seed 7 (repeat with --seed 7)
-      Score: 80.0% (4/5 killed, tested subjects)  3 subjects not scored - no tests exist
+      Score: 80.0% (4/5 killed or timed out, tested subjects)  3 subjects not scored - no test executes them
 
       Score by file (worst first):
-        calculator.rb   66.7% (2/3) · n/a - 1 subject has no tests: Calculator#shipping_cost
-        cart.rb        100.0% (2/2) · n/a - 2 subjects have no tests: Cart#total, Cart#biggest
+        calculator.rb   66.7% (2/3) · n/a - 1 subject - no test executes it: Calculator#shipping_cost
+        cart.rb        100.0% (2/2) · n/a - 2 subjects - no test executes them: Cart#total, Cart#biggest
 
-      Not scored - no tests exist (treat these as your biggest gaps):
+      Not scored - no test executes these (treat these as your biggest gaps):
         ! Calculator#shipping_cost (calculator.rb:6) · Cart#total (cart.rb:2) · Cart#biggest (cart.rb:6)
       saboteur: 3 killed, 1 survived, 1 timeout, 3 subjects untested in 1m02s - score 80.0%
       ✗ exit 1 - 1 survivor
@@ -142,13 +142,13 @@ RSpec.describe "score honesty" do
   it "prints the honest golden with colour, one palette name per mock tag" do
     expected = <<~TEXT
       \e[2msaboteur #{Saboteur::VERSION}: 6 subjects, 5 mutants, wall 62.00 s, seed 7 (repeat with --seed 7)\e[0m
-      Score: 80.0% (4/5 killed, tested subjects)  \e[33m3 subjects not scored - no tests exist\e[0m
+      Score: 80.0% (4/5 killed or timed out, tested subjects)  \e[33m3 subjects not scored - no test executes them\e[0m
 
       Score by file (worst first):
-        calculator.rb   66.7% (2/3) · \e[33mn/a - 1 subject has no tests: Calculator#shipping_cost\e[0m
-        cart.rb        100.0% (2/2) · \e[33mn/a - 2 subjects have no tests: Cart#total, Cart#biggest\e[0m
+        calculator.rb   66.7% (2/3) · \e[33mn/a - 1 subject - no test executes it: Calculator#shipping_cost\e[0m
+        cart.rb        100.0% (2/2) · \e[33mn/a - 2 subjects - no test executes them: Cart#total, Cart#biggest\e[0m
 
-      \e[33mNot scored - no tests exist (treat these as your biggest gaps):\e[0m
+      \e[33mNot scored - no test executes these (treat these as your biggest gaps):\e[0m
         \e[33m!\e[0m Calculator#shipping_cost (calculator.rb:6) · Cart#total (cart.rb:2) · Cart#biggest (cart.rb:6)
       saboteur: \e[32m3 killed\e[0m, \e[31;1m1 survived\e[0m, \e[33m1 timeout\e[0m, 3 subjects untested in 1m02s - score 80.0%
       \e[31;1m✗ exit 1 - 1 survivor\e[0m
@@ -175,7 +175,7 @@ RSpec.describe "score honesty" do
     table.call(report)
     expect(out.string).to eq(
       "\nScore by file (worst first):\n  calculator.rb  100.0% (1/1)\n  " \
-      "notes.rb       n/a - 1 subject has no tests: Notes#draft\n"
+      "notes.rb       n/a - 1 subject - no test executes it: Notes#draft\n"
     )
     expect(out.string).not_to match(/notes\.rb.*%/)
   end
@@ -370,7 +370,7 @@ RSpec.describe "score honesty" do
 
   it "keeps the terminal's honesty wording out of the machine reports" do
     json = JSON.generate(Saboteur::Reporter::Stryker.build(report))
-    expect(json).not_to include("Not scored", "no tests exist", "✗", "✓")
+    expect(json).not_to include("Not scored", "no test executes", "✗", "✓")
     expect(JSON.parse(json)["skippedSubjects"].map { |entry| entry["subject"] })
       .to contain_exactly("Cart#total", "Cart#biggest", "Calculator#shipping_cost")
   end
@@ -419,9 +419,9 @@ RSpec.describe "score honesty" do
       skipped = { cart.fetch("Cart#biggest") => "no coverage", cart.fetch("Cart#total") => "no coverage",
                   add => "filtered" }
       text = render(honest_report([result(add, :killed)], skipped:, subjects:), color: :never)
-      expect(text).to include("n/a - 2 subjects have no tests: Cart#total, Cart#biggest")
+      expect(text).to include("n/a - 2 subjects - no test executes them: Cart#total, Cart#biggest")
       expect(text).to include("! Cart#total (cart.rb:2) · Cart#biggest (cart.rb:6)")
-      expect(text).to include("2 subjects not scored - no tests exist")
+      expect(text).to include("2 subjects not scored - no test executes them")
       expect(text).not_to include("3 subjects")
       calc_row = text.lines.find { |line| line.start_with?("  calculator.rb") }
       expect(calc_row.strip).to eq("calculator.rb  100.0% (1/1)")
@@ -431,7 +431,7 @@ RSpec.describe "score honesty" do
       skipped = cart.values.to_h { |subject| [subject, "no coverage"] }
       text = render(honest_report([result(add, :killed)], skipped:, subjects:), color: :never)
       row = text.lines.find { |line| line.start_with?("  cart.rb") }
-      expect(row).to include("4 subjects have no tests: Cart#total, Cart#biggest, Cart#discounted, +1 more")
+      expect(row).to include("4 subjects - no test executes them: Cart#total, Cart#biggest, Cart#discounted, +1 more")
       expect(row).not_to include("Cart#smallest")
     end
 
@@ -439,7 +439,7 @@ RSpec.describe "score honesty" do
       skipped = cart.values.first(3).to_h { |subject| [subject, "no coverage"] }
       text = render(honest_report([result(add, :killed)], skipped:, subjects:), color: :never)
       row = text.lines.find { |line| line.start_with?("  cart.rb") }
-      expect(row).to include("3 subjects have no tests: Cart#total, Cart#biggest, Cart#discounted")
+      expect(row).to include("3 subjects - no test executes them: Cart#total, Cart#biggest, Cart#discounted")
       expect(row).not_to include("more")
     end
 
@@ -626,7 +626,7 @@ RSpec.describe "score honesty" do
     it "says 1 subject not scored in the singular" do
       skipped = { cart.fetch("Cart#total") => "no coverage" }
       text = render(honest_report([result(add, :killed)], skipped:, subjects:), color: :never)
-      expect(text).to include("1 subject not scored - no tests exist")
+      expect(text).to include("1 subject not scored - no test executes it")
       expect(text).not_to include("1 subjects")
     end
 

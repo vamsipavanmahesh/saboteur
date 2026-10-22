@@ -3,6 +3,16 @@
 
 # Survivors accepted with a reason. Each digest is printed next to its survivor.
 Saboteur.ignore do |i|
+  # agent_commands.rb:63 covering_files regex - dropping the \A anchor is equivalent:
+  # both optional prefix atoms (\.? and /?) match empty, so the capture group already
+  # starts at position 0 whenever any ".rb[" occurs in the id; the leftmost match is
+  # identical with and without the anchor. Hand-probed: "x./spec/a_spec.rb[1:2]"
+  # extracts "x./spec/a_spec.rb" under both forms, "[1:2]" matches neither.
+  i.mutation "5dbf745ce45614dd",
+             subject: "Saboteur::Reporter::Agent::Commands.covering_files",
+             reason: "equivalent: optional prefix atoms make the \A anchor a no-op - the capture " \
+                     "starts at position 0 whenever any .rb[ occurs; identical extraction on " \
+                     "anchored and unanchored forms hand-checked"
   # doctor_command.rb:12/14/15 opts.on flag<->help argument_swaps - OptionParser#on
   # classifies its string arguments by shape (a leading "-" makes a flag, anything
   # else a description), not by position, so the swap builds the identical parser

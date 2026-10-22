@@ -46,6 +46,11 @@ Metrics/ClassLength:
   # the PR6 clean-run screen and baseline-tail guard take it to 428; the
   # clean screen's phase lines (baseline, coverage, dots) take it to 442.
   Max: 442
+Metrics/ModuleLength:
+  # RunReporting's replay command narrows to the mutant's covering specs
+  # (#1148), one line over the default.
+  Max: 101
+
 Metrics/ParameterLists:
   CountKeywordArgs: false
 

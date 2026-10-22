@@ -45,6 +45,16 @@ RSpec.describe Saboteur::Reporter::Agent, "pins" do
     expect(steps[:replay]).not_to include("2" * 16)
   end
 
+  it "narrows the payload's replay command to the survivor's covering spec files (#1148)" do
+    survivor = result_for(:survived, covered_by: ["./spec/person_spec.rb[1:3]"])
+    report = report_of(survivor)
+    with_findings(finding_with(digest: survivor.digest))
+    steps = described_class.call(report, provenance_with(tests: %w[spec/a_spec.rb spec/b_spec.rb]))[:next]
+    words = Shellwords.split(steps[:replay])
+    expect(words.each_cons(2).to_a).to include(["--test", "spec/person_spec.rb"])
+    expect(words).not_to include("spec/a_spec.rb", "spec/b_spec.rb")
+  end
+
   it "clips a number that is too long for the budget to its first digits" do
     big = 10**30
     seed = described_class.call(report, provenance_with(seed: big))[:provenance][:seed]

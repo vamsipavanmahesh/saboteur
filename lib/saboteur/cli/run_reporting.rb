@@ -94,7 +94,8 @@ module Saboteur
       def survivor_replay_command(report, engine)
         lambda do |digest|
           tree = WorkingTree.new(config.root, ignored: config.ignored_tree_paths).state
-          Reporter::Agent::Commands.replay(agent_provenance(report, tree, engine), digest, capped: false)
+          Reporter::Agent::Commands.replay(agent_provenance(report, tree, engine), digest, capped: false,
+                                                                                           report: report)
         end
       end
 

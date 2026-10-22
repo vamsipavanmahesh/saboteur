@@ -35,7 +35,7 @@ RSpec.describe "definition shapes (end to end)", :e2e do
     expect(statuses_on(47..47)).to be_empty
     skipped = run.json.fetch("skippedSubjects").map(&:to_s)
     expect(skipped.join).to include("Shapes::Conditional#mode")
-    expect(run.out).to include("1 subject not scored - no tests exist: Shapes::Conditional#mode")
+    expect(run.out).to include("1 subject not scored - no test executes it: Shapes::Conditional#mode")
     entry = run.json.fetch("skippedSubjects").find { |s| s["subject"] == "Shapes::Conditional#mode" }
     expect(entry.values_at("file", "line")).to eq(["lib/shapes.rb", 47])
   end

@@ -56,7 +56,7 @@ RSpec.describe Saboteur::Reporter::Terminal, "clean screen pins" do
     other = subjects_in("class Other\n  def m; 1; end\nend\n", name: "other.rb").first
     text = render(clean_report(killed_result, skipped_subjects: { other => "no coverage" }), **options)
     expect(text).to include("✓ 1/1 mutants killed · score 100.0% · 2.3s total\n",
-                            "  1 subject not scored - no tests exist: #{other.id}\n")
+                            "  1 subject not scored - no test executes it: #{other.id}\n")
   end
 
   it "names every untested subject in the warn line" do
@@ -64,7 +64,7 @@ RSpec.describe Saboteur::Reporter::Terminal, "clean screen pins" do
     text = render(clean_report(killed_result,
                                skipped_subjects: others.to_h { |subject| [subject, "no coverage"] }), **options)
     ids = others.sort_by { |subject| [subject.file, subject.start_line] }.map(&:id)
-    expect(text).to include("  2 subjects not scored - no tests exist: #{ids.join(', ')}\n")
+    expect(text).to include("  2 subjects not scored - no test executes them: #{ids.join(', ')}\n")
   end
 
   it "names the diff scope and drops the whole-project next hint" do

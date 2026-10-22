@@ -131,7 +131,13 @@ RSpec.describe Saboteur::Reporter::Html do
     untested = subjects_in(ReportHelpers::PERSON, name: "untested.rb").first
     page = described_class.build(report_of(result_for(:killed), skipped_subjects: { untested => "no coverage" }))
     expect(page).to include("Covered mutation score: 100.0%</strong> (1/1 killed, tested subjects)")
-    expect(page).to include("tested subjects) - 1 subject not scored - no tests exist")
+    expect(page).to include("tested subjects) - 1 subject not scored - no test executes it")
+  end
+
+  it "names timeouts in the score parenthetical when one is counted (#1146)" do
+    page = described_class.build(report_of(result_for(:killed), result_for(:timeout, replacement: "<")))
+    expect(page).to include("(2/2 killed or timed out, tested subjects)")
+    expect(page).not_to include("(2/2 killed,")
   end
 
   it "omits the not-scored clause when every skipped subject has another reason" do
@@ -155,7 +161,7 @@ RSpec.describe Saboteur::Reporter::Html do
                        name: "untested.rb")
     skipped = pair.to_h { |subject| [subject, "no coverage"] }
     page = described_class.build(report_of(result_for(:killed), skipped_subjects: skipped))
-    expect(page).to include("2 subjects not scored - no tests exist")
+    expect(page).to include("2 subjects not scored - no test executes them")
   end
 
   def visible_html(page)

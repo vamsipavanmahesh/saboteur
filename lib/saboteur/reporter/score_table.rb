@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require_relative "wording"
 require_relative "../score"
 
 module Saboteur
@@ -62,7 +63,7 @@ module Saboteur
           detected: breakdown.detected, tested: breakdown.tested, untested: untested }
       end
 
-      # "cart.rb  100.0% (2/2) · n/a - 2 subjects have no tests: ...": the
+      # "cart.rb  100.0% (2/2) · n/a - 2 subjects - no test executes them: ...": the
       # tested score and the untested count stand next to each other; a
       # file with nothing tested gets no percentage at all.
       def line(row, width)
@@ -74,18 +75,18 @@ module Saboteur
         note ? "#{base} #{@palette.glyph(:middot)} #{note}" : base
       end
 
-      # "n/a - 2 subjects have no tests: Cart#total, Cart#biggest": names
-      # the subjects the score cannot speak for, capped so a long list does
-      # not swallow the row; the Not scored block lists them all.
+      # "n/a - 2 subjects - no test executes them: Cart#total, Cart#biggest":
+      # names the subjects the score cannot speak for, capped so a long
+      # list does not swallow the row; the Not scored block lists them all.
+      # Wording owns the claim (#1145): a stubbed-away subject has tests,
+      # they just never execute it.
       def untested_note(untested)
         return if untested.empty?
 
         names = untested.map(&:id)
         shown = names.first(MAX_UNTESTED_NAMES)
         shown << "+#{names.size - MAX_UNTESTED_NAMES} more" if names.size > MAX_UNTESTED_NAMES
-        count = untested.size
-        @palette.paint(:warn, "n/a - #{count} subject#{'s' unless count == 1} " \
-                              "#{count == 1 ? 'has' : 'have'} no tests: #{shown.join(', ')}")
+        @palette.paint(:warn, "n/a - #{Wording.untested_note(untested.size)}: #{shown.join(', ')}")
       end
     end
   end

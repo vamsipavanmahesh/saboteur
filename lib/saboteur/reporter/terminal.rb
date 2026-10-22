@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require_relative "safe_out"
+require_relative "wording"
 require_relative "baseline_tail"
 require_relative "next_steps"
 require_relative "kill_causes"
@@ -185,7 +186,7 @@ module Saboteur
         total = @palette.paint(:dim, "#{middot} #{format('%.1f', report.wall_time)}s total")
         @out.puts "#{@palette.paint(:pass, win)} #{total}"
         untested = untested_subjects(report)
-        @out.puts "  #{@palette.paint(:warn, untested_win_note(untested))}" if untested.any?
+        @out.puts "  #{@palette.paint(:warn, Wording.untested_win_note(untested))}" if untested.any?
         ReuseNote.new(@out).print(report)
         clean_reports_line
       end
@@ -207,11 +208,6 @@ module Saboteur
 
       def win_tally(report)
         "#{report.counts[:killed]}/#{report.executed.size} mutants killed"
-      end
-
-      def untested_win_note(untested)
-        ids = untested.map(&:id).join(", ")
-        "#{untested.size} subject#{'s' unless untested.one?} not scored - no tests exist: #{ids}"
       end
 
       def clean_reports_line
@@ -250,20 +246,24 @@ module Saboteur
         end
 
         line = "Score: #{painted_score(breakdown.value)}#{headline_context(breakdown.value)}"
-        line << if breakdown.tested.zero?
-                  " - nothing tested"
-                else
-                  " (#{breakdown.detected}/#{breakdown.tested} killed, tested subjects)"
-                end
+        line << score_parenthetical(breakdown)
         if @verbose && breakdown.tested.positive?
           line << "#{score_split(breakdown)} (killed+timeout)/(killed+survived+timeout); " \
                   "errors, resource limits and skips excluded"
         end
         if untested.any?
           line << "  #{@palette.paint(:warn, "#{untested.size} subject#{'s' unless untested.one?} " \
-                                             'not scored - no tests exist')}"
+                                             "not scored - #{Wording.no_execution(untested.size)}")}"
         end
         @out.puts line
+      end
+
+      # The share of tested mutants the run detected: "killed" alone would
+      # count timeouts too, so Wording names both when one is in the number.
+      def score_parenthetical(breakdown)
+        return " - nothing tested" if breakdown.tested.zero?
+
+        " (#{breakdown.detected}/#{breakdown.tested} #{Wording.detected_word(breakdown)}, tested subjects)"
       end
 
       # What the score is judged against and where it came from: the
@@ -307,7 +307,7 @@ module Saboteur
         return if untested.empty?
 
         @out.puts
-        @out.puts @palette.paint(:warn, "Not scored - no tests exist (treat these as your biggest gaps):")
+        @out.puts @palette.paint(:warn, "Not scored - no test executes these (treat these as your biggest gaps):")
         entries = untested.map { |subject| "#{subject.id} (#{subject.location(report.root)})" }
         line = "  #{@palette.paint(:warn, '!')} #{entries.first(MAX_NOT_SCORED).join(" #{middot} ")}"
         line << " #{middot} ... #{entries.size - MAX_NOT_SCORED} more" if entries.size > MAX_NOT_SCORED
