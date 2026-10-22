@@ -98,7 +98,7 @@ module Saboteur
       end
 
       def self.test_index(results)
-        names = results.flat_map { |result| result.covered_by + result.killed_by + result.executed.to_a }.uniq
+        names = results.flat_map { |result| result.covered_by + result.killed_by + result.executed.to_a }.uniq.sort
         names.each_with_index.to_h { |name, index| [name, index.to_s] }
       end
 
