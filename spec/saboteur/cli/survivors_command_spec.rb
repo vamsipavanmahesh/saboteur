@@ -57,9 +57,19 @@ RSpec.describe Saboteur::CLI, "survivors (#475)" do
       path = write_report(dir, survivors: [])
       expect(cli("survivors", path).call).to eq(0)
       expect(out.string).to include("lib/order.rb:3", "sum_to_map_sum", "a" * 16, "boundary")
-      # b*16 is only in the files section (findings is capped at 10): still listed.
-      expect(out.string).to include("b" * 16, "and_to_or")
+      # b*16 is only in the files section (findings is capped at 10): still listed,
+      # collapsed onto its sibling's statement row like the terminal report (#1150).
+      expect(out.string).to include("(+1 here: #{'b' * 16})")
       expect(out.string).not_to include("Killed")
+    end
+  end
+
+  it "orders survivors the findings do not rank by digest, so sibling digests are stable" do
+    Dir.mktmpdir do |dir|
+      extra = %w[f d e].map { |c| mutant(id: c * 16, operator: "and_to_or", line: 3, status: "Survived") }
+      path = write_report(dir, survivors: extra)
+      expect(cli("survivors", path).call).to eq(0)
+      expect(out.string).to include("(+4 here: #{'b' * 16}, #{'d' * 16}, #{'e' * 16}, +1 more)")
     end
   end
 
@@ -215,7 +225,7 @@ RSpec.describe Saboteur::CLI, "survivors (#475)" do
   end
 
   describe "CLI parse layer (#520 dogfood survivors)" do
-    it "orders by the report's ranked findings with --ranked, by path and digest without" do
+    it "orders by the report's ranked findings, with or without the compat --ranked flag (#1150)" do
       Dir.mktmpdir do |dir|
         path = write_report(dir, survivors: [])
         report = JSON.parse(File.read(path))
@@ -227,7 +237,7 @@ RSpec.describe Saboteur::CLI, "survivors (#475)" do
         File.write(path, JSON.generate(report))
 
         expect(cli("survivors", path).call).to eq(0)
-        expect(out.string.index("a" * 16)).to be < out.string.index("b" * 16)
+        expect(out.string.index("b" * 16)).to be < out.string.index("a" * 16)
 
         ranked_out = StringIO.new
         expect(described_class.new(["survivors", path, "--ranked"], out: ranked_out, err: err).call).to eq(0)
@@ -287,29 +297,114 @@ RSpec.describe Saboteur::CLI, "survivors (#475)" do
       end
     end
 
+    it "reads the default .saboteur/report.json when REPORT is omitted (#1150)" do
+      Dir.mktmpdir do |dir|
+        path = write_report(dir, survivors: [])
+        Dir.mkdir(File.join(dir, ".saboteur"))
+        File.rename(path, File.join(dir, ".saboteur", "report.json"))
+        Dir.chdir(dir) do
+          expect(cli("survivors").call).to eq(0)
+        end
+        expect(out.string).to include("lib/order.rb:3")
+      end
+    end
+
+    it "names the default path when no REPORT is given and none exists" do
+      Dir.mktmpdir do |dir|
+        Dir.chdir(dir) do
+          expect(cli("survivors").call).to eq(2)
+        end
+        expect(err.string).to include("report not found: .saboteur/report.json")
+      end
+    end
+
     it "refuses extra arguments with the exact message and exit 2" do
       Dir.mktmpdir do |dir|
         path = write_report(dir, survivors: [])
         expect(cli("survivors", path, "extra", "args").call).to eq(2)
-        expect(err.string).to eq("saboteur: unexpected arguments: extra args\n")
+        expect(err.string).to start_with("saboteur: unexpected arguments: extra args\n")
+        expect(err.string).to include("Usage: saboteur survivors [options] [REPORT]")
       end
     end
 
-    # OptionParser's officious --help prints the option list - descriptions
-    # included - to the real stdout and exits 0.
-    it "prints every flag's description on --help" do
-      captured = StringIO.new
-      $stdout = captured
-      begin
-        expect { cli("survivors", "--help").call }.to raise_error(SystemExit)
-      ensure
-        $stdout = STDOUT
+    it "prints its own usage, the report default and every flag's description on --help" do
+      expect(cli("survivors", "--help").call).to eq(0)
+      expect(out.string).to eq(
+        "Usage: saboteur survivors [options] [REPORT] - REPORT defaults to .saboteur/report.json\n        " \
+        "--ranked                     Review-priority order (the default): the terminal report's ordering\n        " \
+        "--file SUBSTR                Only survivors whose path contains SUBSTR\n        " \
+        "--operator NAME              Only survivors of operator NAME\n        " \
+        "--triage LABEL               Only survivors classified LABEL (for example boundary)\n        " \
+        "--show DIGEST                Diff, replay command and ignore template for one survivor\n        " \
+        "--color [MODE]               Colour the output: always, never, or auto when MODE is omitted\n        " \
+        "--no-color                   Alias for --color=never\n        " \
+        "--help                       Show this help\n"
+      )
+    end
+
+    it "answers an unknown option with the survivors usage, not the run usage (#1150)" do
+      expect(cli("survivors", "--bogus").call).to eq(2)
+      expect(err.string).to start_with("saboteur: invalid option: --bogus\n")
+      expect(err.string).to include("Usage: saboteur survivors [options] [REPORT]")
+      expect(err.string).to include("--show DIGEST")
+    end
+
+    it "accepts the run command's colour flags (#1150)" do
+      Dir.mktmpdir do |dir|
+        path = write_report(dir, survivors: [])
+        expect(cli("survivors", path, "--no-color").call).to eq(0)
+        expect(cli("survivors", path, "--color", "never").call).to eq(0)
       end
-      expect(captured.string).to include("Review-priority order",
-                                         "Only survivors whose path contains SUBSTR",
-                                         "Only survivors of operator NAME",
-                                         "Only survivors classified LABEL",
-                                         "Diff, replay command and ignore template")
+    end
+
+    it "paints the header for a bare --color, never paints under never or auto-off (#1150)" do
+      Dir.mktmpdir do |dir|
+        path = write_report(dir, survivors: [])
+        expect(cli("survivors", path, "--color").call).to eq(0)
+        expect(out.string).to match(/\e\[\d+m2 survivors/)
+      end
+    end
+
+    it "rejects an unknown --color mode with the survivors usage and exit 2" do
+      Dir.mktmpdir do |dir|
+        path = write_report(dir, survivors: [])
+        expect(cli("survivors", path, "--color", "bogus").call).to eq(2)
+        expect(err.string).to start_with("saboteur: invalid argument: --color bogus\n")
+        expect(err.string).to include("Usage: saboteur survivors [options] [REPORT]")
+      end
+    end
+
+    it "accepts --color auto and never emits ANSI under never" do
+      Dir.mktmpdir do |dir|
+        path = write_report(dir, survivors: [])
+        expect(cli("survivors", path, "--color", "auto").call).to eq(0)
+        expect(out.string).not_to include("\e[")
+        out.truncate(0)
+        out.rewind
+        expect(cli("survivors", path, "--color", "never").call).to eq(0)
+        expect(out.string).not_to include("\e[")
+      end
+    end
+
+    it "keeps survivors on the same line of different files in separate rows (#1150)" do
+      Dir.mktmpdir do |dir|
+        path = write_report(dir, survivors: [])
+        report = JSON.parse(File.read(path))
+        report["files"]["lib/other.rb"] = { "language" => "ruby", "source" => "x\ny\nz\n",
+                                            "mutants" => [mutant(id: "c" * 16, operator: "negation",
+                                                                 line: 3, status: "Survived")] }
+        File.write(path, JSON.generate(report))
+        expect(cli("survivors", path).call).to eq(0)
+        expect(out.string.scan(/^\s*\d+\./).size).to eq(2)
+      end
+    end
+
+    it "paints the header when colour is forced on" do
+      Dir.mktmpdir do |dir|
+        path = write_report(dir, survivors: [])
+        expect(cli("survivors", path, "--color", "always").call).to eq(0)
+        expect(out.string).to match(/\e\[\d+m2 survivors/)
+      end
     end
 
     it "does not leak subcommand flags into the CLI's options" do

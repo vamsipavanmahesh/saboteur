@@ -96,7 +96,8 @@ bundle exec saboteur run --id <digest>
 
 For a longer list, `saboteur survivors .saboteur/report.json` (0.8.0+)
 browses the report from the terminal: it lists and filters survivors
-(`--ranked` for the ranked-findings order), and `--show <digest>` prints
+(in the report's ranked findings order; `--ranked` is kept for compatibility),
+and `--show <digest>` prints
 the diff, the exact replay command and a ready ignore-file entry. It is
 read-only: it never boots the project or edits the ignore list.
 

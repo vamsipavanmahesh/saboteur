@@ -12,6 +12,8 @@ module Saboteur
     # Survivors accepted on the ignore list are listed apart, with their
     # reason. The full, unbounded mutant data stays in the report's files
     # section; survivorsTruncated says how many more findings live only there.
+    # The uncapped ranked digest list lets offline readers (the survivors
+    # command) print the terminal's ordering without recomputing it (#1150).
     module Findings
       VERSION = 1
 
@@ -30,7 +32,8 @@ module Saboteur
             survivors: listed(report, live),
             survivorsTruncated: truncated(live),
             accepted: listed(report, accepted),
-            acceptedTruncated: truncated(accepted)
+            acceptedTruncated: truncated(accepted),
+            order: full_order(report, live, accepted)
           }
         end
 
@@ -42,6 +45,12 @@ module Saboteur
 
         def truncated(results)
           [results.size - LIMIT, 0].max
+        end
+
+        # Every survivor digest in terminal order: live ranked first, then
+        # accepted - uncapped, unlike the findings lists themselves.
+        def full_order(report, live, accepted)
+          (ordered(report, live) + ordered(report, accepted)).map(&:digest)
         end
 
         def ordered(report, results)

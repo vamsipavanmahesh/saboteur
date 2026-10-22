@@ -87,6 +87,24 @@ RSpec.describe Saboteur::Reporter::Findings do
     expect(findings.fetch("survivorsTruncated")).to eq(1)
   end
 
+  # #1150: full_order is live-ranked-then-accepted, concatenated - an
+  # accepted survivor never jumps ahead of a live one, however it ranks.
+  it "keeps accepted digests behind every live one in the order array" do
+    live = result_for(:survived)
+    accepted = result_for(:survived, replacement: "==")
+    accepted.ignored = "equivalent"
+    findings = build(report_of(live, accepted))
+    expect(findings.fetch("order")).to eq([live.digest, accepted.digest])
+  end
+
+  it "carries every survivor digest in the terminal's ranked order, uncapped (#1150)" do
+    replacements = %w[> < == != <= >= + - * / %]
+    findings = build(report_of(*replacements.map { |r| result_for(:survived, replacement: r) }))
+    order = findings.fetch("order")
+    expect(order.size).to eq(11)
+    expect(order.first(10)).to eq(findings.fetch("survivors").map { |f| f["digest"] })
+  end
+
   it "orders coarse survivors first, then by file, line and digest" do
     root, (first, second) = project("b.rb" => ReportHelpers::PERSON, "a.rb" => ReportHelpers::PERSON)
     fine_b = survivor_for(first, replacement: "==")
