@@ -156,6 +156,24 @@ RSpec.describe Saboteur::Reporter::Html do
     expect(page).not_to include("killed, tested subjects")
   end
 
+  # #1272: the page printed "Covered mutation score: 100.0%" twice for a run
+  # where most executed mutants errored, against the n/a terminal headline.
+  it "shows n/a, never a bare score, when most executed mutants errored" do
+    page = described_class.build(report_of(result_for(:killed), *Array.new(3) { result_for(:error) }))
+
+    expect(page).to include("Covered mutation score: n/a</strong> (1 of 4 mutants scored, 100.0% of scored) - " \
+                            "most executed mutants errored, so the run tested almost nothing")
+    expect(page).not_to include("Covered mutation score: 100.0%")
+    expect(page.scan("Covered mutation score: n/a</strong>").size).to eq(2)
+  end
+
+  it "keeps the numeric score when errors are not the majority" do
+    page = described_class.build(report_of(result_for(:killed), result_for(:killed), result_for(:error)))
+
+    expect(page.scan("Covered mutation score: 100.0%</strong>").size).to eq(2)
+    expect(page).not_to include("tested almost nothing")
+  end
+
   it "says subjects when more than one subject is not scored" do
     pair = subjects_in("#{ReportHelpers::PERSON}\n#{ReportHelpers::PERSON.sub('Person', 'PersonTwo')}",
                        name: "untested.rb")

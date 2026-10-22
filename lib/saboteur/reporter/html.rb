@@ -151,6 +151,8 @@ module Saboteur
       # the same contract as the terminal headline.
       def headline(report)
         breakdown = report.score_breakdown
+        return error_dominated_headline(report) if report.majority_errored?
+
         text = "<p><strong>Covered mutation score: #{score_text(report.score)}</strong>"
         if breakdown.tested.positive?
           text << " (#{breakdown.detected}/#{breakdown.tested} #{Wording.detected_word(breakdown)}, tested subjects)"
@@ -195,12 +197,21 @@ module Saboteur
         "#{Text.counted(report.subjects.size, 'subject')}, #{Text.counted(report.results.size, 'mutant')}"
       end
 
+      # An error-dominated run shows no bare score, like the terminal headline
+      # (#557, #1272): the share covers only the few mutants that were scored.
+      def error_dominated_headline(report)
+        breakdown = report.score_breakdown
+        "<p><strong>Covered mutation score: n/a</strong> (#{breakdown.tested} of #{report.executed.size} " \
+          "mutants scored, #{score_text(breakdown.value)} of scored) - most executed mutants errored, " \
+          "so the run tested almost nothing</p>"
+      end
+
       def summary(report, data)
         seed = data.dig(:config, :seed)
         seed_note = seed ? ", seed #{seed}" : ""
         counts = data[:files].values.flat_map { |entry| entry[:mutants] }.map { |mutant| mutant[:status] }.tally
         <<~HTML
-          <p><strong>Covered mutation score: #{score_text(report.score)}</strong>
+          <p><strong>Covered mutation score: #{score_text(report.majority_errored? ? nil : report.score)}</strong>
           (#{counts_note(report)}, #{format('%.1f', report.wall_time)}s#{seed_note})</p>
           <p class="note">Covered mutation score = #{SCORE_FORMULA}. NoCoverage, errors, resource limits and skipped
           mutants are not counted. Survivors accepted on the ignore list stay in the denominator. It covers only the subjects of this run, not the whole project. A tool that reads the
