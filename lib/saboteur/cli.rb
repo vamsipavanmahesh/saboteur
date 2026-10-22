@@ -14,6 +14,7 @@ require_relative "cli/exit_status"
 require_relative "cli/baseline_gate"
 require_relative "preview"
 require_relative "cli/run_reporting"
+require_relative "cli/whole_suite_map_lookup"
 require_relative "cli/survivors_command"
 require_relative "cli/explain_command"
 require_relative "cli/source_set"
@@ -44,6 +45,7 @@ module Saboteur
     include ExitStatus
     include BaselineGate
     include RunReporting
+    include WholeSuiteMapLookup
     include SurvivorsCommand
     include ExplainCommand
     include SourceSet

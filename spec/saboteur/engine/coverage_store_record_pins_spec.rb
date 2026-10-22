@@ -108,7 +108,7 @@ RSpec.describe Saboteur::Engine::CoverageStore, "pins" do
         map = Saboteur::Selection::CoverageMap.new(lines: {}, tests: [])
         store.send(:persist_map, File.join(root, ".saboteur", "coverage-deadbeef.json"), map)
 
-        pointer = File.join(root, ".saboteur", "whole-suite-map")
+        pointer = File.join(root, ".saboteur", "whole-suite-map-v2")
         expect(File.read(pointer)).to eq("deadbeef")
         expect(File.stat(pointer).mode & 0o777).to eq(0o600)
         expect(store.fetched_map).to be(map)
@@ -121,7 +121,7 @@ RSpec.describe Saboteur::Engine::CoverageStore, "pins" do
         map = Saboteur::Selection::CoverageMap.new(lines: {}, tests: [])
         store.send(:persist_map, File.join(root, ".saboteur", "coverage-deadbeef.json"), map)
 
-        expect(File.exist?(File.join(root, ".saboteur", "whole-suite-map"))).to be(false)
+        expect(File.exist?(File.join(root, ".saboteur", "whole-suite-map-v2"))).to be(false)
         expect(store.fetched_map).to be(map)
       end
     end
@@ -139,7 +139,7 @@ RSpec.describe Saboteur::Engine::CoverageStore, "pins" do
         cached = Saboteur::Selection::CoverageMap.new(lines: {}, tests: [])
         store.send(:serve_cached, File.join(root, ".saboteur", "coverage-cafe.json"), cached, [], [])
 
-        pointer = File.join(root, ".saboteur", "whole-suite-map")
+        pointer = File.join(root, ".saboteur", "whole-suite-map-v2")
         expect(File.read(pointer)).to eq("cafe")
         expect(File.stat(pointer).mode & 0o777).to eq(0o600)
         expect(store.fetched_map).not_to be_nil
@@ -157,7 +157,7 @@ RSpec.describe Saboteur::Engine::CoverageStore, "pins" do
     end
 
     def write_pointer(root, content, mode: 0o600)
-      pointer = File.join(root, ".saboteur", "whole-suite-map")
+      pointer = File.join(root, ".saboteur", "whole-suite-map-v2")
       FileUtils.mkdir_p(File.dirname(pointer))
       File.write(pointer, content)
       File.chmod(mode, pointer)
@@ -235,7 +235,7 @@ RSpec.describe Saboteur::Engine::CoverageStore, "pins" do
         allow(File).to receive(:read).and_call_original
 
         expect(cached_store(root).whole_suite_map).not_to be_nil
-        pointer = File.join(root, ".saboteur", "whole-suite-map")
+        pointer = File.join(root, ".saboteur", "whole-suite-map-v2")
         expect(File).to have_received(:read).with(pointer, encoding: Encoding::UTF_8)
       end
     end

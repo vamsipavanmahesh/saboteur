@@ -62,7 +62,7 @@ RSpec.describe "survivor blocks consult the whole-suite coverage map", :e2e do
   end
 
   it "names the covering spec a --since run never loaded and marks the block" do
-    full = saboteur(dir) # builds the whole-suite coverage map cache
+    full = saboteur(dir, "--all") # builds the whole-suite coverage map cache
     expect(full.json).not_to be_nil
 
     write("lib/router.rb", <<~RUBY)

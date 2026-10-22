@@ -130,6 +130,12 @@ module Saboteur
       @coverage_store&.whole_suite_map
     end
 
+    # True when this run did not build a whole-suite map: a diff, named
+    # subjects, an explicit --test or inferred specs (#1286).
+    def scoped_selection?
+      !whole_suite_run?
+    end
+
     # False when caching is off, where no coverage build can ever leave a
     # whole-suite map to consult, so advising one would be wrong (review C1).
     def whole_suite_map_lookup?
@@ -376,11 +382,13 @@ module Saboteur
     end
 
     # This run's map is the whole-suite map only when nothing scoped it:
-    # no --since, no subjects, and tests either unset or inferred over every
-    # included file (never an explicit --test list) (review C1).
+    # no --since, no subjects, and every spec file loaded (--all or
+    # c.test_selection = :all). Inferred specs are a selection, never the
+    # whole suite: a spec with no matching source file is not in the map
+    # (#1286).
     def whole_suite_run?
       config["since"].nil? && config["subjects"].empty? &&
-        (config["tests"].empty? || !@guessed_tests.nil?)
+        config["tests"].empty? && @guessed_tests.nil?
     end
 
     def coverage_store(integration, load_lines, load_methods = {})

@@ -226,7 +226,7 @@ module Saboteur
 
         whole = @whole_suite_map&.tests_for(group.first.subject)
         if whole.nil?
-          @out.puts @palette.paint(:dim, "  covering tests unknown - run a full coverage build")
+          @out.puts @palette.paint(:dim, "  covering list is this run's selection only; run `saboteur run --all`")
           return
         end
 

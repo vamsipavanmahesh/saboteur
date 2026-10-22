@@ -453,10 +453,10 @@ RSpec.describe Saboteur::Reporter::SurvivorList, "survivor blocks" do
                                                       covered_by: [calculator_id])
     end
 
-    it "says covering tests are unknown when no whole-suite map exists, with no bare covered-by" do
+    it "says the covering list is this run's selection only when no whole-suite map exists, with no bare covered-by" do
       text = render_with_maps([survivor], whole: nil, run: map_for(survivor.subject, [calculator_id]))
 
-      expect(text).to include("covering tests unknown - run a full coverage build")
+      expect(text).to include("covering list is this run's selection only; run `saboteur run --all`")
       expect(text).not_to include("covered by")
     end
 
