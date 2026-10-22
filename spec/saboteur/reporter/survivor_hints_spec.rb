@@ -104,6 +104,23 @@ RSpec.describe Saboteur::Reporter::SurvivorHints, "label gating and block prose"
     expect(described_class.why("made_up")).to eq("no test observes this change")
   end
 
+  it "gives input_gap and assertion_gap their own reasons (#1290)" do
+    expect(described_class.label_reason("input_gap"))
+      .to eq("no test input made this mutation change the value, so its input never varied")
+    expect(described_class.label_reason("assertion_gap"))
+      .to eq("a test ran this mutant, the value changed, and no assertion noticed")
+  end
+
+  it "adds the replaced kind's advice to an observed label's reason only (#1290)" do
+    expect(described_class.label_reason("input_gap", kind: "boundary"))
+      .to eq("no test input made this mutation change the value, so its input never varied; " \
+             "exercise both sides of this boundary")
+    expect(described_class.label_reason("assertion_gap", kind: "number"))
+      .to end_with("no assertion noticed; no test depends on this exact number")
+    expect(described_class.label_reason("arid", kind: "number")).to eq(described_class.label_reason("arid"))
+    expect(described_class.label_reason("input_gap", kind: nil)).to eq(described_class.label_reason("input_gap"))
+  end
+
   it "answers the per-label reason, nil for an unlabeled or unknown label" do
     expect(described_class.label_reason("likely_equivalent")).to eq("compiles to the same instructions as the original")
     expect(described_class.label_reason("made_up")).to be_nil

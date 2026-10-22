@@ -566,6 +566,14 @@ RSpec.describe Saboteur::Reporter::SurvivorList, "survivor blocks" do
     expect(render([operand])).not_to match(/^ +$/)
   end
 
+  it "keeps the replaced gap kind's advice in an observed label's reason line (#1290)" do
+    seen = edited(PINS_CALCULATOR, "1 + rate", "1 - rate", operator: "arithmetic", dir:,
+                                                           covered_by: ["./spec/calculator_spec.rb[2:1]"],
+                                                           value_differed: true)
+    expect(render([seen])).to include("  a test ran this mutant, the value changed, and no assertion noticed; " \
+                                      "no test depends on this exact number\n")
+  end
+
   describe "#wrap boundaries" do
     def wrap(text, width)
       described_class.new(out, plain).send(:wrap, text, width)

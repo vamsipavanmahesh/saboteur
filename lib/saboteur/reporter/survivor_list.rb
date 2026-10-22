@@ -78,7 +78,7 @@ module Saboteur
         path = relative(first.subject.file, report.root)
         @out.puts "\n#{@palette.paint(:head, "#{rank}. #{path}:#{line}")} #{first.subject.id} " \
                   "#{@palette.paint(:dim, label_suffix(group, rank, total))}".rstrip
-        reason = SurvivorHints.label_reason(@classifier.group_label(group))
+        reason = SurvivorHints.label_reason(@classifier.group_label(group), kind: @classifier.group_kind(group))
         @out.puts "  #{@palette.paint(:dim, reason)}" if reason
         fence(first, line)
         @out.puts "  #{@palette.paint(:dim, "why it matters: #{why(first.mutation.operator)}")}"

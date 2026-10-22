@@ -32,7 +32,10 @@ module Saboteur
       TOOL_LIMIT_HINT = "Saboteur could not observe this mutant faithfully. Check it by hand."
       HINTS = GapKinds::KINDS.to_h { |label| [label, GAP_HINT] }
                              .merge("tool_limit" => TOOL_LIMIT_HINT,
-                                    "input_gap" => "No test reaches this line. Exercise it with a varied input.").freeze
+                                    "input_gap" => "No test input makes this change differ. " \
+                                                   "Exercise it with a varied input.",
+                                    "assertion_gap" => "A test reaches this line, the value changes, and it still " \
+                                                       "passes. Add an assertion that pins this behaviour.").freeze
       DEFAULT_HINT = "No test fails with this change. Check whether a test should pin it."
 
       Plan = Struct.new(:post, :delete, :summary, keyword_init: true)

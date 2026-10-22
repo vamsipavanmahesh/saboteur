@@ -4,11 +4,14 @@
 # Survivor classification labels (#192): why a survivor is worth looking at,
 # as a label only - scores and the exit code never change.
 RSpec.describe Saboteur::Reporter::SurvivorClassification do
-  def survivor_for(source, from:, to:, covered_by: ["spec/a_spec.rb:1"], coarse: false, operator: "test")
-    survivor_for_edits(source, [[from, to]], covered_by: covered_by, coarse: coarse, operator: operator)
+  def survivor_for(source, from:, to:, covered_by: ["spec/a_spec.rb:1"], coarse: false, operator: "test",
+                   value_differed: nil)
+    survivor_for_edits(source, [[from, to]], covered_by: covered_by, coarse: coarse, operator: operator,
+                                             value_differed: value_differed)
   end
 
-  def survivor_for_edits(source, pairs, covered_by: ["spec/a_spec.rb:1"], coarse: false, operator: "test")
+  def survivor_for_edits(source, pairs, covered_by: ["spec/a_spec.rb:1"], coarse: false, operator: "test",
+                         value_differed: nil)
     dir = Dir.mktmpdir("saboteur-classify-")
     path = File.join(dir, "target.rb")
     File.write(path, source)
@@ -21,7 +24,73 @@ RSpec.describe Saboteur::Reporter::SurvivorClassification do
     mutation = Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: operator,
                                                       edits: edits, coarse: coarse)
     Saboteur::MutantResult.new(subject:, mutation:, status: :survived,
-                               mutated_source: subject.apply(mutation.edits), covered_by: covered_by)
+                               mutated_source: subject.apply(mutation.edits), covered_by: covered_by,
+                               value_differed: value_differed)
+  end
+
+  describe "the observed value (#1290)" do
+    let(:source) { "class A\n  def adult?(age)\n    age >= 18\n  end\nend\n" }
+
+    it "labels a covered survivor whose mutated value never differed input_gap, before the gap kind" do
+      result = survivor_for(source, from: ">=", to: ">", operator: "comparison", value_differed: false)
+      expect(described_class.label(result)).to eq("input_gap")
+    end
+
+    it "labels a covered survivor whose value differed and still passed assertion_gap" do
+      result = survivor_for(source, from: ">=", to: ">", operator: "comparison", value_differed: true)
+      expect(described_class.label(result)).to eq("assertion_gap")
+    end
+
+    it "keeps the gap kind when the site was not probed" do
+      result = survivor_for(source, from: ">=", to: ">", operator: "comparison", value_differed: nil)
+      expect(described_class.label(result)).to eq("boundary")
+    end
+
+    it "never labels a coarse mutant from the observation" do
+      result = survivor_for(source, from: "age >= 18", to: "nil", operator: "body_nil", coarse: true,
+                                    value_differed: true)
+      expect(described_class.label(result)).to be_nil
+    end
+
+    it "keeps arid and tool_limit ahead of the observation" do
+      arid = survivor_for("class A\n  def tell(msg)\n    puts msg\n  end\nend\n", from: "puts msg", to: "nil",
+                                                                                  value_differed: true)
+      pseudo = survivor_for(source, from: ">=", to: ">", covered_by: [Saboteur::Execution::ExternalRunner::PSEUDO_TEST],
+                                    value_differed: true)
+      expect(described_class.label(arid)).to eq("arid")
+      expect(described_class.label(pseudo)).to eq("tool_limit")
+    end
+
+    it "lets assertion_gap decide a statement's label over gap kinds and input_gap" do
+      a = survivor_for(source, from: ">=", to: ">")
+      b = survivor_for(source, from: ">=", to: ">")
+      allow(described_class).to receive(:label) { |result| result.equal?(a) ? "assertion_gap" : "boundary" }
+      expect(described_class.group_label([b, a])).to eq("assertion_gap")
+      allow(described_class).to receive(:label) { |result| result.equal?(a) ? "input_gap" : "assertion_gap" }
+      expect(described_class.group_label([a, b])).to eq("assertion_gap")
+    end
+
+    it "keeps the replaced gap kind: only for an observed label on a real, covered survivor" do
+      seen = survivor_for(source, from: ">=", to: ">", operator: "comparison", value_differed: false)
+      plain = survivor_for(source, from: ">=", to: ">", operator: "comparison")
+      coarse = survivor_for(source, from: ">=", to: ">", operator: "comparison", value_differed: true, coarse: true)
+      uncovered = survivor_for(source, from: ">=", to: ">", operator: "comparison", value_differed: false,
+                                       covered_by: [])
+      expect(described_class.kind(seen)).to eq("boundary")
+      expect([plain, coarse, uncovered].map { |result| described_class.kind(result) }).to all(be_nil)
+    end
+
+    it "names a statement's kind by the gap-kind precedence, nil when no mutant carries one" do
+      branch = survivor_for(source, from: ">=", to: ">", operator: "condition_true", value_differed: true)
+      bound = survivor_for(source, from: ">=", to: ">", operator: "comparison", value_differed: false)
+      expect(described_class.group_kind([bound, branch])).to eq("branch")
+      expect(described_class.group_kind([bound])).to eq("boundary")
+      expect(described_class.group_kind([survivor_for(source, from: ">=", to: ">")])).to be_nil
+    end
+
+    it "lists assertion_gap among the labels" do
+      expect(described_class::LABELS).to include("assertion_gap", "input_gap")
+    end
   end
 
   it "labels a covered survivor with the fallback kind when no rule matches" do

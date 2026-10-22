@@ -46,6 +46,14 @@ RSpec.describe "survivors record whether the mutated value differed", :e2e do
     expect(unpinned).to include("status" => "Survived", "valueDiffered" => true)
   end
 
+  it "labels the boundary survivor input_gap and the be_positive survivor assertion_gap (#1290)" do
+    run = saboteur(dir, "--all")
+
+    expect(mutant(run, "Fee.for", "comparison", "<=")).to include("classification" => "input_gap")
+    expect(mutant(run, "Fee.exact", "literal_number", "4")).to include("classification" => "assertion_gap")
+    expect(run.out).to include("[input_gap]").or include("input_gap")
+  end
+
   context "with a test that stubs the mutated operator" do
     before do
       write("lib/calc.rb", <<~RUBY)

@@ -53,6 +53,14 @@ RSpec.describe Saboteur::Reporter::ReviewComments do
         .to end_with("Saboteur could not observe this mutant faithfully. Check it by hand.")
     end
 
+    it "words input_gap and assertion_gap by what the observation says (#1290)" do
+      expect(described_class.body(finding("aabbccdd11223344", classification: "input_gap")))
+        .to end_with("No test input makes this change differ. Exercise it with a varied input.")
+      expect(described_class.body(finding("aabbccdd11223344", classification: "assertion_gap")))
+        .to end_with("A test reaches this line, the value changes, and it still passes. " \
+                     "Add an assertion that pins this behaviour.")
+    end
+
     it "fences code longer than any backtick run inside it" do
       body = described_class.body(finding("aabbccdd11223344", replacement: "x = ``` + ````` + @team #1"))
 

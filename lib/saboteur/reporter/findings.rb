@@ -71,7 +71,8 @@ module Saboteur
             edits: entries,
             coarse: result.mutation.coarse,
             # Why the survivor is worth a look, as a label only (#192).
-            classification: SurvivorClassification.label(result)
+            classification: SurvivorClassification.label(result),
+            gapKind: SurvivorClassification.kind(result)
           }.compact
           entry = with_changed_lines(report, result, entry)
           result.ignored ? entry.merge(reason: result.ignored) : entry

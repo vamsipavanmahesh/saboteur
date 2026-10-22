@@ -56,6 +56,14 @@ RSpec.describe Saboteur::Reporter::Stryker do
     expect(mutants.map { |m| m["classification"] }).to eq(["boundary", nil])
   end
 
+  it "reports the kind an observed label replaced as gapKind, and only then (#1290)" do
+    seen = result_for(:survived, covered_by: %w[t1], value_differed: false)
+    plain = result_for(:survived, covered_by: %w[t1])
+    mutants = JSON.parse(JSON.generate(described_class.build(report_of(seen, plain)))).dig("files", "person.rb",
+                                                                                           "mutants")
+    expect(mutants.map { |m| [m["classification"], m["gapKind"]] }).to eq([%w[input_gap boundary], ["boundary", nil]])
+  end
+
   it "builds valid JSON with multibyte source on and before the edited line (#192)" do
     source = "class Person\n  # caf\u00e9\n  def tell(msg)\n    puts \"\u00e9 \#{msg}\"\n  end\nend\n"
     dir = Dir.mktmpdir("saboteur-stryker-utf8-")

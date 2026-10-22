@@ -117,6 +117,25 @@ RSpec.describe Saboteur::CLI, "survivors (#475)" do
     end
   end
 
+  it "shows a survivor whose mutant carries no coveredBy, without a covered line" do
+    Dir.mktmpdir do |dir|
+      path = write_report(dir, survivors: [])
+      report = JSON.parse(File.read(path))
+      report["files"]["lib/order.rb"]["mutants"].each { |m| m.delete("coveredBy") }
+      File.write(path, JSON.generate(report))
+      expect(cli("survivors", path, "--show", "a" * 16).call).to eq(0)
+      expect(out.string).not_to include("covered by")
+    end
+  end
+
+  it "falls back to the report's source line when findings lack the digest" do
+    Dir.mktmpdir do |dir|
+      path = write_report(dir, survivors: [])
+      expect(cli("survivors", path, "--show", "b" * 16).call).to eq(0)
+      expect(out.string).to include("- items.sum(&:price)")
+    end
+  end
+
   it "prints the ignore template with a subject placeholder when findings lack the digest" do
     Dir.mktmpdir do |dir|
       path = write_report(dir, survivors: [])
@@ -188,15 +207,28 @@ RSpec.describe Saboteur::CLI, "survivors (#475)" do
       end
     end
 
+    it "keeps the replaced gap kind's advice in an observed label's reason (#1290)" do
+      Dir.mktmpdir do |dir|
+        path = write_report(dir, survivors: [])
+        report = JSON.parse(File.read(path))
+        report["files"]["lib/order.rb"]["mutants"].first
+                                                  .merge!("classification" => "assertion_gap", "gapKind" => "number")
+        File.write(path, JSON.generate(report))
+        expect(cli("survivors", path, "--show", "a" * 16).call).to eq(0)
+        expect(out.string).to include("assertion_gap - a test ran this mutant, the value changed, " \
+                                      "and no assertion noticed; no test depends on this exact number")
+      end
+    end
+
     it "prints a bare classification line for a label with no reason" do
       Dir.mktmpdir do |dir|
         path = write_report(dir, survivors: [])
         report = JSON.parse(File.read(path))
-        report["files"]["lib/order.rb"]["mutants"].first["classification"] = "assertion_gap"
+        report["files"]["lib/order.rb"]["mutants"].first["classification"] = "mystery_label"
         File.write(path, JSON.generate(report))
         expect(cli("survivors", path, "--show", "a" * 16).call).to eq(0)
-        expect(out.string).to include("classification: assertion_gap\n")
-        expect(out.string).not_to include("assertion_gap -")
+        expect(out.string).to include("classification: mystery_label\n")
+        expect(out.string).not_to include("mystery_label -")
       end
     end
 
