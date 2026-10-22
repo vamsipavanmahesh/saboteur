@@ -15,6 +15,7 @@ module Saboteur
           opts.on("--test PATH", "Spec file or directory for the suite runs; repeatable. Implies --suite") do |value|
             (options[:tests] ||= []) << value
           end
+          define_color_options(opts)
         end
       end
 

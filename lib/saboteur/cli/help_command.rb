@@ -8,6 +8,11 @@ module Saboteur
     module HelpCommand
       private
 
+      def help_command
+        consume_color_options
+        show_help(@argv.shift)
+      end
+
       def help_requested? = @argv.intersect?(%w[--help -h])
 
       def show_help(command_name)

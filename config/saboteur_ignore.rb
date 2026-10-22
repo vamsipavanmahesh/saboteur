@@ -1327,17 +1327,20 @@ i.mutation "fdc4600f4e8e8625",
                      "hand-applied mutant leaves all 37 run_option_modules and " \
                      "cli_terminal_options examples green"
 
-  # output_options.rb - --no-color / description swap: OptionParser::Switch classifies string
-  # arguments by content, not position, so the swapped call builds the identical
-  # switch. Hand-applied mutant: all 37 run_option_modules and cli_terminal_options
-  # examples green.
-  i.mutation "778e54d8ddaafdef",
-             subject: "Saboteur::CLI::OutputOptions#define_text_report_options",
+  # color_option.rb - --no-color / description swap: OptionParser::Switch classifies
+  # string arguments by content, not position, so the swapped call builds the
+  # identical switch (the option moved here from output_options.rb in #1288).
+  i.mutation "47554c5e25d00a00",
+             subject: "Saboteur::CLI::ColorOption#define_color_options",
              reason: "equivalent: OptionParser::Switch classifies string arguments by " \
                      "content, not position - swapping the --no-color option name and " \
-                     "description strings builds the identical switch - " \
-                     "hand-applied mutant leaves all 37 run_option_modules and " \
-                     "cli_terminal_options examples green"
+                     "description strings builds the identical switch"
+  # explain_command.rb `mode: @color || :auto` -> `mode: @color`: Palette.enabled?
+  # treats any mode other than :always/:never (nil included) as auto.
+  i.mutation "e99c035a4d9c29ed",
+             subject: "Saboteur::CLI::ExplainCommand#explain_command",
+             reason: "equivalent: Palette.enabled? sends a nil mode to the same auto branch " \
+                     "as :auto, so dropping the || :auto fallback changes nothing"
   i.mutation "5352380af5a812e5",
              subject: "Saboteur::Reporter::Palette#initialize",
              reason: "equivalent: an empty overrides hash passes validate_overrides! " \
@@ -2688,17 +2691,6 @@ i.mutation "fdc4600f4e8e8625",
   i.mutation "3680c6f564cfca0f",
              subject: "Saboteur::Reporter::Terminal#untested_win_note",
              reason: "equivalent: each returns the receiver; Subject#to_s delegates to #id - same string"
-
-  # explain_command.rb:30 `mode: :auto` pair_removal - Palette.for declares
-  # `mode: :auto` as the keyword default (palette.rb:22), so dropping the
-  # argument passes the identical value. Hand-probed: the hand-applied mutant
-  # leaves render_explain output byte-identical on a tty (415b, painted) and a
-  # pipe (353b, plain), and the 243-example cli + explain_command set is green.
-  i.mutation "f9d70ef942853703",
-             subject: "Saboteur::CLI::ExplainCommand#explain_command",
-             reason: "equivalent: mode: :auto is Palette.for's declared keyword default " \
-                     "(palette.rb:22) - hand-applied removal leaves tty and pipe renders " \
-                     "byte-identical and the cli + explain_command specs green"
 
   # survivor_list.rb:206/:212 group.first.subject -> group.last.subject - equivalent:
   # survivor groups are keyed by [subject.id, MutationText.line] (SurvivorList#groups),

@@ -29,10 +29,7 @@ module Saboteur
           @verbose = true
           set(:verbose, true)
         end
-        opts.on("--color [MODE]", %w[always never auto],
-                "Colour the text report: always, never or auto (default: auto)") do |v|
-          @color = (v || :always).to_sym
-        end
+        define_color_options(opts)
 
         # PR6: CI and pre-push output - the findings and the verdict only.
         opts.on("--quiet", "Text report: print only the findings and the verdict;",
@@ -46,7 +43,6 @@ module Saboteur
         # top three; --details restores a block for every finding.
         opts.on("--details", "Text report: full blocks for every finding;",
                 "default: one-line list plus the top 3 blocks") { set(:details, true) }
-        opts.on("--no-color", "Deprecated alias for --color=never") { @color = :never }
       end
     end
   end

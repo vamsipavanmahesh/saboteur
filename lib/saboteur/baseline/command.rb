@@ -21,6 +21,7 @@ module Saboteur
           opts.on("--subject EXPR", "Whole subject filter; repeatable") { |value| add_subject(value) }
           opts.on("--seed N", Integer, "Repeatable run seed") { |value| set(:seed, value) }
           opts.on("--format FORMAT", "propose: terminal (default) or json") { |value| @format = value }
+          define_color_options(opts)
         end
       end
 
