@@ -18,7 +18,8 @@ RSpec.describe "finished run reporting" do
       expect(Saboteur::Reporter::Terminal).to receive(:new)
         .with(out, verbose: verbose || false, quiet: false, color: color || :auto, overrides: {},
                    replay_command: kind_of(Proc),
-                   all_mutants: false, exit_code: 0, threshold: nil, previous_score: nil, baseline_gate: nil,
+                   all_mutants: false, details: false, exit_code: 0, threshold: nil, previous_score: nil,
+                   baseline_gate: nil,
                    scope: "whole project",
                    whole_suite_map: Saboteur::Reporter::SurvivorList::NO_WHOLE_SUITE_LOOKUP, run_map: nil)
         .and_return(terminal)
@@ -49,7 +50,8 @@ RSpec.describe "finished run reporting" do
     expect(Saboteur::Reporter::Terminal).to receive(:new)
       .with(out, verbose: false, quiet: false, color: :auto, overrides: {},
                  replay_command: kind_of(Proc),
-                 all_mutants: false, exit_code: 0, threshold: nil, previous_score: nil, baseline_gate: nil,
+                 all_mutants: false, details: false, exit_code: 0, threshold: nil, previous_score: nil,
+                 baseline_gate: nil,
                  scope: "whole project", whole_suite_map: nil, run_map: nil)
       .and_return(terminal)
     expect(terminal).to receive(:call).with(report)
@@ -71,7 +73,8 @@ RSpec.describe "finished run reporting" do
     expect(Saboteur::Reporter::Terminal).to receive(:new)
       .with(out, verbose: false, quiet: false, color: :auto, overrides: {},
                  replay_command: kind_of(Proc),
-                 all_mutants: false, exit_code: 0, threshold: nil, previous_score: nil, baseline_gate: nil,
+                 all_mutants: false, details: false, exit_code: 0, threshold: nil, previous_score: nil,
+                 baseline_gate: nil,
                  scope: "whole project", whole_suite_map: map, run_map: nil)
       .and_return(terminal)
     expect(terminal).to receive(:call).with(report)

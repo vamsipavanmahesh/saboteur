@@ -143,7 +143,7 @@ RSpec.describe Saboteur::Reporter::Terminal, "quiet pins" do
     end
     many_report = Saboteur::Report.new(results: survivors, subjects: many, wall_time: 1,
                                        root: File.dirname(many.first.file), seed: 1)
-    blocks = render(many_report, exit_code: 1)
+    blocks = render(many_report, exit_code: 1, details: true)
     quiet = render(many_report, exit_code: 1, quiet: true)
     cases.each do |_name, _from, _to, _operator, kind|
       expect(blocks).to include("[#{kind} ·")

@@ -1342,7 +1342,7 @@ i.mutation "fdc4600f4e8e8625",
   # arguments by content, not position, so the swapped call builds the identical
   # switch. Hand-applied mutant: all 37 run_option_modules and cli_terminal_options
   # examples green.
-  i.mutation "168af4997d68752b",
+  i.mutation "778e54d8ddaafdef",
              subject: "Saboteur::CLI::OutputOptions#define_text_report_options",
              reason: "equivalent: OptionParser::Switch classifies string arguments by " \
                      "content, not position - swapping the --no-color option name and " \
@@ -2770,4 +2770,29 @@ i.mutation "fdc4600f4e8e8625",
              subject: "Saboteur::Reporter::Html#attention_rank",
              reason: "equivalent: every rank above 0 sorts after the attention group exactly " \
                      "like 1 does - hand-probed, 924 reporter examples green"
+    # survivor_list.rb:51 - forcing the @limit ternary true never changes the caveat:
+    # with a limit the true branch is the one taken anyway; without a limit, shown
+    # keeps every group, so shown.flatten holds exactly the survivors of live, and
+    # hinted is only used for .any? (order cannot matter). Both branches select the
+    # same set in every reachable case.
+    i.mutation "7cc7f1e95eec667d",
+               subject: "Saboteur::Reporter::SurvivorList#call",
+               reason: "equivalent: with @limit the true branch is taken regardless; without it, " \
+                       "shown.flatten holds the same survivors as live and only .any? is read, " \
+                       "so cond_true leaves the caveat decision unchanged"
+
+    # survivor_list.rb wrap: lines.first for lines.last in the `.empty?` probes. The
+    # accumulator starts [+""] and words are only ever pushed as +word or appended to
+    # the last line, so the first line is empty exactly when it is the only line -
+    # i.e. exactly when last.empty? holds. first.empty? and last.empty? therefore
+    # agree on every reachable state and the wrap decisions are unchanged.
+    i.mutation "fe19175d4b9d6bc9",
+               subject: "Saboteur::Reporter::SurvivorList#wrap",
+               reason: "equivalent: lines.first is empty iff lines.last is empty (words are only " \
+                       "pushed non-empty or appended to last), so probing first.empty? makes the " \
+                       "same wrap decision on every reachable state"
+    i.mutation "84e66c21d2139d06",
+               subject: "Saboteur::Reporter::SurvivorList#wrap",
+               reason: "equivalent: same invariant - first.empty? agrees with last.empty? on every " \
+                       "reachable accumulator state, so the join text is unchanged"
 end

@@ -106,4 +106,47 @@ RSpec.describe Saboteur::Engine, "report wiring" do
     expect(shard).to receive(:select).with([subject], [planned]).and_return([[]])
     expect(engine.send(:candidate_lists, [subject], nil, map)).to eq([[]])
   end
+
+  it "flows the phase timings into the report" do
+    engine = described_class.new(Saboteur::Config.new({}), err: StringIO.new)
+    timings = Saboteur::PhaseTimings.new(baseline_seconds: 1.0, map_seconds: 2.0, map_cached: false,
+                                         mutants_seconds: 3.0, jobs: 2)
+    engine.instance_variable_set(:@phase_timings, timings)
+    report = engine.send(:build_report, [], [], nil, engine.send(:monotonic))
+    expect(report.phase_timings).to be(timings)
+  end
+
+  it "times the map fetch as the difference of two monotonic reads" do
+    engine = described_class.new(Saboteur::Config.new({}), err: StringIO.new)
+    store = Object.new
+    def store.fetch(*) = :the_map
+    reads = [10.0, 12.5]
+    engine.define_singleton_method(:monotonic) { reads.shift }
+    map, seconds = engine.send(:timed_map_fetch, store, [:files])
+    expect([map, seconds]).to eq([:the_map, 2.5])
+  end
+
+  it "records the three phase splits and the job count for the speed footer" do
+    engine = described_class.new(Saboteur::Config.new({ "jobs" => 3 }), err: StringIO.new)
+    engine.instance_variable_set(:@baseline_elapsed, 4.25)
+    reads = [20.0, 27.5]
+    engine.define_singleton_method(:monotonic) { reads.shift }
+    engine.define_singleton_method(:run_and_confirm) { |*| :results }
+    engine.send(:run_and_confirm_timed, [], [], nil, nil, nil, map_cached: false, map_seconds: 6.5)
+    expect(engine.instance_variable_get(:@phase_timings)).to eq(
+      Saboteur::PhaseTimings.new(baseline_seconds: 4.25, map_seconds: 6.5, map_cached: false,
+                                 mutants_seconds: 7.5, jobs: 3)
+    )
+  end
+
+  it "reports zero baseline seconds when the baseline phase never timed itself" do
+    engine = described_class.new(Saboteur::Config.new({ "jobs" => 1 }), err: StringIO.new)
+    reads = [1.0, 2.0]
+    engine.define_singleton_method(:monotonic) { reads.shift }
+    engine.define_singleton_method(:run_and_confirm) { |*| :results }
+    engine.send(:run_and_confirm_timed, [], [], nil, nil, nil, map_cached: true, map_seconds: 9.0)
+    timings = engine.instance_variable_get(:@phase_timings)
+    expect(timings.baseline_seconds).to eq(0.0)
+    expect(timings.mutants_seconds).to eq(1.0)
+  end
 end

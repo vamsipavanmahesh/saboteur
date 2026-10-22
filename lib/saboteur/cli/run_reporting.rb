@@ -21,7 +21,7 @@ module Saboteur
         Reporter::Terminal.new(@out, verbose: @verbose || false, quiet: @quiet || false, color: @color || :auto,
                                      overrides: config["palette"], threshold: config["threshold"],
                                      replay_command: survivor_replay_command(report, engine),
-                                     all_mutants: options[:all_mutants] || false,
+                                     all_mutants: options[:all_mutants] || false, details: options[:details] || false,
                                      exit_code: code, previous_score: previous_score, scope: scope_label,
                                      whole_suite_map: whole_suite_map_for(engine),
                                      run_map: engine&.run_coverage_map,

@@ -89,6 +89,7 @@ module Saboteur
           "  #{SurvivorGuidance::REPLAY_CAVEAT}",
           "",
           SurvivorGuidance::IGNORE_INTRO,
+          "  #{SurvivorGuidance::IGNORE_CONFIG}",
           "  #{ignore_entry(survivor, subject)}"
         ].join("\n")
       end

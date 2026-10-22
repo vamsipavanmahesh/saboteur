@@ -8,8 +8,8 @@ module Saboteur
   # surfaces never drift (#1167).
   module SurvivorGuidance
     REPLAY_CAVEAT = "(add this run's own --config, --since, --subject, --test and source options)"
-    IGNORE_INTRO = "accept an equivalent one: add to your ignore file " \
-                   "(c.ignore_file, default #{Config::IGNORE_FILE}):".freeze
+    IGNORE_INTRO = "accept an equivalent one: add to your ignore file"
+    IGNORE_CONFIG = "(c.ignore_file, default #{Config::IGNORE_FILE}):".freeze
     REASON_PLACEHOLDER = "why it is equivalent"
 
     module_function
