@@ -105,6 +105,48 @@ RSpec.describe "score honesty" do
     out.string
   end
 
+  describe "no-coverage note (#1190)" do
+    def note_text(*results)
+      render(report_of(*results), color: :never)
+    end
+
+    it "names mutants on lines no test runs right under the score, with the JSON hint" do
+      skips = Array.new(7) { result_for(:skipped, reason: "no coverage") }
+      text = note_text(result_for(:killed), result_for(:survived), *skips)
+      lines = text.lines
+      score_idx = lines.index { |line| line.start_with?("Score:") }
+      expected = "  7 mutants on lines no test runs (not in the score): the JSON report lists them as NoCoverage\n"
+      expect(lines[score_idx + 1]).to eq(expected)
+    end
+
+    it "uses the singular for one such mutant" do
+      text = note_text(result_for(:killed), result_for(:survived), result_for(:skipped, reason: "no coverage"))
+      expected = "  1 mutant on lines no test runs (not in the score): the JSON report lists them as NoCoverage"
+      expect(text).to include(expected)
+    end
+
+    it "counts a branch-not-taken skip too, but no other skip reason" do
+      text = note_text(result_for(:killed), result_for(:survived),
+                       result_for(:skipped, reason: "no coverage (branch not taken)"),
+                       result_for(:skipped, reason: Saboteur::Selection::CoverageMap::PRELOADED))
+      expect(text).to include("  1 mutant on lines no test runs")
+      expect(text).not_to include("  2 mutants on lines")
+    end
+
+    it "counts only skipped mutants, not a run result whose reason mentions coverage" do
+      text = note_text(result_for(:killed), result_for(:survived),
+                       result_for(:skipped, reason: "no coverage"),
+                       result_for(:survived, reason: "no coverage"))
+      expect(text).to include("  1 mutant on lines no test runs")
+      expect(text).not_to include("  2 mutants on lines")
+    end
+
+    it "stays silent when every mutant ran" do
+      text = note_text(result_for(:killed), result_for(:survived))
+      expect(text).not_to include("no test runs")
+    end
+  end
+
   # The closing block, from the opener line to the verdict line.
   def closing(text)
     text[/^(\e\[2m)?saboteur #{Regexp.escape(Saboteur::VERSION)}:.*/m]
