@@ -6,6 +6,59 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.12.2] - 2026-10-22
+
+### Added
+
+- A scoped run (`--since`, `--subject`, or the default spec inference)
+  confirms its survivors against the whole-suite coverage map when one
+  exists. Each survivor gets one budgeted confirmation run of the covering
+  specs the run did not load. A mutant those specs kill becomes killed,
+  credited to the killing test in the JSON report, and counts in the score
+  and exit code. A survivor whose covering specs could not be run is listed
+  as unconfirmed, left out of the score and exit code, and ranked below
+  confirmed survivors. A map that is older than the tree and says nothing
+  about a survivor's lines keeps that survivor counted, with one line
+  naming how many. A covering spec outside the project root is never
+  loaded (#1286, #1304).
+- `--color` and `--no-color` work on every text command, and a usage error
+  names the command that failed instead of showing `saboteur run` usage
+  (#1288, #1301).
+
+### Changed
+
+- Only `saboteur run --all` records the whole-suite coverage map. A run
+  built from inferred specs no longer claims to be whole-suite. Without a
+  whole-suite map a scoped run prints one line saying survivors are
+  unconfirmed and how to build the map, and each survivor block says its
+  covering list is this run's selection only (#1286, #1300).
+- A statement's gap label comes from all of its surviving mutants with a
+  fixed precedence: result unchecked, error path, branch, boundary,
+  effect, number, instead of from the first mutant (#1289, #1297).
+- `baseline propose` records a mutant on a line no test runs as a gap
+  instead of an unexecuted blocker, so a tested method with one untested
+  line can still be proposed (#1287, #1299).
+- A config-less Rails app's default `app/**/*.rb` include counts as a
+  full run, so the stale ignore entry warning fires there (#1255, #1296).
+- `--quiet` no longer prints the missing-config notice, the coverage cache
+  miss or the map-build lines (#1264, #1293).
+- Output polish: the run header names the `--subject` scope, the
+  no-spec note reads in the singular, untested subjects are named once
+  under "Not scored", and the replay example uses the top-ranked
+  survivor (#1291, #1298).
+- Report test ids in `killedBy`, `coveredBy` and `testFiles` are numbered
+  by sorted test name, so the same tests keep the same ids across runs
+  (#1282, #1295). Covering tests are ordered by millisecond buckets, so
+  kill attribution is stable (#1274, #1283).
+
+### Fixed
+
+- An empty `--since` diff whose mutants all failed generation no longer
+  exits 0 under `--threshold`, and `--ignore-empty` no longer fails a run
+  without `--since` (#1265, #1266, #1284).
+- `saboteur survivors` no longer drops an unknown keyword silently
+  (#1267, #1285).
+
 ### Corrected
 
 - 0.12.0 said uncovered survivors are labeled `input_gap`, "separate from
@@ -16,6 +69,11 @@ All notable changes are documented here. The format follows
   only affects which covering tests a block lists. A survivor whose real
   test sits in a spec file saboteur did not select can still be reported
   as a survivor; see "Know the limits" in the README.
+
+### Tests
+
+- The worker pool and supervisor specs assert concurrency with a barrier
+  instead of a wall-clock bound (#1302, #1303).
 
 ## [0.12.1] - 2026-10-22
 
