@@ -25,7 +25,13 @@ module Saboteur
         return if @format == "agent" || config.config_file_present
 
         path = options[:config] || Config::FILE
-        notice = "saboteur: no #{path} - using defaults (Rails: bundle exec rails generate saboteur:install writes one)"
+        notice =
+          if config["include"] == Config::RAILS_INCLUDE && !config.explicit?("include")
+            "saboteur: no #{path} - Rails app detected, mutating app/**/*.rb " \
+              "(bundle exec rails generate saboteur:install writes a config)"
+          else
+            "saboteur: no #{path} - using defaults (Rails: bundle exec rails generate saboteur:install writes one)"
+          end
         @err.puts(palette.paint(:dim, notice))
       end
 

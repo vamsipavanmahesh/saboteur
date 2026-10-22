@@ -61,6 +61,42 @@ RSpec.describe Saboteur::Config do
       .to eq(["rspec", 3.0, 5.0, 1, "nesting"])
   end
 
+  it "defaults include to app/** on a Rails app with no config file (#1171)" do
+    write("config/application.rb", "module Demo; class Application < Rails::Application; end; end\n")
+    write("app/models/user.rb", "class User; end\n")
+    config = described_class.load(root: @root)
+    expect(config["include"]).to eq(["app/**/*.rb"])
+    expect(config.explicit?("include")).to be(false)
+    expect(config.included_files).to eq([File.join(@root, "app/models/user.rb")])
+  end
+
+  it "needs both config/application.rb and app/ to detect a Rails app (#1171)" do
+    write("config/application.rb", "module Demo; class Application < Rails::Application; end; end\n")
+    expect(described_class.load(root: @root)["include"]).to eq(["lib/**/*.rb"])
+    FileUtils.rm_rf(File.join(@root, "config"))
+    write("app/models/user.rb", "class User; end\n")
+    expect(described_class.load(root: @root)["include"]).to eq(["lib/**/*.rb"])
+  end
+
+  it "lets a written config, even an empty one, opt out of Rails detection (#1171)" do
+    write("config/application.rb", "module Demo; class Application < Rails::Application; end; end\n")
+    write("app/models/user.rb", "class User; end\n")
+    write("config/saboteur.rb", "Saboteur.configure { |c| }\n")
+    expect(described_class.load(root: @root)["include"]).to eq(["lib/**/*.rb"])
+    write("config/saboteur.rb", "Saboteur.configure { |c| c.include = ['packs/**/*.rb'] }\n")
+    config = described_class.load(root: @root)
+    expect(config["include"]).to eq(["packs/**/*.rb"])
+    expect(config.explicit?("include")).to be(true)
+  end
+
+  it "lets a CLI --include override the Rails detection (#1171)" do
+    write("config/application.rb", "module Demo; class Application < Rails::Application; end; end\n")
+    write("app/models/user.rb", "class User; end\n")
+    config = described_class.load(root: @root, overrides: { include: ["engines/**/*.rb"] })
+    expect(config["include"]).to eq(["engines/**/*.rb"])
+    expect(config.explicit?("include")).to be(true)
+  end
+
   it "keeps whole_file as a list of subject id patterns, empty by default" do
     expect(described_class.new({})["whole_file"]).to eq([])
     expect(described_class.new({ "whole_file" => ["Gate#open", "Box*"] })["whole_file"]).to eq(["Gate#open", "Box*"])
