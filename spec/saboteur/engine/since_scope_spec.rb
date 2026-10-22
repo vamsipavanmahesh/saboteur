@@ -383,7 +383,7 @@ RSpec.describe Saboteur::Engine, "test selection" do
       expect(@engine.guessed_tests).to be_nil
       expect(err.string).to include("inferred specs: no changed file has a mutation subject on its changed lines, " \
                                     "so there is nothing to mutate")
-      expect(err.string).to include("no spec is required for lib/errors.rb: they have no changed mutation subjects")
+      expect(err.string).to include("no spec is required for lib/errors.rb: it has no changed mutation subjects")
       expect(err.string).not_to include("the whole suite runs")
     end
 

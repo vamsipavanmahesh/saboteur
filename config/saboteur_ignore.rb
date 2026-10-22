@@ -2666,11 +2666,6 @@ i.mutation "fdc4600f4e8e8625",
              reason: "equivalent: dropping subject.file from the sort key is unobservable - the " \
                      "sorted list is only consumed via group_by(&:file), and within one file " \
                      "[start_line] sorts identically to [file, start_line]"
-  i.mutation "389aea458ec95382",
-             subject: "Saboteur::Reporter::ScoreTable#untested_note",
-             reason: "equivalent: map(&:id) -> each(&:id) returns the subjects themselves, and the " \
-                     "only uses (first, size, join) go through Subject#to_s, which returns id " \
-                     "(subject.rb:188) - the printed note is byte-identical"
   i.mutation "ad3d5b107c446ee8",
              subject: "Saboteur::Reporter::Terminal#error_part",
              reason: "equivalent: rejected > 1 -> rejected != 1 sits behind rejected.positive?, " \

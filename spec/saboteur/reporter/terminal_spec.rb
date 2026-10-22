@@ -261,7 +261,9 @@ RSpec.describe Saboteur::Reporter::Terminal do
     expect(text.scan("covered by ").size).to eq(1)
     expect(text).to include("+3 more covered, all passed", "4 more mutants here:")
     expect(text).to include("(+1 more)")
-    [a, b, c, same, d].each { |result| expect(text).to include(result.digest) }
+    # The block names the representative and caps its sibling digests at
+    # three; the replay example is the ranked #1, not an extra digest source.
+    expect([a, b, c, same, d].count { |result| text.include?(result.digest) }).to eq(4)
   end
 
   it "renders a removal edit as a -/+ pair with the deleted text gone (#502)" do

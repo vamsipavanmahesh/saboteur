@@ -158,8 +158,8 @@ RSpec.describe "score honesty" do
       Score: 80.0% (4/5 killed or timed out, tested subjects)  3 subjects not scored - no test executes them
 
       Score by file (worst first):
-        calculator.rb   66.7% (2/3) · n/a - 1 subject - no test executes it: Calculator#shipping_cost
-        cart.rb        100.0% (2/2) · n/a - 2 subjects - no test executes them: Cart#total, Cart#biggest
+        calculator.rb   66.7% (2/3) · n/a - 1 subject - no test executes it
+        cart.rb        100.0% (2/2) · n/a - 2 subjects - no test executes them
 
       Not scored - no test executes these (treat these as your biggest gaps):
         ! Calculator#shipping_cost (calculator.rb:6) · Cart#total (cart.rb:2) · Cart#biggest (cart.rb:6)
@@ -188,8 +188,8 @@ RSpec.describe "score honesty" do
       Score: 80.0% (4/5 killed or timed out, tested subjects)  \e[33m3 subjects not scored - no test executes them\e[0m
 
       Score by file (worst first):
-        calculator.rb   66.7% (2/3) · \e[33mn/a - 1 subject - no test executes it: Calculator#shipping_cost\e[0m
-        cart.rb        100.0% (2/2) · \e[33mn/a - 2 subjects - no test executes them: Cart#total, Cart#biggest\e[0m
+        calculator.rb   66.7% (2/3) · \e[33mn/a - 1 subject - no test executes it\e[0m
+        cart.rb        100.0% (2/2) · \e[33mn/a - 2 subjects - no test executes them\e[0m
 
       \e[33mNot scored - no test executes these (treat these as your biggest gaps):\e[0m
         \e[33m!\e[0m Calculator#shipping_cost (calculator.rb:6) · Cart#total (cart.rb:2) · Cart#biggest (cart.rb:6)
@@ -219,7 +219,7 @@ RSpec.describe "score honesty" do
     table.call(report)
     expect(out.string).to eq(
       "\nScore by file (worst first):\n  calculator.rb  100.0% (1/1)\n  " \
-      "notes.rb       n/a - 1 subject - no test executes it: Notes#draft\n"
+      "notes.rb       n/a - 1 subject - no test executes it\n"
     )
     expect(out.string).not_to match(/notes\.rb.*%/)
   end
@@ -463,7 +463,7 @@ RSpec.describe "score honesty" do
       skipped = { cart.fetch("Cart#biggest") => "no coverage", cart.fetch("Cart#total") => "no coverage",
                   add => "filtered" }
       text = render(honest_report([result(add, :killed)], skipped:, subjects:), color: :never)
-      expect(text).to include("n/a - 2 subjects - no test executes them: Cart#total, Cart#biggest")
+      expect(text).to include("n/a - 2 subjects - no test executes them")
       expect(text).to include("! Cart#total (cart.rb:2) · Cart#biggest (cart.rb:6)")
       expect(text).to include("2 subjects not scored - no test executes them")
       expect(text).not_to include("3 subjects")
@@ -471,20 +471,13 @@ RSpec.describe "score honesty" do
       expect(calc_row.strip).to eq("calculator.rb  100.0% (1/1)")
     end
 
-    it "caps the untested names on a file row and counts the rest" do
+    it "counts the untested subjects on a file row and leaves the names to the Not scored block (P6)" do
       skipped = cart.values.to_h { |subject| [subject, "no coverage"] }
       text = render(honest_report([result(add, :killed)], skipped:, subjects:), color: :never)
       row = text.lines.find { |line| line.start_with?("  cart.rb") }
-      expect(row).to include("4 subjects - no test executes them: Cart#total, Cart#biggest, Cart#discounted, +1 more")
-      expect(row).not_to include("Cart#smallest")
-    end
-
-    it "names up to three untested subjects without a count-off tail" do
-      skipped = cart.values.first(3).to_h { |subject| [subject, "no coverage"] }
-      text = render(honest_report([result(add, :killed)], skipped:, subjects:), color: :never)
-      row = text.lines.find { |line| line.start_with?("  cart.rb") }
-      expect(row).to include("3 subjects - no test executes them: Cart#total, Cart#biggest, Cart#discounted")
-      expect(row).not_to include("more")
+      expect(row).to include("4 subjects - no test executes them")
+      expect(row).not_to include("Cart#")
+      expect(text.scan("Cart#total").size).to eq(1)
     end
 
     it "caps the Not scored block at ten entries and counts the rest" do

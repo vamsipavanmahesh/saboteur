@@ -20,7 +20,9 @@ module Saboteur
       end
 
       def call(report)
-        survivor = report.unignored_survivors.first
+        # The replay example is the #1 survivor of the ranked list, not
+        # whichever one the results hold first.
+        survivor = SurvivorRanking.ordered(report, report.unignored_survivors).first
         return unless survivor
 
         @out.puts "\n#{@palette.paint(:head, 'Next steps:')}"

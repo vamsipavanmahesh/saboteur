@@ -15,7 +15,6 @@ module Saboteur
     # it. Untested subjects are never dropped silently, even at 100 %.
     class ScoreTable
       MAX_ROWS = 15
-      MAX_UNTESTED_NAMES = 3
       # The skip reason CandidateSelection gives a subject no test covers.
       NO_COVERAGE = "no coverage"
 
@@ -63,7 +62,7 @@ module Saboteur
           detected: breakdown.detected, tested: breakdown.tested, untested: untested }
       end
 
-      # "cart.rb  100.0% (2/2) · n/a - 2 subjects - no test executes them: ...": the
+      # "cart.rb  100.0% (2/2) · n/a - 2 subjects - no test executes them": the
       # tested score and the untested count stand next to each other; a
       # file with nothing tested gets no percentage at all.
       def line(row, width)
@@ -75,18 +74,14 @@ module Saboteur
         note ? "#{base} #{@palette.glyph(:middot)} #{note}" : base
       end
 
-      # "n/a - 2 subjects - no test executes them: Cart#total, Cart#biggest":
-      # names the subjects the score cannot speak for, capped so a long
-      # list does not swallow the row; the Not scored block lists them all.
-      # Wording owns the claim (#1145): a stubbed-away subject has tests,
-      # they just never execute it.
+      # "n/a - 2 subjects - no test executes them": only the count. The
+      # Not scored block below names every subject once (P6), so the table
+      # does not repeat the names. Wording owns the claim (#1145): a
+      # stubbed-away subject has tests, they just never execute it.
       def untested_note(untested)
         return if untested.empty?
 
-        names = untested.map(&:id)
-        shown = names.first(MAX_UNTESTED_NAMES)
-        shown << "+#{names.size - MAX_UNTESTED_NAMES} more" if names.size > MAX_UNTESTED_NAMES
-        @palette.paint(:warn, "n/a - #{Wording.untested_note(untested.size)}: #{shown.join(', ')}")
+        @palette.paint(:warn, "n/a - #{Wording.untested_note(untested.size)}")
       end
     end
   end
