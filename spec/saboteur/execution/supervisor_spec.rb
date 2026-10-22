@@ -532,14 +532,20 @@ RSpec.describe Saboteur::Execution::Supervisor do
       expect(results.map(&:stopped_by)).to eq([nil, nil, nil])
     end
 
+    # A barrier, not a stopwatch: each child checks in and waits for all
+    # three. Children run one after another never see the third check-in
+    # (the first gives up after the cap), however fast the machine is.
     it "supervises the children at the same time, not one after another" do
-      started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      supervisor.run_many(3, timeout: 10) do |writer, index|
-        sleep 1
-        writer.write(index.to_s)
-      end
+      Dir.mktmpdir do |dir|
+        results = supervisor.run_many(3, timeout: 30) do |writer, index|
+          FileUtils.touch(File.join(dir, "child-#{index}"))
+          give_up = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 5
+          sleep 0.01 until Dir.children(dir).size == 3 || Process.clock_gettime(Process::CLOCK_MONOTONIC) > give_up
+          writer.write(Dir.children(dir).size.to_s)
+        end
 
-      expect(Process.clock_gettime(Process::CLOCK_MONOTONIC) - started).to be < 2.5
+        expect(results.map(&:payload)).to eq(%w[3 3 3])
+      end
     end
 
     it "gives each child its own marker and keeps siblings' payloads apart" do
