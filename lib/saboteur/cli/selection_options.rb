@@ -22,8 +22,9 @@ module Saboteur
         opts.on("--id DIGEST", "Replay exactly one current mutant by its full digest") { |v| set(:id, v) }
         opts.on("--shard K/N", "Run one of N deterministic candidate shards (for example 1/4)") { |v| set(:shard, v) }
         opts.on("--since REF", "Only mutate subjects changed since git REF") { |v| options[:since] = v }
-        opts.on("--ignore-empty", "A --since diff that selects no mutants exits 0 with a note instead of " \
-                                  "failing a score gate") { set(:ignore_empty, true) }
+        opts.on("--ignore-empty", "Deprecated no-op: the no-mutant diff case always exits 0 (#1142)") do
+          set(:ignore_empty, true)
+        end
         flaky_desc = "Confirm a fresh verdict (survivors, decisive) with one reordered rerun"
         opts.on("--flaky-check MODE", %w[off survivors decisive], flaky_desc) { |v| set(:flaky_check, v) }
         opts.on("--subject EXPR", "Klass#meth, Klass.meth or a namespace; repeatable") { |v| add_subject(v) }

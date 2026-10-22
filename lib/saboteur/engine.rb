@@ -46,10 +46,11 @@ module Saboteur
     attr_reader :guessed_tests
 
     def initialize(config, err: $stderr, digest: nil, capture_evidence: false, evidence_files: [], verbose: false,
-                   palette: nil, quiet_start: true)
+                   palette: nil, quiet_start: true, quiet: false)
       @config = config
       @hooks = Hooks.new
-      @diagnostics = Diagnostics.new(err, verbose: verbose, palette: palette, quiet_start: quiet_start)
+      @diagnostics = Diagnostics.new(err, verbose: verbose, palette: palette, quiet_start: quiet_start,
+                                          quiet: quiet)
       @completed_baseline_passes = 0
       @baseline_elapsed = 0.0
       @root = File.realpath(config.root)

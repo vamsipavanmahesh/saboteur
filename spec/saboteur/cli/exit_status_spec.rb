@@ -27,7 +27,7 @@ RSpec.describe Saboteur::CLI::ExitStatus do
       def surv_cause(report) = survivors_cause(report)
 
       def quality_gate?(report) = failed_quality_gate?(report)
-      def ignore_empty?(report) = ignore_empty_diff?(report)
+      def ignore_empty?(report) = empty_clean_diff?(report)
     end.new(config)
   end
 
@@ -269,6 +269,18 @@ RSpec.describe Saboteur::CLI::ExitStatus do
       expect(harness.err.string).to be_empty
     end
 
+    context "when the unverifiable scope is also an empty --since diff" do
+      let(:config) { { "since" => "main" } }
+
+      it "still exits 3 instead of passing as an empty clean diff" do
+        report = review_report(skipped: { person_subject => "refinements" })
+        expect(harness.code(report)).to eq(Saboteur::CLI::EXIT_TOOL)
+        expect(harness.ignore_empty?(report)).to be(false)
+        expect(harness.err.string).to include("was skipped (refinements)")
+        expect(harness.err.string).not_to include("no mutants in the diff")
+      end
+    end
+
     # A review of zero subjects verified nothing only when subjects exist
     # and were all skipped; an empty subject list is just a green run
     # (#587 dogfood).
@@ -380,6 +392,26 @@ RSpec.describe Saboteur::CLI::ExitStatus do
   describe "--ignore-empty" do
     let(:config) { {} }
 
+    # The empty_report double carries no skipped-subject state; the real
+    # predicate is pinned through code in the all-skipped block (#574).
+    let(:harness) do
+      Class.new do
+        include Saboteur::CLI::ExitStatus
+
+        attr_reader :config, :err
+
+        def initialize(config)
+          @config = config
+          @err = StringIO.new
+          @out = StringIO.new
+        end
+
+        def unverifiable_scope?(_report) = false
+
+        def ignore_empty?(report) = empty_clean_diff?(report)
+      end.new(config)
+    end
+
     def empty_report(results, omissions: [], inline_suppressions: [], discovery_failures: [])
       instance_double(Saboteur::Report, results:, omissions:, inline_suppressions:, discovery_failures:)
     end
@@ -425,9 +457,9 @@ RSpec.describe Saboteur::CLI::ExitStatus do
     context "with --since but no flag" do
       let(:config) { { "since" => "main" } }
 
-      it "is false and silent" do
-        expect(harness.ignore_empty?(empty_report([]))).to be(false)
-        expect(harness.err.string).to be_empty
+      it "is true and notes: the zero-mutant pass is the default (#1142)" do
+        expect(harness.ignore_empty?(empty_report([]))).to be(true)
+        expect(harness.err.string).to include("no mutants in the diff")
       end
     end
   end
