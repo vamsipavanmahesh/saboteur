@@ -18,6 +18,20 @@ RSpec.describe Saboteur::CLI do
     expect(out.string.strip).to eq(Saboteur::VERSION)
   end
 
+  # `survivors` must reach the survivors browser: from an empty directory it
+  # fails with the missing-report diagnostic, never the unknown-command
+  # fallback a dropped `when "survivors"` branch would take.
+  it "dispatches survivors to the survivors browser, not the unknown-command fallback" do
+    Dir.mktmpdir do |dir|
+      Dir.chdir(dir) do
+        expect(cli("survivors").call).to eq(2)
+        expect(err.string).to eq(
+          "saboteur: report not found: .saboteur/report.json; run saboteur first, or pass a report path\n"
+        )
+      end
+    end
+  end
+
   # B3: an unexpected failure must not escape as a bare stack trace and
   # an accidental exit 1; it is reported as ours and exits 70.
   it "reports an unexpected failure as an internal error and exits 70" do

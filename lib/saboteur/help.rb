@@ -153,6 +153,17 @@ module Saboteur
                     "saboteur survivors .saboteur/report.json --show 1a2b3c4d5e6f7a8b"]]
       ),
       Command.new(
+        name: "explain",
+        summary: "Explain one mutation operator: definition, example and kill guidance",
+        description: "Prints what one operator does, a before/after example of the mutation, the test " \
+                     "shapes that let it survive, and the assertion that kills it. Covers every operator " \
+                     "the registry can emit.",
+        takes_options: false,
+        exit_codes: { 0 => "Explanation printed.",
+                      2 => "Unknown or missing operator name; the valid names are listed." },
+        examples: [["Why did this mutant survive?", "saboteur explain operand_replacement"]]
+      ),
+      Command.new(
         name: "badge",
         summary: "Print a shields.io endpoint badge over the opt-in score history",
         description: "Reads the score history JSONL (c.score_history, or --history PATH) and prints one " \

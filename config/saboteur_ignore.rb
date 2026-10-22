@@ -2732,4 +2732,15 @@ i.mutation "fdc4600f4e8e8625",
   i.mutation "3680c6f564cfca0f",
              subject: "Saboteur::Reporter::Terminal#untested_win_note",
              reason: "equivalent: each returns the receiver; Subject#to_s delegates to #id - same string"
+
+  # explain_command.rb:30 `mode: :auto` pair_removal - Palette.for declares
+  # `mode: :auto` as the keyword default (palette.rb:22), so dropping the
+  # argument passes the identical value. Hand-probed: the hand-applied mutant
+  # leaves render_explain output byte-identical on a tty (415b, painted) and a
+  # pipe (353b, plain), and the 243-example cli + explain_command set is green.
+  i.mutation "f9d70ef942853703",
+             subject: "Saboteur::CLI::ExplainCommand#explain_command",
+             reason: "equivalent: mode: :auto is Palette.for's declared keyword default " \
+                     "(palette.rb:22) - hand-applied removal leaves tty and pipe renders " \
+                     "byte-identical and the cli + explain_command specs green"
 end
