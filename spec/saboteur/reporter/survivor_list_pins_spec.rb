@@ -60,7 +60,7 @@ RSpec.describe Saboteur::Reporter::SurvivorList, "survivor blocks" do
     expect(render([operand])).to eq(<<~TEXT)
       Survivors (1) - changes your tests did not catch
 
-      1. calculator.rb:3 Calculator#compound [missing_test · #1 of 1: the covering specs pass without pinning this change]
+      1. calculator.rb:3 Calculator#compound [missing_test · #1 of 1 block: the covering specs pass without pinning this change]
           2 def compound(principal, rate, years)
       -   3     principal * (1 + rate)**years
       +   3     principal * years   operand_replacement · #{operand.digest}
@@ -256,7 +256,7 @@ RSpec.describe Saboteur::Reporter::SurvivorList, "survivor blocks" do
       text = render([result])
       expect(text).not_to include("→")
       expect(text).not_to include("Hints are suggestions")
-      expect(text).to include("[likely_equivalent · #1 of 1: compiles to the same instructions as the original]")
+      expect(text).to include("[likely_equivalent · #1 of 1 block: compiles to the same instructions as the original]")
     end
   end
 
@@ -277,13 +277,24 @@ RSpec.describe Saboteur::Reporter::SurvivorList, "survivor blocks" do
     allow(Saboteur::Reporter::SurvivorClassification).to receive(:label).and_return(nil)
     whole = edited(PINS_CALCULATOR, "principal * (1 + rate)**years", "nil", operator: "body_nil", dir:,
                                                                             coarse: true)
-    expect(render([whole])).to include("1. calculator.rb:3 Calculator#compound [coarse · #1 of 1]
+    expect(render([whole])).to include("1. calculator.rb:3 Calculator#compound [coarse · #1 of 1 block]
 ")
+  end
+
+  it "counts blocks, not mutants, in the rank suffix and says which" do
+    allow(Saboteur::Reporter::SurvivorClassification).to receive(:label).and_return(nil)
+    sibling = edited(PINS_CALCULATOR, "* (1 + rate)", "/ (1 + rate)", operator: "arithmetic", dir:)
+    other = edited("class K\n  def a\n    @x = 1 + 2\n    @x\n  end\nend\n", "1 + 2", "1 - 2",
+                   operator: "arithmetic", dir:, name: "k.rb")
+    text = render([operand, sibling, other])
+    expect(text).to include("Survivors (3) - ",
+                            "1. calculator.rb:3 Calculator#compound [#1 of 2 blocks]",
+                            "2. k.rb:3 K#a [#2 of 2 blocks]")
   end
 
   it "pins the bare rank suffix when the survivor has no label" do
     allow(Saboteur::Reporter::SurvivorClassification).to receive(:label).and_return(nil)
-    expect(render([operand])).to include("1. calculator.rb:3 Calculator#compound [#1 of 1]\n")
+    expect(render([operand])).to include("1. calculator.rb:3 Calculator#compound [#1 of 1 block]\n")
   end
 
   it "renders every row of a small method and a 10-line method with no elision" do
