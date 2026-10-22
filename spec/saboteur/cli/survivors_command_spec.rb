@@ -245,6 +245,22 @@ RSpec.describe Saboteur::CLI, "survivors (#475)" do
       end
     end
 
+    it "hands every parsed filter to the browser and nothing else (#1267)" do
+      Dir.mktmpdir do |dir|
+        path = write_report(dir, survivors: [])
+        expect_any_instance_of(Saboteur::CLI::SurvivorsBrowser)
+          .to receive(:list).with(file: "order", operator: "ArithmeticSwap", triage: "boundary").and_return("listed")
+        expect(cli("survivors", path, "--ranked", "--file", "order", "--operator", "ArithmeticSwap",
+                   "--triage", "boundary").call).to eq(0)
+        expect(out.string).to eq("listed\n")
+      end
+    end
+
+    it "does not let the browser list swallow an unknown keyword (#1267)" do
+      browser = Saboteur::CLI::SurvivorsBrowser.new({})
+      expect { browser.list(ranked: true) }.to raise_error(ArgumentError, /unknown keyword: :ranked/)
+    end
+
     it "filters survivors by path substring with --file" do
       Dir.mktmpdir do |dir|
         path = write_report(dir, survivors: [])

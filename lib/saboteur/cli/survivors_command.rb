@@ -49,7 +49,10 @@ module Saboteur
         if options[:show]
           @out.puts(browser.show(options[:show]))
         else
-          @out.puts(browser.list(**options.slice(:file, :operator, :triage)))
+          # Explicit keywords, and list takes no catch-all (#1267): a new
+          # parser option that never reaches the browser raises here instead
+          # of being swallowed. --ranked is the documented compat no-op.
+          @out.puts(browser.list(file: options[:file], operator: options[:operator], triage: options[:triage]))
         end
         EXIT_OK
       end
@@ -106,7 +109,7 @@ module Saboteur
       # One ordering everywhere (#1150): the terminal report's ranked order
       # is the default, exactly as the findings carry it; --ranked stays
       # accepted for compatibility.
-      def list(file: nil, operator: nil, triage: nil, **)
+      def list(file: nil, operator: nil, triage: nil)
         survivors = ranked_order(filtered(file, operator, triage))
         return "no survivors#{filters_note(file, operator, triage)}" if survivors.empty?
 
