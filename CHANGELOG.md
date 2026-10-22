@@ -6,6 +6,23 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.12.3] - 2026-10-22
+
+### Added
+
+- Survivors are labeled `input_gap` or `assertion_gap` from the value the
+  mutated expression actually produced (side-effect-free sites only).
+  `input_gap` means the tests never gave the expression an input where its
+  value differs, or no test reached it. `assertion_gap` means the value
+  changed and the tests still passed. The JSON report gains `valueDiffed`
+  and `gapKind` fields (#1290, #1305, #1306, #1307).
+
+### Changed
+
+- The cache stores the observed value with each verdict (cache format 2),
+  so cached results from before this release are rebuilt once on the next
+  run (#1290, #1307).
+
 ## [0.12.2] - 2026-10-22
 
 ### Added

@@ -80,8 +80,10 @@ tree refuses with exit 2 and points at the generator. Engine gem with
   assertion, 1 by a crash`), and an error-dominated run prints
   `Score: n/a` instead of a number you would misread.
 - 🔍 **Survivors you can act on.** Survivors group per statement with a
-  triage label (`likely_equivalent`, `arid`, `tool_limit`, `input_gap` when no test
-  ran the mutant, or a gap kind) and their
+  triage label (`likely_equivalent`, `arid`, `tool_limit`, `input_gap` (the tests
+  never gave the mutated expression an input where its value differs, or no
+  test reached it), `assertion_gap` (the value changed and the tests still
+  passed), or a gap kind) and their
   covering tests - split into the tests that ran against the mutant and
   the ones that never did. `saboteur survivors` browses them read-only:
   one digest shows the full diff and the exact replay command.
