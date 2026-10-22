@@ -213,6 +213,22 @@ RSpec.describe Saboteur::Reporter::Stryker do
     )
   end
 
+  it "numbers tests by sorted name, so timing order never renames an id (#1282)" do
+    a = "./spec/a_spec.rb[1:1]"
+    b = "./spec/b_spec.rb[2]"
+    c = "./spec/c_spec.rb[1]"
+    ids = [[c, a, b], [b, c, a], [a, b, c]].map do |order|
+      report = report_of(result_for(:killed, killed_by: [order.first], covered_by: order))
+      json = JSON.parse(JSON.generate(described_class.build(report)))
+      mutant = json.dig("files", "person.rb", "mutants").first
+      [json["testFiles"], mutant["killedBy"], mutant["coveredBy"]]
+    end
+    expect(ids.map(&:first).uniq.size).to eq(1)
+    expect(ids.first.first.values.flat_map { |entry| entry["tests"] }.to_h { |t| [t["name"], t["id"]] })
+      .to eq(a => "0", b => "1", c => "2")
+    expect(ids.map { |_, killed_by, _| killed_by }).to eq([["2"], ["1"], ["0"]])
+  end
+
   it "reports the score with its assertion and crash shares, with and without whole-body mutants" do
     report = report_of(result_for(:killed, coarse: true, kill_cause: "TypeError"),
                        result_for(:killed, replacement: "<", kill_cause: "assertion"))
