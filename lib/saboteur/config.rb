@@ -146,7 +146,7 @@ module Saboteur
       end
 
       from_file = File.file?(path) ? ConfigFile.load(path) : {}
-      new(from_file.merge(stringify(overrides)), root: root)
+      new(from_file.merge(stringify(overrides)), root: root, config_file_present: File.file?(path))
     end
 
     def self.stringify(hash)
@@ -156,11 +156,16 @@ module Saboteur
     # Deprecations found while loading: printed by the CLI, never fatal.
     attr_reader :deprecation_warnings
 
-    def initialize(values = {}, root: Dir.pwd, explicit: nil)
+    # Whether the config file existed at load (#1172): the CLI says once
+    # when a run falls back to defaults because no file was there.
+    attr_reader :config_file_present
+
+    def initialize(values = {}, root: Dir.pwd, explicit: nil, config_file_present: true)
       # Retag the root losslessly: under a non-UTF-8 locale it arrives
       # locale-tagged, and every glob, join and expand below would mix
       # encodings with the UTF-8 patterns from the config file (#231).
       @root = Text.utf8_identity(File.expand_path(root))
+      @config_file_present = config_file_present
       unknown = values.keys - DEFAULTS.keys
       raise ConfigError, "unknown config key(s): #{unknown.join(', ')}" if unknown.any?
 

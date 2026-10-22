@@ -5,6 +5,8 @@ require "stringio"
 require "saboteur/doctor"
 
 RSpec.describe Saboteur::Doctor do
+  let(:coverage_line) { "Coverage: suspended during boot (saboteur starts it for the coverage map)" }
+
   let(:config) { Saboteur::Config.new }
   let(:out) { StringIO.new }
   let(:suite) { true }
@@ -61,7 +63,7 @@ RSpec.describe Saboteur::Doctor do
     expect(doctor).to receive(:check_boot_files).and_call_original
     expect(doctor).to receive(:check_database_hosts).and_call_original
     expect(doctor.call).to be(true)
-    expect(out.string).to include("Ruby:", "Coverage: suspended", "Integration: rspec (loaded)", "Rails: disabled",
+    expect(out.string).to include("Ruby:", coverage_line, "Integration: rspec (loaded)", "Rails: disabled",
                                   "Baseline: 2 tests passed twice in the same order with seed 1", "does not prove",
                                   "SimpleCov: not loaded", "Custom map: none (optional)",
                                   "Environment: no bundler/appraisal problems detected")
@@ -211,7 +213,7 @@ RSpec.describe Saboteur::Doctor do
         .and_return(instance_double(Saboteur::Engine::Boot, load_target: instance_double(Saboteur::Integration::Base)))
       expect(Saboteur::BaselineHealth).not_to receive(:new)
       expect(doctor.call).to be(true)
-      expect(out.string).to include("Ruby:", "Coverage: suspended", "Integration: rspec (loaded)",
+      expect(out.string).to include("Ruby:", coverage_line, "Integration: rspec (loaded)",
                                     "Baseline: not run. Pass --suite to run the unchanged suite twice " \
                                     "(add --test PATH to limit it to some specs).")
       expect(out.string).not_to include("passed twice")
@@ -390,6 +392,13 @@ RSpec.describe Saboteur::Doctor do
     allow(Process).to receive(:respond_to?).with(:fork).and_return(true)
     allow(config).to receive(:[]).with("integration").and_return("other")
     expect { doctor.send(:check_runtime) }.to raise_error(Saboteur::ConfigError, /rspec/)
+  end
+
+  it "prints the terse state line, not the boot note, when coverage is not suspended" do
+    allow(Coverage).to receive(:state).and_return(:running)
+    expect { doctor.send(:check_coverage) }.to raise_error(Saboteur::Error, /Coverage must be suspended/)
+    expect(out.string).to include("Coverage: running")
+    expect(out.string).not_to include("suspended during boot")
   end
 
   it "requires both suspended coverage and line support" do

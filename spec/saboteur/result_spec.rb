@@ -19,6 +19,14 @@ RSpec.describe Saboteur::Report do
       .to eq([:unverified, "the --max-duration budget is spent", 0.5, ["t1"], %w[t1 t2], "assertion", true])
   end
 
+  it "tells a flaky-check disagreement from a budget-cut unverified result (#1167)" do
+    flaky = result_for(:killed).as_unverified("#{Saboteur::MutantResult::FLAKY_PREFIX}: first killed, then survived")
+    expect(flaky.flaky?).to be(true)
+    expect(result_for(:killed).as_unverified("the --max-duration budget is spent").flaky?).to be(false)
+    expect(result_for(:killed).as_unverified(nil).flaky?).to be(false)
+    expect(result_for(:survived, reason: "#{Saboteur::MutantResult::FLAKY_PREFIX}: x").flaky?).to be(false)
+  end
+
   it "carries shard metadata when the run selected one shard" do
     shard = Saboteur::Engine::Shard.parse("1/2")
     report = Saboteur::Report.new(results: [result_for(:killed)], subjects: [person_subject], wall_time: 1,

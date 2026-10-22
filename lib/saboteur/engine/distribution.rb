@@ -110,7 +110,11 @@ module Saboteur
       # scheduler stopped mid-list at the budget deadline. Worker-level error
       # rows synthesize an error per candidate, so they never look truncated.
       def unverified_result?(result)
-        result.is_a?(MutantResult) && result.status == :unverified
+        result.is_a?(MutantResult) && result.status == :unverified && !result.flaky?
+      end
+
+      def budget_unverified_row?(result)
+        result["status"] == "unverified" && !MutantResult.flaky_reason?(result["reason"])
       end
 
       def record_unreached(rows, subjects, lists)
@@ -125,7 +129,7 @@ module Saboteur
           next unless row["results"] && !row["error"]
 
           @truncated << [subjects[i], lists[i].size - row["results"].size] if row["results"].size < lists[i].size
-          @unverified << subjects[i] if row["results"].any? { |result| result["status"] == "unverified" }
+          @unverified << subjects[i] if row["results"].any? { |result| budget_unverified_row?(result) }
         end
       end
 

@@ -1,11 +1,15 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require_relative "flaky_exit"
+
 module Saboteur
   class CLI
     # How a finished run maps to an exit code and a recorded exit cause. Mixed
     # into the CLI, which supplies `config` and the `@err` stream.
     module ExitStatus
+      include FlakyExit
+
       private
 
       def exit_code(report)
@@ -15,7 +19,7 @@ module Saboteur
 
         return EXIT_TOOL if untested_partial?(report)
 
-        return EXIT_TOOL if unverifiable_scope?(report)
+        return EXIT_TOOL if unverifiable_scope?(report) || flaky_disagreement?(report)
 
         return EXIT_TOOL if mostly_errored?(report)
 
@@ -117,7 +121,7 @@ module Saboteur
         else
           if report.majority_errored?
             "errorMajority"
-          elsif unverifiable_review?(report) || unverifiable_unreachable?(report) ||
+          elsif unverifiable_review?(report) || unverifiable_unreachable?(report) || report.results.any?(&:flaky?) ||
                 (report.early_stop && report.score_breakdown.tested.zero?)
             "incomplete"
           else

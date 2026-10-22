@@ -124,6 +124,21 @@ RSpec.describe Saboteur::Engine::Distribution do
     expect(distribution.unverified).to eq([:a])
   end
 
+  it "does not call a flaky-check disagreement a budget shortfall, serial or in worker rows (#1167)" do
+    flaky = "#{Saboteur::MutantResult::FLAKY_PREFIX}: first survived, then killed on a reordered confirmation run"
+    subject = fixture_subject
+    row = [Saboteur::MutantResult.new(subject:, mutation: fixture_mutation(subject), status: :unverified,
+                                      mutated_source: "x", reason: flaky)]
+    serial = described_class.new(jobs: 1, scheduler: ->(_subject, _list) { row }, diagnostics:, cache: nil)
+    serial.run([subject], [[[fixture_mutation(subject), "a"]]])
+    expect(serial.unverified).to eq([])
+    parallel = described_class.new(jobs: 2, scheduler: nil, diagnostics:, cache: nil)
+    parallel.send(:record_unreached, [{ "results" => [{ "status" => "unverified", "reason" => flaky }] },
+                                      { "results" => [{ "status" => "unverified", "reason" => "budget" }] }],
+                  %i[a b], [[1], [1]])
+    expect(parallel.unverified).to eq([:b])
+  end
+
   it "marks unverified subjects from worker rows in parallel (#296)" do
     distribution = described_class.new(jobs: 2, scheduler: nil, diagnostics:, cache: nil)
     rows = [{ "results" => [{ "status" => "unverified" }] }, { "results" => [{ "status" => "killed" }] }]

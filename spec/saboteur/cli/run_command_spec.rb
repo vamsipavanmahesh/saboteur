@@ -49,6 +49,64 @@ RSpec.describe Saboteur::CLI::RunCommand do
     expect(err.string).to end_with("saboteur: boom\n")
   end
 
+  it "says once when no config file exists and defaults are in use (#1172)" do
+    Dir.mktmpdir do |dir|
+      Dir.chdir(dir) do
+        run = cli("--all")
+        allow(run).to receive(:refuse_empty_source_set)
+        allow(run).to receive(:execute_run).and_raise(Saboteur::Error, "stop")
+        run.call
+        expect(err.string).to include("saboteur: no config/saboteur.rb - using defaults " \
+                                      "(Rails: bundle exec rails generate saboteur:install writes one)")
+      end
+    end
+  end
+
+  it "names a custom --config path in the missing-config notice (#1172)" do
+    Dir.mktmpdir do |dir|
+      Dir.chdir(dir) do
+        run = cli("--all", "--config", "config/custom.rb")
+        allow(run).to receive(:refuse_empty_source_set)
+        allow(run).to receive(:execute_run).and_raise(Saboteur::Error, "stop")
+        run.call
+        expect(err.string).to include("saboteur: no config/custom.rb - using defaults " \
+                                      "(Rails: bundle exec rails generate saboteur:install writes one)")
+      end
+    end
+  end
+
+  it "prints the missing-config notice for an explicit non-agent format (#1172)" do
+    Dir.mktmpdir do |dir|
+      Dir.chdir(dir) do
+        run = cli("--all", "--format", "text")
+        allow(run).to receive(:refuse_empty_source_set)
+        allow(run).to receive(:execute_run).and_raise(Saboteur::Error, "stop")
+        run.call
+        expect(err.string).to include("using defaults")
+      end
+    end
+  end
+
+  it "keeps the missing-config line out of agent output (#1172)" do
+    Dir.mktmpdir do |dir|
+      Dir.chdir(dir) do
+        run = cli("--all", "--format", "agent")
+        allow(run).to receive(:refuse_empty_source_set)
+        allow(run).to receive(:execute_run).and_raise(Saboteur::Error, "stop")
+        run.call
+        expect(err.string).not_to include("using defaults")
+      end
+    end
+  end
+
+  it "stays silent about the config file when one exists (#1172)" do
+    run = cli("--all")
+    allow(run).to receive(:refuse_empty_source_set)
+    allow(run).to receive(:execute_run).and_raise(Saboteur::Error, "stop")
+    run.call
+    expect(err.string).not_to include("using defaults")
+  end
+
   it "prints each deprecation warning once, behind the saboteur prefix" do
     run = cli("--no-guess-tests")
     allow(run).to receive(:execute_run).and_raise(Saboteur::Error, "stop")
@@ -66,7 +124,8 @@ RSpec.describe Saboteur::CLI::RunCommand do
   end
 
   it "honours the config palette override for deprecation warnings" do
-    config = instance_double(Saboteur::Config, deprecation_warnings: ["old key is deprecated"])
+    config = instance_double(Saboteur::Config, deprecation_warnings: ["old key is deprecated"],
+                                               config_file_present: true)
     allow(config).to receive(:[]).and_return(nil)
     allow(config).to receive(:[]).with("palette").and_return({ "warn" => ["red"] })
     run = cli("--all", "--color=always")

@@ -114,6 +114,19 @@ RSpec.describe Saboteur::Reporter::Agent, "exact values" do
       expect(payload_for(report)).to include(status: "partial", verdict: "incomplete")
     end
 
+    it "names a flaky-check disagreement as its own reason, not a spent budget (#1167)" do
+      flaky = result_for(:killed).as_unverified("#{Saboteur::MutantResult::FLAKY_PREFIX}: first killed, then survived")
+      report = Saboteur::Report.new(results: [flaky, result_for(:unverified, replacement: "<")],
+                                    subjects: [person_subject], wall_time: 1.0,
+                                    root: File.dirname(person_subject.file), seed: 1)
+      expect(reasons(report)).to include(
+        { reason: "unverified", count: 1,
+          meaning: "mutants the --max-duration budget left unverified; their kills are not confirmed" },
+        { reason: "flaky", count: 1,
+          meaning: "mutants gave a different verdict on the --flaky-check reordered rerun; they are unverified" }
+      )
+    end
+
     it "says what no coverage means, adding skipped subjects and skipped mutants" do
       report = Saboteur::Report.new(results: [result_for(:skipped, reason: "no coverage"),
                                               result_for(:skipped, replacement: "<", reason: "no coverage")],

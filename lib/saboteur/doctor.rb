@@ -76,7 +76,14 @@ module Saboteur
     # post-boot check re-reads the state without printing a second line.
     def check_coverage
       state = Coverage.state
-      @out.puts "Coverage: #{state}"
+      # "suspended" alone reads as a finding; it is the expected boot state
+      # - coverage is stopped while the app boots and starts for the map
+      # build (#1176). Any other state stays terse: verify_coverage raises.
+      if state == :suspended
+        @out.puts "Coverage: suspended during boot (saboteur starts it for the coverage map)"
+      else
+        @out.puts "Coverage: #{state}"
+      end
       verify_coverage(state)
     end
 

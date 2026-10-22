@@ -352,7 +352,7 @@ module Saboteur
       def flaky_message(outcome, rerun)
         decisive = (outcome.failed_ids | rerun.failed_ids).first(3)
         named = decisive.empty? ? "" : " (decisive tests: #{decisive.join(', ')})"
-        "flaky verdict: first #{outcome.status}, then #{rerun.status} on a reordered confirmation " \
+        "#{MutantResult::FLAKY_PREFIX}: first #{outcome.status}, then #{rerun.status} on a reordered confirmation " \
           "run#{named} - the mutant is unverified, not #{outcome.status}"
       end
 
