@@ -66,13 +66,20 @@ RSpec.describe Saboteur::Execution::WorkerPool do
     expect(results.map { |r| r["square"] }).to eq([9, 1, 4, 0])
   end
 
+  # A barrier, not a stopwatch: each worker checks in and waits until all
+  # four have. A pool that ran items one after another never gets the
+  # fourth check-in (the first worker gives up after the cap), so the
+  # verdict does not depend on how fast the machine is.
   it "runs items at the same time on several workers" do
-    started = monotonic
-    described_class.new(jobs: 4).map([0.3] * 4) do |seconds|
-      sleep seconds
-      {}
+    Dir.mktmpdir do |dir|
+      results = described_class.new(jobs: 4).map([0, 1, 2, 3]) do |n|
+        FileUtils.touch(File.join(dir, "worker-#{n}"))
+        give_up = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 5
+        sleep 0.01 until Dir.children(dir).size == 4 || Process.clock_gettime(Process::CLOCK_MONOTONIC) > give_up
+        { "together" => Dir.children(dir).size }
+      end
+      expect(results.map { |row| row["together"] }).to eq([4, 4, 4, 4])
     end
-    expect(monotonic - started).to be < 0.9
   end
 
   it "reports each result on arrival, before the worker gets more work" do
