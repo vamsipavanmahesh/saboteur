@@ -13,6 +13,8 @@ module Saboteur
     # Opt-in orchestration: every check/proposal runs fresh; acceptance only
     # edits reasons after verifying private execution evidence and current inputs.
     class Workflow
+      UNEXECUTED = /\Aunexecuted:([0-9a-f]{64}):(\w+)\z/
+
       def initialize(config:, err: $stderr)
         @config = config
         @err = err
@@ -50,20 +52,30 @@ module Saboteur
           [Identity.new(subject: result.subject, mutation: result.mutation, root: @root).entry.fetch("id"), result]
         end
         blockers.each { |issue| @err.puts("saboteur: baseline proposal blocker: #{describe_blocker(issue, by_id)}") }
-        if blockers.any? { |issue| issue.start_with?("unexecuted:") }
-          @err.puts("saboteur: cover the skipped code with specs or narrow include, then propose again")
-        end
+        advise_unexecuted(blockers, by_id)
         raise Error, "baseline proposal needs a proposable run"
       end
 
+      # Narrowing include cannot add line coverage, so a blocker whose only
+      # cause is no coverage gets the specs advice alone.
+      def advise_unexecuted(blockers, by_id)
+        unexecuted = blockers.grep(/\Aunexecuted:/)
+        return if unexecuted.empty?
+
+        results = unexecuted.map { |issue| by_id[UNEXECUTED.match(issue)&.[](1)] }
+        coverage_only = results.all? { |result| result&.reason&.start_with?("no coverage") }
+        advice = coverage_only ? "specs" : "specs or narrow include"
+        @err.puts("saboteur: cover the skipped code with #{advice}, then propose again")
+      end
+
       def describe_blocker(issue, by_id)
-        match = /\Aunexecuted:([0-9a-f]{64}):(\w+)\z/.match(issue)
+        match = UNEXECUTED.match(issue)
         result = match && by_id[match[1]]
         return issue unless result
 
         detail = "#{result.subject.id} #{result.mutation.operator}"
         detail += " - #{result.reason}" if result.reason
-        "#{issue} (#{detail})"
+        "unexecuted:#{result.digest}:#{match[2]} (#{detail})"
       end
 
       def propose(proposal:, destination:, previous: nil)

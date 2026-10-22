@@ -47,10 +47,17 @@ module Saboteur
           entry.slice("id", "context").merge("reason" => reasons)
         end
         { "format" => Manifest::FORMAT, "identity_version" => Identity::VERSION,
-          "metadata" => metadata, "candidates" => document.fetch("candidates"), "accepted" => accepted }
+          "metadata" => metadata, "candidates" => executed_candidates, "accepted" => accepted }
       end
 
       private
+
+      # A mutant on a line no test runs is a gap in the proposal's issues,
+      # not a candidate: the baseline has no verdict to compare it against.
+      def executed_candidates
+        uncovered = Completeness.uncovered_ids(document.fetch("gaps"))
+        document.fetch("candidates").reject { |entry| uncovered.include?(entry.fetch("id")) }
+      end
 
       def array!(value, name)
         raise ConfigError, "baseline #{name}" unless value.is_a?(Array)

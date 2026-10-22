@@ -48,6 +48,35 @@ RSpec.describe Saboteur::Baseline::RunEvidence do
     expect(captured.fetch("candidates")).to be_frozen
   end
 
+  describe "mutants skipped for no coverage (#1287)" do
+    def skipped_result(reason)
+      Saboteur::MutantResult.new(subject: subject, mutation: mutation, status: :skipped,
+                                 mutated_source: subject.apply(mutation.edits), reason: reason)
+    end
+
+    def entry_id
+      identity = Saboteur::Baseline::Identity.new(subject: subject, mutation: mutation, root: File.realpath(@root))
+      identity.entry.fetch("id")
+    end
+
+    ["no coverage", "no coverage (branch not taken)"].each do |reason|
+      it "records a '#{reason}' skip as a soft gap that still allows a proposal" do
+        captured = finish(results: [skipped_result(reason)])
+        expect(captured.fetch("gaps")).to eq(["no_coverage:#{entry_id}"])
+        expect(captured.fetch("blockers")).to eq([])
+        expect(captured.fetch("proposable")).to be(true)
+        expect(captured.fetch("complete")).to be(false)
+      end
+    end
+
+    it "keeps a skip for any other reason a hard blocker" do
+      captured = finish(results: [skipped_result("refinements")])
+      expect(captured.fetch("gaps")).to eq([])
+      expect(captured.fetch("blockers")).to eq(["unexecuted:#{entry_id}:skipped"])
+      expect(captured.fetch("proposable")).to be(false)
+    end
+  end
+
   it "binds versioned effective operators and rejects a 0.5.0 baseline without auto-acceptance" do
     current = JSON.parse(JSON.generate(finish))
     policy = current.fetch("compatibility").fetch("config").fetch("operator_policy")

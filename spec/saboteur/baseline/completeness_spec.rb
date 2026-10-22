@@ -75,4 +75,28 @@ RSpec.describe Saboteur::Baseline::Completeness do
     expect(blocked.blockers).to eq(["unchanged_suite_incomplete"])
     expect(blocked.gaps).to eq(["subject_skipped:probe.rb:Probe#other:no_tests"])
   end
+
+  describe "mutants on lines no test runs (#1287)" do
+    let(:results) { [{ "id" => "a", "status" => "skipped" }, { "id" => "b", "status" => "killed" }] }
+
+    it "records them as soft gaps that still allow a proposal" do
+      value = evidence(results: results, uncovered: ["a"])
+      expect(value.issues).to eq(["no_coverage:a"])
+      expect(value.gaps).to eq(["no_coverage:a"])
+      expect(value.blockers).to eq([])
+      expect(value.proposable?).to be(true)
+      expect(value.complete?).to be(false)
+    end
+
+    it "keeps a skipped mutant outside the uncovered ids a hard blocker" do
+      value = evidence(results: results, uncovered: ["b"])
+      expect(value.blockers).to eq(["unexecuted:a:skipped"])
+      expect(value.proposable?).to be(false)
+    end
+
+    it "lists the ids of no_coverage gaps only" do
+      gaps = ["no_coverage:a", "subject_skipped:x", "omitted:y", "no_coverage:b"]
+      expect(described_class.uncovered_ids(gaps)).to eq(%w[a b])
+    end
+  end
 end

@@ -38,7 +38,10 @@ module Saboteur
       def classify(baseline, current)
         categories = CATEGORY_NAMES.to_h { |name| [name, []] }
         previous = baseline.fetch("accepted").to_h { |entry| [entry.fetch("id"), entry] }
+        uncovered = uncovered_ids(current)
         current.fetch("candidates").each do |entry|
+          next if uncovered.include?(entry.fetch("id"))
+
           accepted = previous.delete(entry.fetch("id"))
           name = category(entry, accepted)
           categories.fetch(name) << entry if name
@@ -46,6 +49,11 @@ module Saboteur
         categories["unmatched"] = previous.values
         categories.each_value { |entries| entries.sort_by! { |entry| order(entry) } }
         categories
+      end
+
+      # Mutants on lines no test runs are listed as gaps, never as errors.
+      def uncovered_ids(current)
+        Completeness.uncovered_ids(current.fetch("gaps", []))
       end
 
       def category(entry, accepted)

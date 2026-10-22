@@ -7,17 +7,24 @@ module Saboteur
     class Completeness
       EXECUTED = %w[killed survived timeout].freeze
       # Soft gaps limit what the baseline can speak for; they never refuse a
-      # proposal. Everything else is a hard blocker.
-      SOFT_PREFIXES = %w[subject_skipped: omitted:].freeze
+      # proposal. Everything else is a hard blocker. no_coverage: is a mutant
+      # on a line no test runs inside a tested subject (#1287).
+      SOFT_PREFIXES = %w[subject_skipped: omitted: no_coverage:].freeze
       attr_reader :issues
+
+      # The mutant ids named by no_coverage: gaps.
+      def self.uncovered_ids(gaps)
+        gaps.filter_map { |gap| gap.delete_prefix("no_coverage:") if gap.start_with?("no_coverage:") }
+      end
 
       def self.soft_gap?(issue)
         SOFT_PREFIXES.any? { |prefix| issue.start_with?(prefix) }
       end
 
       def initialize(planned:, results:, subjects:, stable_suite:, stable_inputs:, skipped_subjects:, omitted:,
-                     generation_issues:)
+                     generation_issues:, uncovered: [])
         @issues = []
+        @uncovered = uncovered
         issues << "unchanged_suite_incomplete" unless stable_suite
         issues << "inputs_unverified" unless stable_inputs
         validate_inventory(planned, subjects)
@@ -66,7 +73,10 @@ module Saboteur
       def validate_results(results)
         results.each do |entry|
           status = entry.fetch("status")
-          issues << "unexecuted:#{entry.fetch('id')}:#{status}" unless EXECUTED.include?(status)
+          next if EXECUTED.include?(status)
+
+          id = entry.fetch("id")
+          issues << (@uncovered.include?(id) ? "no_coverage:#{id}" : "unexecuted:#{id}:#{status}")
         end
       end
     end
