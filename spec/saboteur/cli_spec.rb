@@ -891,13 +891,13 @@ RSpec.describe Saboteur::CLI do
       expect(err.string).to include("no mutants in the diff")
     end
 
-    it "keeps the gate without --ignore-empty: a zero-mutant --since diff still fails under --threshold" do
+    it "passes plainly without --ignore-empty: a zero-mutant --since diff has no score to gate (#1142)" do
       engine = engine_double(guessed_tests: nil, call: report_of)
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       allow(Saboteur::Selection::GitDiff).to receive(:verify_ref!)
       expect(cli("run", "--since", "HEAD~1", "--threshold", "90",
-                 "--json", File.join(Dir.mktmpdir, "r.json")).call).to eq(1)
-      expect(err.string).not_to include("no mutants in the diff")
+                 "--json", File.join(Dir.mktmpdir, "r.json")).call).to eq(0)
+      expect(err.string).to include("no mutants in the diff")
     end
 
     it "still fails a non-empty --since run under --ignore-empty" do

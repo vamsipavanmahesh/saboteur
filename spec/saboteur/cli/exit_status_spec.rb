@@ -27,7 +27,7 @@ RSpec.describe Saboteur::CLI::ExitStatus do
       def surv_cause(report) = survivors_cause(report)
 
       def quality_gate?(report) = failed_quality_gate?(report)
-      def ignore_empty?(report) = ignore_empty_diff?(report)
+      def ignore_empty?(report) = empty_clean_diff?(report)
     end.new(config)
   end
 
@@ -425,9 +425,9 @@ RSpec.describe Saboteur::CLI::ExitStatus do
     context "with --since but no flag" do
       let(:config) { { "since" => "main" } }
 
-      it "is false and silent" do
-        expect(harness.ignore_empty?(empty_report([]))).to be(false)
-        expect(harness.err.string).to be_empty
+      it "is true and notes: the zero-mutant pass is the default (#1142)" do
+        expect(harness.ignore_empty?(empty_report([]))).to be(true)
+        expect(harness.err.string).to include("no mutants in the diff")
       end
     end
   end

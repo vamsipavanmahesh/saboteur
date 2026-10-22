@@ -27,6 +27,45 @@ RSpec.describe "the quiet run start (DX wave 1, PR4)" do
     Saboteur::Engine::Diagnostics.new(err, verbose: verbose, palette: palette)
   end
 
+  # --quiet (#1149): the heartbeat exists outside quiet runs and collapses
+  # to the NULL no-op only under it; --verbose detail chatter stays
+  # suppressed under --quiet even though --verbose alone would print it.
+  it "returns a real heartbeat unless --quiet, the NULL no-op under it" do
+    heartbeat = diagnostics(mono).progress_heartbeat("baseline check 1")
+    expect(heartbeat).not_to be(Saboteur::Engine::Diagnostics::ProgressHeartbeat::NULL)
+    quiet = Saboteur::Engine::Diagnostics.new(err, palette: mono, quiet: true)
+    expect(quiet.progress_heartbeat("baseline check 1"))
+      .to be(Saboteur::Engine::Diagnostics::ProgressHeartbeat::NULL)
+  end
+
+  it "suppresses --verbose detail chatter under --quiet" do
+    d = Saboteur::Engine::Diagnostics.new(err, verbose: true, palette: mono, quiet: true)
+    d.detail("checking the unchanged suite twice (seed 1)")
+    expect(err.string).to eq("")
+  end
+
+  # --quiet (#1149): findings, score line and verdict reach the terminal
+  # report; the engine side stays silent - no startup lines, no chatter,
+  # no progress rendering, no heartbeat.
+  it "suppresses the startup lines, chatter, progress and heartbeat under --quiet" do
+    d = Saboteur::Engine::Diagnostics.new(err, palette: mono, quiet: true)
+    d.quiet_start_header(scope: "whole project", seed: 1, operators: 37)
+    d.quiet_baseline(passes: 1, elapsed: 0.4, tests: 6, cached: false)
+    d.quiet_inference(2)
+    d.detail("spec discovery chatter")
+    d.start_progress(3)
+    d.progress(instance_double(Saboteur::MutantResult, status: :killed))
+    d.finish_progress
+    d.progress_heartbeat("baseline check 1").watch(File::NULL).tick
+    expect(err.string).to eq("")
+  end
+
+  it "still prints the quiet start and progress without --quiet" do
+    d = diagnostics(mono)
+    d.quiet_start_header(scope: "whole project", seed: 1, operators: 37)
+    expect(err.string).to include("saboteur #{Saboteur::VERSION}")
+  end
+
   it "prints the three golden lines in monochrome" do
     d = diagnostics(mono)
     d.quiet_start_header(scope: "whole project", seed: 1, operators: 37)

@@ -202,12 +202,24 @@ RSpec.describe "finished run reporting" do
     expect(words).not_to include("spec/a_spec.rb", "spec/b_spec.rb")
   end
 
+  it "forwards quiet: true to the engine under --quiet (#1149)" do
+    err = StringIO.new
+    cli = Saboteur::CLI.new([], out: StringIO.new, err: err)
+    cli.instance_variable_set(:@quiet, true)
+    arguments = { err: err, verbose: false, quiet: true, palette: kind_of(Saboteur::Reporter::Palette) }
+    report = report_of(result_for(:killed))
+    engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report)
+    expect(Saboteur::Engine).to receive(:new).with(cli.config, **arguments).and_return(engine)
+    expect(cli).to receive(:text_run).with(report, engine).and_return(0)
+    expect(cli.send(:execute_run)).to eq(0)
+  end
+
   [nil, "digest"].each do |digest|
     it "forwards exact engine arguments for replay #{digest.inspect}" do
       err = StringIO.new
       cli = Saboteur::CLI.new([], out: StringIO.new, err: err)
       cli.options[:id] = digest if digest
-      arguments = { err: err, verbose: false, palette: kind_of(Saboteur::Reporter::Palette) }
+      arguments = { err: err, verbose: false, quiet: false, palette: kind_of(Saboteur::Reporter::Palette) }
       arguments[:digest] = digest if digest
       report = report_of(result_for(:killed))
       engine = engine_double(guessed_tests: nil, call: report)

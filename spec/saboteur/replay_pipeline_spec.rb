@@ -202,7 +202,7 @@ RSpec.describe Saboteur::CLI, "replay option and output" do
       report = report_of(result)
       config = Saboteur::Config.new({ "json_report" => nil })
       allow(Saboteur::Config).to receive(:load).and_return(config)
-      arguments = { err: err, verbose: false }
+      arguments = { err: err, verbose: false, quiet: false }
       arguments[:digest] = digest if digest
       expect(Saboteur::Engine).to receive(:new).with(config, **arguments, palette: kind_of(Saboteur::Reporter::Palette))
                                                .and_return(engine_double(call: report))

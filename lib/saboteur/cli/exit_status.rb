@@ -15,7 +15,7 @@ module Saboteur
       def exit_code(report)
         return EXIT_BUDGET if budget_exhausted?(report)
 
-        return EXIT_OK if ignore_empty_diff?(report)
+        return EXIT_OK if empty_clean_diff?(report)
 
         return EXIT_TOOL if untested_partial?(report)
 
@@ -29,14 +29,17 @@ module Saboteur
         gates.failed?(report, @err, record_cause: !quality_failed) || quality_failed ? EXIT_SURVIVORS : EXIT_OK
       end
 
-      # --ignore-empty: a --since diff that selected no mutants exits 0 with
-      # a note; suppressed, omitted or undiscovered mutants still gate.
-      def ignore_empty_diff?(report)
-        return false unless config["ignore_empty"] && config["since"] && report.results.empty?
+      # A --since diff that selected no mutants exits 0 with a plain note,
+      # with or without --ignore-empty: a docs-only change has no score, so a
+      # threshold must not fail it (#1142). Suppressed, omitted or
+      # undiscovered mutants still gate - the selection must be honestly
+      # empty, not just empty-handed.
+      def empty_clean_diff?(report)
+        return false unless config["since"] && report.results.empty?
         return false unless report.omissions.empty? && report.inline_suppressions.empty? &&
                             report.discovery_failures.empty?
 
-        @err.puts("saboteur: no mutants in the diff - nothing to gate (--ignore-empty)")
+        @err.puts("saboteur: no mutants in the diff - nothing to gate")
         true
       end
 
