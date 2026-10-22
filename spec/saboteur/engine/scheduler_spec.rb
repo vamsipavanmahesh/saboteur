@@ -14,6 +14,33 @@ RSpec.describe Saboteur::Engine::Scheduler do
   end
 end
 
+# The --flaky-check disagreement message (#1167): dogfood infers specs by
+# file name, so the text is pinned here as well as through the check itself.
+RSpec.describe Saboteur::Engine::Scheduler, "flaky_message (#1167)" do
+  let(:scheduler) do
+    described_class.new(config: Saboteur::Config.new({}), runner: instance_double(Saboteur::Execution::Runner),
+                        map: instance_double(Saboteur::Selection::CoverageMap),
+                        reevaluator: instance_double(Saboteur::Execution::Reevaluator),
+                        diagnostics: Saboteur::Engine::Diagnostics.new(StringIO.new))
+  end
+
+  def outcome(status, failed_ids = [])
+    Saboteur::Execution::Runner::Outcome.new(status: status, runtime: 1.0, failed_ids: failed_ids)
+  end
+
+  it "names both verdicts and the decisive tests, at most three, each once" do
+    message = scheduler.send(:flaky_message, outcome(:killed, %w[t1 t2]), outcome(:survived, %w[t2 t3 t4]))
+    expect(message).to eq("flaky verdict: first killed, then survived on a reordered confirmation run " \
+                          "(decisive tests: t1, t2, t3) - the mutant is unverified, not killed")
+  end
+
+  it "leaves the decisive clause out when no test failed" do
+    message = scheduler.send(:flaky_message, outcome(:survived), outcome(:killed))
+    expect(message).to eq("flaky verdict: first survived, then killed on a reordered confirmation run " \
+                          "- the mutant is unverified, not survived")
+  end
+end
+
 # A kill is only real if the killing test passes when the method is
 # re-evaluated unchanged; a timeout only if the unchanged method finishes in
 # time. So the scheduler re-runs the evidence, not the whole suite: a method
