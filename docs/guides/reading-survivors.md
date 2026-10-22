@@ -50,6 +50,8 @@ from the label alone.
   keeps the kind's advice (for example "exercise both sides of this
   boundary") and the JSON report carries the kind as the additive
   `gapKind` field on those survivors.
+  A cached verdict replays its observation; a result cache written before
+  the observation existed is dropped and rebuilt on the next run.
 
 A coarse mutant with no other signal stays unlabeled - the field is
 omitted, never empty. One label per survivor, first match in the order above. Labels

@@ -54,6 +54,16 @@ RSpec.describe "survivors record whether the mutated value differed", :e2e do
     expect(run.out).to include("[input_gap]").or include("input_gap")
   end
 
+  it "keeps the observation and the labels when the second run replays cached verdicts (#1290)" do
+    saboteur(dir, "--all")
+    run = saboteur(dir, "--all")
+
+    expect(mutant(run, "Fee.for", "comparison", "<=")).to include("valueDiffered" => false,
+                                                                  "classification" => "input_gap")
+    expect(mutant(run, "Fee.exact", "literal_number", "4")).to include("valueDiffered" => true,
+                                                                       "classification" => "assertion_gap")
+  end
+
   context "with a test that stubs the mutated operator" do
     before do
       write("lib/calc.rb", <<~RUBY)

@@ -26,7 +26,9 @@ module Saboteur
     # every source file is watched instead: reuse turns conservative, never
     # stale.
     class ResultCache
-      FORMAT = 1
+      # 2: entries carry value_differed (#1290); a version 1 file is dropped so
+      # no cached survivor reads as "never differed" without having been observed.
+      FORMAT = 2
       MAX_BYTES = 64 * 1024 * 1024
       STORED = %i[killed survived timeout].freeze
       LOCKFILES = %w[Gemfile.lock gems.locked].freeze
@@ -62,13 +64,13 @@ module Saboteur
       end
 
       # The stored verdict as a hash (status, reason, killed_by, kill_cause,
-      # runtime), or nil when it may no longer hold.
+      # runtime, value_differed), or nil when it may no longer hold.
       def lookup(subject, mutation, tests)
         entry = @entries[key(subject, mutation)]
         return nil unless entry && entry["fingerprint"] == fingerprint(subject, tests)
 
         { status: entry["status"].to_sym, reason: entry["reason"], killed_by: entry["killed_by"],
-          kill_cause: entry["kill_cause"], runtime: entry["runtime"] }
+          kill_cause: entry["kill_cause"], runtime: entry["runtime"], value_differed: entry["value_differed"] }
       end
 
       def record(result)
@@ -77,7 +79,7 @@ module Saboteur
         @entries[key(result.subject, result.mutation)] = {
           "fingerprint" => fingerprint(result.subject, result.covered_by), "status" => result.status.to_s,
           "reason" => result.reason, "killed_by" => result.killed_by, "kill_cause" => result.kill_cause,
-          "runtime" => result.runtime
+          "runtime" => result.runtime, "value_differed" => result.value_differed
         }
         checkpoint if @clock.call - @last_saved >= @save_interval
       end
@@ -154,7 +156,8 @@ module Saboteur
       def typed?(entry)
         STORED.map(&:to_s).include?(entry["status"]) && (entry["runtime"].nil? || entry["runtime"].is_a?(Numeric)) &&
           %w[reason kill_cause].all? { |key| entry[key].nil? || entry[key].is_a?(String) } &&
-          entry["killed_by"].is_a?(Array) && entry["killed_by"].all?(String)
+          entry["killed_by"].is_a?(Array) && entry["killed_by"].all?(String) &&
+          [nil, true, false].include?(entry["value_differed"])
       end
 
       def key(subject, mutation)

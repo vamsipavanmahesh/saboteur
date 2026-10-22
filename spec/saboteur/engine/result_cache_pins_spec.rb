@@ -31,7 +31,8 @@ RSpec.describe Saboteur::Engine::ResultCache do
     store.record(verdict)
     store.save
     expect(cache.lookup(person_subject, comparison_mutation, tests)).to eq(
-      status: :killed, reason: "boom", killed_by: tests, kill_cause: "assertion", runtime: 0.25
+      status: :killed, reason: "boom", killed_by: tests, kill_cause: "assertion", runtime: 0.25,
+      value_differed: nil
     )
   end
 
@@ -41,7 +42,8 @@ RSpec.describe Saboteur::Engine::ResultCache do
     store.save
     entry = JSON.parse(File.read(path)).fetch("entries").values.first
     expect(entry.except("fingerprint")).to eq("status" => "killed", "reason" => "boom", "killed_by" => tests,
-                                              "kill_cause" => "assertion", "runtime" => 0.25)
+                                              "kill_cause" => "assertion", "runtime" => 0.25,
+                                              "value_differed" => nil)
   end
 
   it "keys an entry by the subject id, a space and the mutation digest" do

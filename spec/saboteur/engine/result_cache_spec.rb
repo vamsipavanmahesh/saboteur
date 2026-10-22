@@ -34,6 +34,52 @@ RSpec.describe Saboteur::Engine::ResultCache do
     cache.tap { |store| store.record(killed) }.save
   end
 
+  describe "the observed value (#1290)" do
+    def survivor(value_differed)
+      result_for(:survived, covered_by: tests, runtime: 0.2, value_differed: value_differed)
+    end
+
+    it "stores and returns value_differed for each of nil, false and true" do
+      [nil, false, true].each do |observed|
+        store = cache
+        store.record(survivor(observed))
+        store.save
+
+        expect(cache.lookup(person_subject, comparison_mutation, tests)).to include(value_differed: observed)
+      end
+    end
+
+    it "drops a cache file written before the field existed, so no survivor reads as never-differed" do
+      FileUtils.mkdir_p(File.dirname(path))
+      store = cache
+      store.record(survivor(nil))
+      store.save
+      old = JSON.parse(File.read(path)).merge("format" => 1)
+      File.write(path, JSON.generate(old))
+
+      expect(cache.lookup(person_subject, comparison_mutation, tests)).to be_nil
+    end
+
+    it "ignores a crafted non-boolean value_differed in the cache file" do
+      store = cache
+      store.record(survivor(false))
+      store.save
+      data = JSON.parse(File.read(path))
+      data["entries"].each_value { |entry| entry["value_differed"] = "yes" }
+      File.write(path, JSON.generate(data))
+
+      expect(cache.lookup(person_subject, comparison_mutation, tests)).to be_nil
+    end
+
+    it "carries a reused survivor's observation onto the replayed result" do
+      store = cache
+      store.record(survivor(true))
+      hit = store.lookup(person_subject, comparison_mutation, tests)
+
+      expect(hit[:value_differed]).to be(true)
+    end
+  end
+
   it "pins the source-set format: sorted, filtered, NUL-joined and memoized" do
     File.write(File.join(@root, "b.rb"), "b\n")
     FileUtils.mkdir_p(File.join(@root, "sub"))
