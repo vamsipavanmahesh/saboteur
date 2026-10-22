@@ -65,7 +65,7 @@ module Saboteur
         return serve_cached(path, cached, files, preloaded) if cached
 
         note = miss_note(files)
-        @diagnostics.inform(note.message(scoped: !@config["tests"].empty?)) if @config["cache"]
+        @diagnostics.notice(note.message(scoped: !@config["tests"].empty?)) if @config["cache"]
         started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
         map = fresh_map(files, note, preloaded)
         build_seconds = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
@@ -237,7 +237,7 @@ module Saboteur
         return build_parts(files, parts) if parts.size > 1
 
         scope = @config["tests"].empty? ? "the whole suite" : "the selected specs"
-        @diagnostics.inform("building coverage map (runs #{scope} once)")
+        @diagnostics.notice("building coverage map (runs #{scope} once)")
         # The suite child forked next inherits this heap; pack it first, to
         # reduce later copying of shared pages.
         Execution::ForkReadiness.prepare_heap
@@ -267,7 +267,7 @@ module Saboteur
         total, counts = usage_checked { check_parts_cover_suite(parts) }
         saved = saved_parts(files, parts.size, counts)
         todo = saved.each_index.select { |index| saved[index].nil? }
-        @diagnostics.inform(parts_note(parts.size, todo.size))
+        @diagnostics.notice(parts_note(parts.size, todo.size))
         built = todo.empty? ? [] : run_parts(files, parts, todo)
         todo.zip(built) { |index, map| saved[index] = map }
         map = combine_saved(saved, total, files, parts.size)

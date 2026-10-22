@@ -187,6 +187,13 @@ module Saboteur
         @err.puts("saboteur: #{Text.display_safe_lines(message)}")
       end
 
+      # First-run explanations (#1264): the --quiet contract is findings,
+      # score and verdict, so these stay off stderr under it and print
+      # exactly as before otherwise.
+      def notice(message)
+        inform(message) unless @quiet
+      end
+
       # Chatter the default view folds into the quiet-start lines;
       # --verbose prints it byte-for-byte as before.
       def detail(message)

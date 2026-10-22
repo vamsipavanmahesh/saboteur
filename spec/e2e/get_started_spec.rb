@@ -34,6 +34,16 @@ RSpec.describe "the README get-started flow (end to end)", :e2e do
     expect(second.err).not_to include("coverage cache miss")
   end
 
+  it "step 2 under --quiet: the first run keeps stderr free of first-run notices (#1264)" do
+    first = saboteur(dir, "--quiet")
+    expect(first.err).not_to include("no config/saboteur.rb")
+    expect(first.err).not_to include("coverage cache miss")
+    expect(first.err).not_to include("building coverage map")
+    # The one kept notice: a correctness caveat about how specs were chosen.
+    expect(first.err.lines.map(&:strip).reject(&:empty?))
+      .to match([start_with("saboteur: inferred specs: selected by constant reference or require")])
+  end
+
   it "step 3: pr mutates only what changed against main" do
     git("init", "-q")
     git("checkout", "-q", "-b", "main")

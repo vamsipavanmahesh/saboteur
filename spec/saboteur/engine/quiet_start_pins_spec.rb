@@ -38,6 +38,16 @@ RSpec.describe "the quiet run start (DX wave 1, PR4)" do
       .to be(Saboteur::Engine::Diagnostics::ProgressHeartbeat::NULL)
   end
 
+  it "prints first-run notices unless --quiet (#1264)" do
+    loud = Saboteur::Engine::Diagnostics.new(err, palette: mono)
+    loud.notice("building coverage map (runs the whole suite once)")
+    expect(err.string).to eq("saboteur: building coverage map (runs the whole suite once)\n")
+
+    silent = StringIO.new
+    Saboteur::Engine::Diagnostics.new(silent, palette: mono, quiet: true).notice("coverage cache miss: x")
+    expect(silent.string).to eq("")
+  end
+
   it "suppresses --verbose detail chatter under --quiet" do
     d = Saboteur::Engine::Diagnostics.new(err, verbose: true, palette: mono, quiet: true)
     d.detail("checking the unchanged suite twice (seed 1)")
