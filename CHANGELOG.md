@@ -6,6 +6,34 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.12.1] - 2026-10-22
+
+### Changed
+
+- `--quiet` now stays quiet from startup: the start header, baseline
+  line, inference detail and progress bar no longer print. A `--since`
+  diff that selects no mutants exits 0 with a plain "nothing to gate"
+  note instead of failing a score threshold, and `--ignore-empty` is a
+  deprecated no-op. A diff with suppressed, omitted or undiscovered
+  mutants, or with an unverifiable scope, still gates (#1268, #1142,
+  #1149).
+- `saboteur survivors` lists survivors ranked by default, matching
+  `run`, and owns its own command surface and help (#1269, #1150).
+
+### Fixed
+
+- An error-dominated run no longer prints a bare score: the terminal
+  closing line and the HTML report headline and summary say `n/a`, like
+  the terminal headline already did (#1275, #1271, #1276, #1272).
+
+### Tests
+
+- New end-to-end pins for per-path score gates, the `Score: n/a`
+  headline, the README get-started flow, parallel coverage parts and
+  the trace recorder, survivor triage labels, kills split by cause and
+  a docs-only `--since` diff under a threshold (#1270, #1273, #1278,
+  #1279, #1280, #1281, #1277, #1159, #1158).
+
 ## [0.12.0] - 2026-10-22
 
 ### Added
