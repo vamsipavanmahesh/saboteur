@@ -32,8 +32,24 @@ from the label alone.
   neither does anything without real coverage - a `--test-command` run
   records only the pseudo-test for every mutant, so its survivors never
   receive a gap kind from pseudo evidence.
-- `input_gap` - no test reached this mutant at all, so its input never
-  varied: start by exercising the line with a varied input.
+- `input_gap` - the tests never gave the mutated expression an input where
+  its value differs (or no test reached the mutant at all): start by
+  exercising the line with a varied input, for example both sides of a
+  boundary. Saboteur records this by running the original and the mutated
+  expression side by side where that is side-effect free.
+  A mutant that never changes value for any input (for example `x * 1`)
+  reads `input_gap` too, and varying the input cannot help: it is
+  equivalent, so ignore it instead.
+- `assertion_gap` - the mutated expression produced a different value
+  while the covering tests ran, and they still passed: a test reaches the
+  code and no assertion pins it, so add an assertion on that result.
+  Sites that are not side-effect free (any method call, a stubbed
+  operand) are not observed and keep their gap kind. In the JSON report
+  the observation is the additive `valueDiffered` field.
+  The observed label replaces the gap kind, which is not lost: the reason
+  keeps the kind's advice (for example "exercise both sides of this
+  boundary") and the JSON report carries the kind as the additive
+  `gapKind` field on those survivors.
 
 A coarse mutant with no other signal stays unlabeled - the field is
 omitted, never empty. One label per survivor, first match in the order above. Labels

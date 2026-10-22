@@ -29,11 +29,14 @@ module Saboteur
     #     operator and the edit shape only. The covering list is only the
     #     PLANNED coverage: whole-body (coarse) mutants carry method-level
     #     guesses, so they never get a gap kind.
-    #   input_gap    - no real test covered the mutant at all, so the input
-    #     never varied (D6). Coarse mutants stay unlabeled: their planned
-    #     coverage is a method-level guess, not an observation. The
-    #     deterministic version (the runner records the mutated value
-    #     actually differing) is #1064 follow-up.
+    #   input_gap    - the tests never gave the mutated expression an input
+    #     where its value differs (the runner recorded it, #1290), or no
+    #     real test covered the mutant at all (D6). Coarse mutants stay
+    #     unlabeled: their planned coverage is a method-level guess.
+    #   assertion_gap - the mutated expression produced a different value
+    #     while the covering tests ran, and they still passed: a test
+    #     reaches the code and no assertion pins it (#1290). Only side-effect
+    #     free sites are observed; an unprobed site keeps its gap kind.
     #   tool_limit   - survivors saboteur could not observe faithfully: an
     #     external-runner run records only the pseudo-test id, never real
     #     coverage (#1071). A re-eval refusal records no signal on the
@@ -41,7 +44,10 @@ module Saboteur
     #
     # A survivor with no matching signal stays unlabeled.
     module SurvivorClassification
-      LABELS = %w[likely_equivalent arid tool_limit input_gap].concat(GapKinds::KINDS).freeze
+      LABELS = %w[likely_equivalent arid tool_limit input_gap assertion_gap].concat(GapKinds::KINDS).freeze
+      # assertion_gap decides a statement's label ahead of every gap kind: the
+      # value changed and the tests passed.
+      GROUP_ORDER = (["assertion_gap"] + GapKinds::PRECEDENCE).freeze
 
       class << self
         def label(result, arid: MutationSource::Builtin::DEFAULT_ARID)
@@ -49,6 +55,9 @@ module Saboteur
           return "likely_equivalent" if equivalent?(result)
           return "arid" if arid?(result, arid)
           return "tool_limit" if tool_limited?(result)
+
+          observed = observed_gap(result)
+          return observed if observed
           return gap_kind(result) if possible_test_gap?(result)
           return "input_gap" unless result.mutation.coarse
 
@@ -67,7 +76,21 @@ module Saboteur
         # subsumes a missing branch, boundary or effect check on it.
         def group_label(results)
           labels = results.map { |result| label(result) }.compact
-          GapKinds::PRECEDENCE.find { |kind| labels.include?(kind) } || labels.first
+          GROUP_ORDER.find { |kind| labels.include?(kind) } || labels.first
+        end
+
+        # The gap kind an observed label (input_gap/assertion_gap) replaced:
+        # what the edit shape says is unchecked. nil unless the observation
+        # decided the label, so a plain kind label stays its own kind.
+        def kind(result)
+          return nil unless GapKinds::OBSERVED.include?(observed_gap(result)) && possible_test_gap?(result)
+
+          gap_kind(result)
+        end
+
+        def group_kind(results)
+          kinds = results.map { |result| kind(result) }.compact
+          GapKinds::PRECEDENCE.find { |kind| kinds.include?(kind) }
         end
 
         private
@@ -91,6 +114,15 @@ module Saboteur
         # An external runner reports one pseudo id for every mutant and no
         # coverage map, so a survivor there was never observed against real
         # tests. Pseudo id next to a real id keeps the gap kind (#305).
+        # The runner's observation (#1290): the mutated expression never gave
+        # a different value (input_gap), or gave one and the tests passed
+        # (assertion_gap). nil when the site was not probed.
+        def observed_gap(result)
+          return nil if result.mutation.coarse || result.value_differed.nil?
+
+          result.value_differed ? "assertion_gap" : "input_gap"
+        end
+
         def tool_limited?(result)
           result.covered_by.any? && result.covered_by.all? { |id| id == Execution::ExternalRunner::PSEUDO_TEST }
         end

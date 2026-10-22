@@ -48,9 +48,8 @@ module Saboteur
       UNEQUAL_CASE = [%w[< >], %w[<= >=]].map(&:to_set).freeze
 
       # Labels that never get a hint: a generated assertion on an equivalent
-      # mutant is the worst kind of hint noise. The assertion_gap/input_gap
-      # split (#1064) narrows this further; until it lands, every other
-      # label keeps the operator hint unchanged.
+      # mutant is the worst kind of hint noise. Every other label, including
+      # input_gap and assertion_gap, keeps the operator hint.
       NO_HINT_LABELS = %w[likely_equivalent].freeze
 
       # One deterministic template sentence per operator: what the change
@@ -91,13 +90,14 @@ module Saboteur
 
       # The deterministic per-label reason printed next to a survivor's rank.
       # Labels come from SurvivorClassification; they are heuristics, not
-      # diagnoses. #1064 lands the assertion_gap label: add its reason here
-      # and its gate in NO_HINT_LABELS when it does.
+      # diagnoses. input_gap and assertion_gap keep the operator hint: it is
+      # the right place to look in both cases (#1290).
       LABEL_REASONS = {
         "likely_equivalent" => "compiles to the same instructions as the original",
         "arid" => "every edited line matches an arid pattern",
         "tool_limit" => "the tool could not observe this mutant faithfully",
-        "input_gap" => "no test reached this mutant, so its input never varied"
+        "input_gap" => "no test input made this mutation change the value, so its input never varied",
+        "assertion_gap" => "a test ran this mutant, the value changed, and no assertion noticed"
       }.merge(GapKinds::REASONS).freeze
 
       module_function
@@ -114,9 +114,13 @@ module Saboteur
         WHY_IT_MATTERS.fetch(operator, WHY_FALLBACK)
       end
 
-      # The per-label reason sentence; nil when the label has none.
-      def label_reason(label)
-        LABEL_REASONS[label]
+      # The per-label reason sentence; nil when the label has none. An
+      # observed label (input_gap/assertion_gap) keeps the advice of the gap
+      # kind it replaced, so the kind is not lost behind the observation.
+      def label_reason(label, kind: nil)
+        reason = LABEL_REASONS[label]
+        advice = GapKinds::ADVICE[kind]
+        advice && GapKinds::OBSERVED.include?(label) ? "#{reason}; #{advice}" : reason
       end
 
       def for(operator, coarse: false)

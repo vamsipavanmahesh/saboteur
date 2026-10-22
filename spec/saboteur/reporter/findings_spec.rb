@@ -38,6 +38,14 @@ RSpec.describe Saboteur::Reporter::Findings do
     expect(findings["survivors"].map { |f| f["classification"] }).to contain_exactly("boundary", "input_gap", nil)
   end
 
+  it "reports the kind an observed label replaced as gapKind, and only then (#1290)" do
+    seen = result_for(:survived, covered_by: %w[t1], value_differed: false)
+    plain = result_for(:survived, covered_by: %w[t1])
+    plain_finding, seen_finding = build(report_of(seen, plain)).fetch("survivors").sort_by { |f| f["classification"] }
+    expect(plain_finding).not_to have_key("gapKind")
+    expect(seen_finding.values_at("classification", "gapKind")).to eq(%w[input_gap boundary])
+  end
+
   it "declares its version, the bound and the published ordering" do
     findings = build(report_of)
     expect(findings.values_at("version", "limit", "ordering")).to eq(

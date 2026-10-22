@@ -138,7 +138,7 @@ module Saboteur
       def detail_lines(survivor, finding)
         [
           "#{survivor[:path]}:#{survivor[:line]}  #{survivor[:operator]}  #{survivor[:digest]}",
-          *classification_line(survivor[:classification]),
+          *classification_line(survivor[:classification], survivor[:gap_kind]),
           "",
           "- #{finding['original'] || original_line(survivor)}",
           "+ #{finding['replacement'] || survivor[:replacement]}",
@@ -149,10 +149,10 @@ module Saboteur
       end
 
       # The same wording the terminal survivor block uses (#1183).
-      def classification_line(label)
+      def classification_line(label, kind = nil)
         return [] unless label
 
-        reason = Reporter::SurvivorHints.label_reason(label)
+        reason = Reporter::SurvivorHints.label_reason(label, kind: kind)
         ["classification: #{label}#{" - #{reason}" if reason}"]
       end
 
@@ -241,7 +241,8 @@ module Saboteur
             entry.fetch("mutants", []).select { |m| m["status"] == "Survived" }.map do |m|
               { path: path, line: m.dig("location", "start", "line").to_i, operator: m["mutatorName"],
                 digest: m["id"], replacement: m["replacement"], classification: m["classification"],
-                subject: m["subject"], covered: m["coveredBy"] || [], source: entry["source"] }
+                gap_kind: m["gapKind"], subject: m["subject"], covered: m["coveredBy"] || [],
+                source: entry["source"] }
             end
           end
           survivors

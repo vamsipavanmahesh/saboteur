@@ -25,7 +25,10 @@ RSpec.describe "survivor triage labels per statement (end to end)", :e2e do
     end
 
     expect(labels.call("puts")).to eq("statement_removal" => "arid", "interpolation_removal" => "arid")
-    expect(labels.call("count >= 10")).to eq("comparison" => "boundary", "literal_number" => "number")
+    # The observation decides the label (#1290); the kind it replaced stays in gapKind.
+    expect(labels.call("count >= 10")).to eq("comparison" => "input_gap", "literal_number" => "input_gap")
+    kinds = survivors_on(line_of("count >= 10")).to_h { |m| [m["mutatorName"], m["gapKind"]] }
+    expect(kinds).to eq("comparison" => "boundary", "literal_number" => "number")
     expect(labels.call("flag ?")).to eq("condition_true" => "branch", "condition_false" => "branch",
                                         "condition_negation" => "branch")
     expect(labels.call("hash[:name]")).to eq("boolean_logic" => "branch", "literal_string" => "result unchecked")
@@ -33,7 +36,7 @@ RSpec.describe "survivor triage labels per statement (end to end)", :e2e do
 
   it "prints one block per statement with its triage label, id and the mutants folded under it" do
     expect(run.out).to include("lib/demo.rb:#{line_of('puts')} Demo#noisy [arid] - ")
-    expect(run.out).to include("lib/demo.rb:#{line_of('count >= 10')} Demo#limit [boundary] - ")
+    expect(run.out).to include("lib/demo.rb:#{line_of('count >= 10')} Demo#limit [input_gap] - ")
     expect(run.out).to include("lib/demo.rb:#{line_of('flag ?')} Demo#pick [branch] - ")
     # One label per statement from all its mutants (#P4): fetch_name holds a
     # branch and a result unchecked mutant, and result unchecked outranks it.
@@ -41,6 +44,7 @@ RSpec.describe "survivor triage labels per statement (end to end)", :e2e do
     expect(run.out).to include("Survivors (11) - changes your tests did not catch")
     expect(run.out).to include("#1 of 4 blocks", "#2 of 4 blocks")
     expect(run.out).to include("every edited line matches an arid pattern")
+    expect(run.out).to include("so its input never varied; exercise both sides of this boundary")
     expect(run.out).to include("2 more mutants here:")
   end
 

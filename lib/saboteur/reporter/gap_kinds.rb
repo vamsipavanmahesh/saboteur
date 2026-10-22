@@ -74,6 +74,18 @@ module Saboteur
         "result unchecked" => "the covering specs pass without pinning this result"
       }.freeze
 
+      # What an observed label (input_gap/assertion_gap, #1290) replaces
+      # the kind with, and the advice the kind gave: kept in the reason.
+      OBSERVED = %w[input_gap assertion_gap].freeze
+      ADVICE = {
+        "boundary" => "exercise both sides of this boundary",
+        "branch" => "exercise both branches",
+        "effect" => "assert the effect of this statement",
+        "number" => "no test depends on this exact number",
+        "error path" => "exercise the error path",
+        "result unchecked" => "assert this result"
+      }.freeze
+
       module_function
 
       def kind(operator, comparison_edit: false)
