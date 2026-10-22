@@ -142,6 +142,29 @@ RSpec.describe Saboteur::IgnoreList do
     end
   end
 
+  it "warns in a full run when the entry's subject was not examined (#1206)" do
+    with_file(entry_for("abc123", subject: "Gone#missing")) do |path|
+      warnings = described_class.load(path).apply([result_for(:survived)], full_run: true)
+      expect(warnings).to eq(["stale ignore entry Gone#missing abc123: subject not found (renamed, " \
+                              "removed, or its file is excluded?) - remove the entry or fix the subject name"])
+    end
+  end
+
+  it "stays silent about unexamined subjects in a scoped run (#1206)" do
+    with_file(entry_for("abc123", subject: "Gone#missing")) do |path|
+      expect(described_class.load(path).apply([result_for(:survived)])).to eq([])
+    end
+  end
+
+  # An examined subject can yield no results (uncovered, or nothing mutable
+  # left); with the run's subject list passed, that is not "missing".
+  it "does not call an examined subject with no results missing when subjects are passed (#1206)" do
+    (subject,) = subjects_in("class M\n  def leaf; 1; end\nend\n", name: "m.rb")
+    with_file(entry_for("abc123", subject: "M#leaf")) do |path|
+      expect(described_class.load(path).apply([], subjects: [subject], full_run: true)).to eq([])
+    end
+  end
+
   it "warns when the same mutation is ignored twice, and the last entry wins (#1207)" do
     survivor = result_for(:survived)
     file = <<~RUBY

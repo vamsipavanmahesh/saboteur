@@ -125,7 +125,7 @@ module Saboteur
     # unscoped_digests (subject id => every digest generated before a diff
     # scope cut) keeps a scoped run from calling a scoped-out entry stale
     # (#284).
-    def apply(results, unscoped_digests: nil)
+    def apply(results, subjects: nil, unscoped_digests: nil, full_run: false)
       seen = {}
       results.each do |result|
         key = [result.subject.id, result.digest]
@@ -139,7 +139,8 @@ module Saboteur
         result.triage_reason = entry.reason
         result.ignored = entry.reason if entry.state != "todo"
       end
-      duplicate_warnings + stale_warnings(results, seen, unscoped_digests)
+      duplicate_warnings + stale_warnings(results, seen, unscoped_digests) +
+        missing_subject_warnings(results, subjects, full_run: full_run)
     end
 
     private
@@ -157,6 +158,25 @@ module Saboteur
       entries.group_by { |entry| [entry.subject, entry.mutation] }
              .reject { |_, group| group.one? }
              .map { |(subject, mutation), _| "duplicate ignore entry #{subject} #{mutation}: the last entry wins" }
+    end
+
+    # A full run examines every in-scope subject, so an entry whose subject
+    # never appears points at code that was renamed or removed - say so, but
+    # only then: a scoped (--since/--subject) run cannot tell "renamed" from
+    # "not in this diff" (#1206). The run's subject list is the source of
+    # truth when given: an examined subject with no results (uncovered, or
+    # nothing mutable left) is not missing.
+    def missing_subject_warnings(results, subjects, full_run:)
+      return [] unless full_run
+
+      examined = (subjects || results).to_set { |item| item.respond_to?(:id) ? item.id : item.subject.id }
+      entries.reject { |entry| examined.include?(entry.subject) }
+             .map { |entry| missing_subject_message(entry) }
+    end
+
+    def missing_subject_message(entry)
+      "stale ignore entry #{entry.subject} #{entry.mutation}: subject not found " \
+        "(renamed, removed, or its file is excluded?) - remove the entry or fix the subject name"
     end
 
     def stale_message(entry)
