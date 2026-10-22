@@ -6,6 +6,10 @@ require_relative "saboteur/version"
 module Saboteur
   class Error < StandardError; end
 
+  # A spec path from the cached coverage map that is not a spec file inside
+  # the project: the map is untrusted input (#427, #1286).
+  class RefusedSpecPath < Error; end
+
   # A phase timeout that --max-duration shortened: budget exhaustion, not a
   # broken suite. The engine turns it into the budget partial-report path
   # instead of a phase error (#296).

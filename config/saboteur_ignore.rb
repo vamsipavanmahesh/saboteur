@@ -2656,12 +2656,6 @@ i.mutation "fdc4600f4e8e8625",
              subject: "Saboteur::Engine::SurvivorConfirmation#unchanged_runner",
              reason: "equivalent: write-only value - the :unverified Outcome's runtime is never " \
                      "read, so changing the literal leaves behavior unchanged"
-  # survivor_confirmation.rb:95 - VerdictCheck is called with the guaranteed one-element array
-  # [kill], so .first and .last pick the same result.
-  i.mutation "2d056fcf11e5c9c4",
-             subject: "Saboteur::Engine::SurvivorConfirmation#checked_kill",
-             reason: "equivalent: .first and .last pick the same element of the one-element " \
-                     "[kill] array the check is called with, so the returned result is identical"
   # Score-honesty dogfood survivors (#1104, merged); each per-id replay diff
   # was inspected and proven unobservable.
   i.mutation "66e3a0cfce46abb7",

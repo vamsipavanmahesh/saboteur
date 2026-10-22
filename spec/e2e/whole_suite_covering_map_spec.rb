@@ -61,7 +61,7 @@ RSpec.describe "survivor blocks consult the whole-suite coverage map", :e2e do
     git("commit", "-q", "-m", "base")
   end
 
-  it "names the covering spec a --since run never loaded and marks the block" do
+  it "confirms against the covering spec a --since run never loaded" do
     full = saboteur(dir, "--all") # builds the whole-suite coverage map cache
     expect(full.json).not_to be_nil
 
@@ -75,8 +75,12 @@ RSpec.describe "survivor blocks consult the whole-suite coverage map", :e2e do
     RUBY
     run = saboteur(dir, "--since", "HEAD")
 
+    # flow_spec kills the mutant on the line the map knows; the other survivor
+    # sits on a line the older whole-suite map has no coverage for. The map
+    # cannot say, so it stays a counted survivor (#1286).
     expect(run.status).to eq(1), run.out + run.err
-    expect(run.out).to include("covered by 2 specs, incl. ./spec/flow_spec.rb[1:1] (not run here)")
-    expect(run.out).to include("likely covered elsewhere: ./spec/flow_spec.rb[1:1] pins this line (not run here)")
+    expect(run.out).not_to include("not in the score")
+    expect(run.out).to include("covers none of the edited lines of 1 survivor")
+    expect(run.err).to include("killed on confirmation by ./spec/flow_spec.rb[1:1]")
   end
 end

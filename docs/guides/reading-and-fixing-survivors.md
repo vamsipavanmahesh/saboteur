@@ -136,8 +136,26 @@ for example an integration spec with no matching source file. Only
 specs. Without that map a scoped run prints one line, `survivors
 unconfirmed: no whole-suite coverage map; run `saboteur run --all` to
 build one`, and each survivor block says the covering list is this run's
-selection only. Verdicts, score and exit code do not change. With the map,
-a block names the covering specs the run did not load as `(not run here)`.
+selection only. Verdicts, score and exit code do not change.
+
+With the map, each surviving mutant also gets one budgeted confirmation run
+of its covering specs the run did not load (the budget is `confirmation_budget`,
+300 seconds by default; no flag). A mutant those specs kill becomes killed,
+credited to the killing test in the JSON report (`confirmation:
+killed_by_confirmation`, `creditedTest`), and counts in the score and the
+exit code. A survivor whose covering specs could not be run (budget spent, or
+the run failed) is listed under "unconfirmed (covering tests not run)",
+reported as `confirmation: unconfirmed` with status `Ignored`, and is left out
+of the score and the exit code. A failure while confirming prints one warning
+and never ends the run.
+
+When the map is older than the tree, it may say nothing about a survivor's
+lines (added or shifted since `run --all`). That survivor stays counted in the
+score and the exit code, shows `confirmation: unconfirmed` without being
+ignored, and the run prints one line naming how many; rebuild the map with
+`saboteur run --all`. The map is read as untrusted: a covering spec outside
+the project root (symlinks resolved) is never loaded, and a map that names one
+is refused: its survivors stay counted and the run prints one warning.
 
 ## 6. When the fix is not a test
 

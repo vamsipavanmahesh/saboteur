@@ -74,6 +74,9 @@ module Saboteur
       # sandbox: when given, a callable run first in every child (Landlock
       # makes the project tree read-only there, #152). It raises rather than
       # run half-restricted, which the child reports as an error.
+      # Survivor confirmation loads the spec files a scoped run left out (#1286).
+      attr_reader :integration
+
       def initialize(integration:, reevaluator:, log_dir:, hooks: Hooks.new, supervisor: Supervisor.new, seed: 1,
                      sandbox: nil, canary: nil, crash_log: nil)
         @integration = integration

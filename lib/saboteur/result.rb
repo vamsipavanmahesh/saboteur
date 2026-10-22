@@ -112,8 +112,37 @@ module Saboteur
       @digest ||= mutation.digest(subject_start: subject.start_byte, original_source: subject.file_source)
     end
 
+    # A survivor whose confirmation run could not happen (budget spent, or the
+    # run failed) is outside the score and the exit code until it is
+    # confirmed (#1286). A survivor the whole-suite map cannot speak for
+    # ("unconfirmed_map(...)") stays counted: a stale map never lowers the gate.
     def survived?
-      status == :survived
+      status == :survived && !unconfirmed?
+    end
+
+    def unconfirmed?
+      status == :survived && @confirmation.to_s.start_with?("unconfirmed(")
+    end
+
+    # The additive report field: confirmed, killed_by_confirmation or
+    # unconfirmed; nil when confirmation never applied (#1286).
+    def confirmation_state
+      return nil if @confirmation.nil?
+
+      label = @confirmation.to_s
+      label.start_with?("unconfirmed") ? "unconfirmed" : label
+    end
+
+    # The test a confirmation kill is credited to.
+    def credited_test
+      killed_by.first if confirmation_state == "killed_by_confirmation"
+    end
+
+    # Why the survivor stayed unconfirmed: the text inside unconfirmed(...).
+    def unconfirmed_reason
+      return unless unconfirmed?
+
+      @confirmation.delete_prefix("unconfirmed(").delete_suffix(")")
     end
 
     # Killed because a test's error, not its check, fired: NoMethodError and
@@ -280,7 +309,9 @@ module Saboteur
     end
 
     def counts
-      STATUSES.to_h { |status| [status, results.count { |result| result.status == status }] }
+      STATUSES.to_h do |status|
+        [status, results.count { |result| status == :survived ? result.survived? : result.status == status }]
+      end
     end
 
     # (killed + timeout) / (killed + survived + timeout); nil with nothing tested.
@@ -306,6 +337,12 @@ module Saboteur
 
     def survivors
       results.select(&:survived?)
+    end
+
+    # Survivors whose covering tests were not all run: outside the score and
+    # the exit code, listed on their own (#1286).
+    def unconfirmed_survivors
+      results.select(&:unconfirmed?)
     end
 
     def unignored_survivors

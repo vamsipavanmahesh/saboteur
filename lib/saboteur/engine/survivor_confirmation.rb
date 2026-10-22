@@ -15,13 +15,14 @@ module Saboteur
       # confirmation_budget caps the whole pass.
       MAX_SPECS_PER_SURVIVOR = 8
 
-      def initialize(config:, map:, scheduler:, diagnostics:, budget_exceeded:, cache: nil)
+      def initialize(config:, map:, scheduler:, diagnostics:, budget_exceeded:, cache: nil, load_specs: ->(_files) {})
         @config = config
         @map = map
         @scheduler = scheduler
         @diagnostics = diagnostics
         @budget_exceeded = budget_exceeded
         @cache = cache
+        @load_specs = load_specs
       end
 
       def call(results, ignore_list:, early_stop: nil)
@@ -33,19 +34,60 @@ module Saboteur
                             "stopped early (#{early_stop.reason})")
         end
         @remaining = @config["confirmation_budget"]
+        @map_silent = 0
         results.map { |result| survivors.include?(result) ? confirm(result) : result }
                .tap { |confirmed| summarize(confirmed) }
+               .tap { warn_map_silent }
       end
 
       private
 
+      # A crash while confirming one survivor downgrades it to unconfirmed
+      # with one warning; it never ends the run (#1140).
       def confirm(result)
+        confirm_checked(result)
+      rescue RefusedSpecPath => e
+        warn_refused(e)
+        result.with_confirmation("unconfirmed_map(a covering spec from the whole-suite map was refused)")
+      rescue StandardError => e
+        warn_failed(result, e)
+        unconfirmed(result, "confirmation failed: #{e.class}")
+      end
+
+      # The map named a spec that is not a spec file inside the project: the
+      # map cannot be trusted, so its survivors stay counted (#1286).
+      def warn_refused(error)
+        return if @warned_refused
+
+        @warned_refused = true
+        @diagnostics.warn("survivor confirmation refused the whole-suite coverage map: " \
+                          "#{error.message.lines.first.strip}; its survivors stay counted; " \
+                          "run `saboteur run --all` to rebuild it")
+      end
+
+      # One line per run, however many survivors hit the same failure.
+      def warn_failed(result, error)
+        return if @warned_failure
+
+        @warned_failure = true
+        @diagnostics.warn("survivor confirmation failed for #{result.subject.id} #{result.digest} " \
+                          "(#{error.class}: #{error.message.lines.map(&:strip).reject(&:empty?).first}); " \
+                          "its survivors stay unconfirmed, outside the score")
+      end
+
+      def confirm_checked(result)
         return unconfirmed(result, "the confirmation budget is spent") if @remaining <= 0
         return unconfirmed(result, "the --max-duration budget is spent") if @budget_exceeded.call
 
-        tests = unrun_covering_tests(result)
-        return unconfirmed(result, "no covering tests") if tests.empty?
+        # Nothing in the whole-suite map covers the edited lines (the tree
+        # drifted since the map was built): the map cannot confirm anything.
+        covering = covering_tests(result)
+        return map_silent(result) if covering.empty?
 
+        tests = unrun_covering_tests(result, covering)
+        return result.with_confirmation("confirmed") if tests.empty?
+
+        load_unselected_specs(tests)
         outcome = run_confirmation(result, tests)
         @remaining -= outcome.runtime || 0
         case outcome.status
@@ -58,8 +100,14 @@ module Saboteur
       # The whole-suite map's covering tests for the mutant's edited lines
       # (branch evidence intersected, mirroring the scheduler), minus the
       # tests the mutant already ran, fastest first, capped.
-      def unrun_covering_tests(result)
-        fastest_first(covering_tests(result) - (result.executed || result.covered_by)).first(MAX_SPECS_PER_SURVIVOR)
+      def unrun_covering_tests(result, covering)
+        fastest_first(covering - (result.executed || result.covered_by)).first(MAX_SPECS_PER_SURVIVOR)
+      end
+
+      # The covering specs may live in files this run never loaded; the
+      # forked confirmation child can only run examples already in its world.
+      def load_unselected_specs(tests)
+        @load_specs.call(tests.map { |id| id.sub(/\[[\d:]+\]\z/, "") })
       end
 
       def covering_tests(result)
@@ -86,11 +134,12 @@ module Saboteur
       # becomes an error; a check the budgets never let run comes back
       # unverified - outside the score and never cached.
       def checked_kill(result, tests, outcome)
-        kill = result.with_confirmation("confirmed", status: :killed, reason: outcome.message,
-                                                     killed_by: outcome.failed_ids, covered_by: tests,
-                                                     kill_cause: outcome.kill_cause,
-                                                     runtime: (result.runtime || 0) + (outcome.runtime || 0),
-                                                     executed: (result.executed || []) + outcome.executed_ids)
+        kill = result.with_confirmation(
+          "killed_by_confirmation", status: :killed, reason: outcome.message, killed_by: outcome.failed_ids,
+                                    covered_by: tests, kill_cause: outcome.kill_cause,
+                                    runtime: (result.runtime || 0) + (outcome.runtime || 0),
+                                    executed: (result.executed || []) + outcome.executed_ids
+        )
         checked = VerdictCheck.new(run_unchanged: unchanged_runner(result.subject),
                                    baseline_timeout: @config["baseline_timeout"]).call([kill]).first
         return checked unless checked.status == :killed
@@ -108,7 +157,7 @@ module Saboteur
       # (#1079). ResultCache#record replaces the subject+mutation entry, so
       # the stale survivor verdict cannot win a later lookup.
       def record_kill(result, kill)
-        @cache&.record(kill.with_confirmation("confirmed", covered_by: covering_tests(result)))
+        @cache&.record(kill.with_confirmation("killed_by_confirmation", covered_by: covering_tests(result)))
       end
 
       # The unchanged-method re-run VerdictCheck checks a kill against, in
@@ -129,6 +178,13 @@ module Saboteur
         end
       end
 
+      # The map says nothing about the edited lines (the tree drifted since it
+      # was built): the survivor stays counted and the pass says so once.
+      def map_silent(result)
+        @map_silent += 1
+        result.with_confirmation("unconfirmed_map(no covering tests in the whole-suite map)")
+      end
+
       def unconfirmed(result, reason)
         result.with_confirmation("unconfirmed(#{reason})")
       end
@@ -146,6 +202,14 @@ module Saboteur
       def suite_mean_runtime
         durations = @map.tests.map { |id| @map.recorded_runtime([id]) }.compact
         durations.empty? ? nil : durations.sum / durations.size
+      end
+
+      def warn_map_silent
+        return if @map_silent.zero?
+
+        @diagnostics.warn("survivor confirmation: the whole-suite coverage map covers none of the edited lines of " \
+                          "#{@map_silent} survivor#{'s' unless @map_silent == 1}, so they stay counted; " \
+                          "run `saboteur run --all` to rebuild it")
       end
 
       def summarize(results)

@@ -124,6 +124,36 @@ module Saboteur
         world.example_groups.map { |group| File.expand_path(group.metadata[:file_path]) }.uniq
       end
 
+      # Loads spec files the run's own selection left out, in the parent, so a
+      # forked confirmation run can execute their examples (#1286). Files
+      # already loaded are skipped; a file that defines no group is an error,
+      # since its examples could never run.
+      def load_spec_files(paths)
+        loaded = test_files
+        absolute = paths.map { |path| File.expand_path(path, config.root) }.uniq
+        (absolute - loaded).each do |path|
+          require_inside_root(path)
+          before = world.example_groups.size
+          from_directory(config.root) { load(path) }
+          raise RefusedSpecPath, "#{path} defines no example group" if world.example_groups.size == before
+        end
+      end
+
+      # The ids come from a cached coverage map, which is untrusted input
+      # (#427): only a spec file that really lives under the project root,
+      # symlinks resolved, may be loaded.
+      def require_inside_root(path)
+        raise RefusedSpecPath, "refusing to load #{path}: not a *_spec.rb file" unless path.end_with?("_spec.rb")
+
+        root = File.realpath(config.root)
+        real = File.realpath(path)
+        return if real.start_with?("#{root}#{File::SEPARATOR}") && real.end_with?("_spec.rb")
+
+        raise RefusedSpecPath, "refusing to load #{path}: it resolves outside the project root"
+      rescue SystemCallError
+        raise RefusedSpecPath, "refusing to load #{path}: it does not exist under the project root"
+      end
+
       # Runs the tests in the order given: groups by their earliest example,
       # examples by position.
       def run(ids)
