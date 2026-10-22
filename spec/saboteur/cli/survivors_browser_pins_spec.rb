@@ -143,10 +143,6 @@ RSpec.describe Saboteur::CLI::SurvivorsBrowser, "output pins (#520)" do
     )
   end
 
-  it "treats --ranked as a compatibility alias for the default ordering" do
-    expect(browser.list(ranked: true)).to eq(browser.list)
-  end
-
   it "prints the singular header and triage note when a filter selects exactly one" do
     expect(browser.list(triage: "boundary")).to eq(
       ["1 survivor (triage=boundary) (the report's ranked findings name only the first 10)",
@@ -181,7 +177,7 @@ RSpec.describe Saboteur::CLI::SurvivorsBrowser, "output pins (#520)" do
   it "works without a findings section at all, ranked included" do
     bare = described_class.new({ "files" => report["files"] })
     expect(bare.list.first).to eq("7 survivors")
-    expect(bare.list(ranked: true).first).to eq("7 survivors")
+    expect(bare.list.first).to eq("7 survivors")
     expect(bare.show("bbbb")).to include(
       "subject: \"Klass#meth\", reason: \"why it is equivalent\" " \
       "# TODO: capped findings omit this digest - fill in the subject"
@@ -196,7 +192,7 @@ RSpec.describe Saboteur::CLI::SurvivorsBrowser, "output pins (#520)" do
               "status" => "Survived", "coveredBy" => nil }
     report = { "files" => { "lib/solo.rb" => { "language" => "ruby", "source" => "a\nb\nc\n",
                                                "mutants" => [entry] } } }
-    expect(described_class.new(report).list(ranked: true)).to eq(
+    expect(described_class.new(report).list).to eq(
       ["1 survivor", "  1. lib/solo.rb:2  body_nil                     #{'9' * 16}  -"]
     )
   end
