@@ -86,7 +86,11 @@ module Saboteur
         survivors = payload.fetch("survivors")
         @out.puts("  matched mutants: #{payload.fetch('candidates')} " \
                   "(#{plural(survivors, 'survivor')} to reason about)")
-        gaps = payload.fetch("gaps", [])
+        uncovered, gaps = payload.fetch("gaps", []).partition { |gap| gap.start_with?("no_coverage:") }
+        unless uncovered.empty?
+          @out.puts("  proposed with #{plural(uncovered.size, 'mutant')} on lines no test runs - " \
+                    "the baseline cannot speak for them")
+        end
         unless gaps.empty?
           names = gaps.map { |gap| gap.sub(/\A(subject_skipped|omitted):/, "") }
           @out.puts("  proposed with #{plural(names.size, 'untested subject')}: #{names.join(', ')} - " \

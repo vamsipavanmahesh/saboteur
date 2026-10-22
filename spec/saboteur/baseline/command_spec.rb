@@ -196,6 +196,33 @@ RSpec.describe "baseline CLI validation" do
     )
   end
 
+  it "counts mutants on lines no test runs apart from untested subjects" do
+    workflow = instance_double(Saboteur::Baseline::Workflow)
+    allow(Saboteur::Baseline::Workflow).to receive(:new).and_return(workflow)
+    allow(workflow).to receive(:propose).and_return(
+      "state" => "proposal", "proposal" => "/tmp/p.json", "destination" => "/tmp/b.json",
+      "survivors" => 0, "candidates" => 3, "gaps" => ["no_coverage:aaa", "no_coverage:bbb"]
+    )
+    expect(command("propose", "--baseline", "b.json", "--proposal", "p.json")).to eq(0)
+    expect(@out.string).to include("  proposed with 2 mutants on lines no test runs - " \
+                                   "the baseline cannot speak for them\n")
+    expect(@out.string).not_to include("untested subject")
+  end
+
+  it "prints both gap lines when an untested subject and uncovered mutants are proposed" do
+    workflow = instance_double(Saboteur::Baseline::Workflow)
+    allow(Saboteur::Baseline::Workflow).to receive(:new).and_return(workflow)
+    allow(workflow).to receive(:propose).and_return(
+      "state" => "proposal", "proposal" => "/tmp/p.json", "destination" => "/tmp/b.json",
+      "survivors" => 0, "candidates" => 3,
+      "gaps" => ["no_coverage:aaa", "subject_skipped:probe.rb:Probe#other:no_tests"]
+    )
+    expect(command("propose", "--baseline", "b.json", "--proposal", "p.json")).to eq(0)
+    expect(@out.string).to include("  proposed with 1 mutant on lines no test runs - " \
+                                   "the baseline cannot speak for them\n",
+                                   "  proposed with 1 untested subject: probe.rb:Probe#other:no_tests - ")
+  end
+
   it "accepts --format terminal explicitly" do
     workflow = instance_double(Saboteur::Baseline::Workflow)
     allow(Saboteur::Baseline::Workflow).to receive(:new).and_return(workflow)

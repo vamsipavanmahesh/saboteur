@@ -180,4 +180,26 @@ RSpec.describe Saboteur::Baseline::Comparison do
       expect(result.exit_code).to eq(3)
     end
   end
+
+  describe "mutants on lines no test runs (#1287)" do
+    let(:skipped) { { "id" => "c", "status" => "skipped", "context" => "new" } }
+    let(:candidates) { current["candidates"] + [skipped] }
+
+    it "leaves a no_coverage gap out of every category, so the check stays clean" do
+      result = compare(candidates, gaps: ["no_coverage:c"])
+      expect(result.categories["errors"]).to be_empty
+      expect(result.categories.values.flatten.map { |entry| entry["id"] }).to eq(%w[a b])
+      expect(result.state).to eq("clean")
+    end
+
+    it "still reports the same skipped mutant as an error when no gap names it" do
+      result = compare(candidates, gaps: ["no_coverage:other"])
+      expect(result.categories["errors"].map { |entry| entry["id"] }).to eq(["c"])
+      expect(result.state).to eq("incomplete")
+    end
+
+    it "reads a legacy current document without a gaps list" do
+      expect(compare(candidates).categories["errors"].map { |entry| entry["id"] }).to eq(["c"])
+    end
+  end
 end

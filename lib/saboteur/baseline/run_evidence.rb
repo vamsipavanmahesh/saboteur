@@ -43,6 +43,7 @@ module Saboteur
         errors = generation_issues(generation, results) + context_issues(observed) + discovery_issues(discovery)
         suppressions = suppression_scope(inline_suppressions)
         errors += suppression_issues(suppressions)
+        @uncovered = uncovered_ids(results)
         completeness = assess(observed, stable_suite, skipped_subjects, omissions, errors)
         document = { "compatibility" => compatibility, "snapshot" => @snapshot.to_h, "subjects" => @subjects,
                      "candidates" => observed, "planned" => @planned,
@@ -83,13 +84,21 @@ module Saboteur
         end
       end
 
+      # Mutants skipped only because no test runs their line.
+      def uncovered_ids(results)
+        uncovered = results.select { |result| result.reason&.start_with?("no coverage") }
+        uncovered.map do |result|
+          Identity.new(subject: result.subject, mutation: result.mutation, root: @root).entry.fetch("id")
+        end
+      end
+
       def assess(observed, stable_suite, skipped_subjects, omissions, errors)
         skipped = skipped_subjects.map { |subject, reason| "#{subject.id}:#{reason}" }
         Completeness.new(planned: @planned.map { |entry| entry.fetch("id") }, results: observed,
                          subjects: @subjects, stable_suite: stable_suite,
                          stable_inputs: @fingerprint.verify(@snapshot).unchanged, skipped_subjects: skipped,
                          omitted: omissions.map { |entry| "#{entry.subject}:#{entry.count}" },
-                         generation_issues: errors)
+                         generation_issues: errors, uncovered: @uncovered)
       end
 
       def compatibility

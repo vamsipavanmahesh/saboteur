@@ -292,7 +292,10 @@ skip today's survivors silently. Ratchet in stages:
    give every survivor a review reason, run `baseline accept`, and commit the
    baseline. A scheduled Action run can then use `baseline` and
    `baseline-epsilon`. The check runs the whole project, so keep the cheaper
-   diff run on PRs.
+   diff run on PRs. A mutant on a line no test runs, inside a tested
+   subject, does not block the proposal: it is listed as a gap
+   (`no_coverage:`), and `baseline check` reports it neither as an error nor
+   as drift. Mutants that errored still block it.
 7. **Ratchet the score.** After the scheduled score is stable, add a
    `--threshold` a little under it and raise it as the number rises. Never
    lower it without saying why in the change. The Action accepts extra flags

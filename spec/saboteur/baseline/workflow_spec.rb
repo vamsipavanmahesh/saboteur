@@ -262,9 +262,13 @@ RSpec.describe Saboteur::Baseline::Workflow do
     flow = described_class.new(config: config, err: err)
     expect { flow.propose(proposal: File.join(@root, "p.json"), destination: File.join(@root, "b.json")) }
       .to raise_error(Saboteur::Error, /needs a proposable run/)
-    expect(err.string).to include("unexecuted:#{id}:skipped (#{subject.id} #{mutation.operator} - no coverage)")
+    digest = result.digest
+    expect(digest.size).to eq(16)
+    expect(err.string).to include("unexecuted:#{digest}:skipped (#{subject.id} #{mutation.operator} - no coverage)")
+    expect(err.string).not_to include(id)
     expect(err.string).to include("saboteur: baseline proposal blocker: inputs_unverified\n")
-    expect(err.string).to include("cover the skipped code with specs or narrow include, then propose again")
+    expect(err.string).to include("saboteur: cover the skipped code with specs, then propose again\n")
+    expect(err.string).not_to include("narrow include")
   end
 
   it "leaves lookalike blockers and reasonless skips undecorated" do
@@ -286,9 +290,65 @@ RSpec.describe Saboteur::Baseline::Workflow do
     expect(err.string.lines.grep(/blocker:/).map { |l| l.split("blocker: ", 2).last }).to eq(
       ["x-unexecuted:#{id}:skipped\n", "unexecuted:#{id}:skipped!\n",
        "unexecuted:#{id}:\n",
-       "unexecuted:#{id}:skipped (#{subject.id} #{mutation.operator})\n"]
+       "unexecuted:#{result.digest}:skipped (#{subject.id} #{mutation.operator})\n"]
     )
     expect(err.string).to include("cover the skipped code with specs or narrow include, then propose again")
+  end
+
+  describe "advice for unexecuted blockers" do
+    def refuse(reasons)
+      file = File.join(@root, "probe.rb")
+      File.write(file, "class Probe; def value; 1; end; end")
+      subject = Saboteur::SubjectFinder.new.call(file).subjects.first
+      mutations = Saboteur::MutationSource::Builtin.new.mutations_for(subject).first(reasons.size)
+      results = mutations.zip(reasons).map do |mutation, reason|
+        Saboteur::MutantResult.new(subject: subject, mutation: mutation, status: :skipped, mutated_source: "1",
+                                   reason: reason)
+      end
+      ids = mutations.map { |m| Saboteur::Baseline::Identity.new(subject: subject, mutation: m, root: @root).entry.fetch("id") }
+      yield ids, results
+    end
+
+    def advice_for(blockers, results)
+      evidence = document.merge("proposable" => false, "blockers" => blockers)
+      report = instance_double(Saboteur::Report, run_evidence: evidence, results: results)
+      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, call: report))
+      err = StringIO.new
+      flow = described_class.new(config: config, err: err)
+      expect { flow.propose(proposal: File.join(@root, "p.json"), destination: File.join(@root, "b.json")) }
+        .to raise_error(Saboteur::Error)
+      err.string
+    end
+
+    it "mixes in narrow include when one blocker has a cause include can fix" do
+      refuse(["no coverage", "refinements"]) do |ids, results|
+        text = advice_for(ids.map { |id| "unexecuted:#{id}:skipped" }, results)
+        expect(text).to include("saboteur: cover the skipped code with specs or narrow include, then propose again\n")
+      end
+    end
+
+    it "keeps narrow include for a blocker no result explains" do
+      refuse(["no coverage"]) do |_ids, results|
+        text = advice_for(["unexecuted:#{'a' * 64}:skipped"], results)
+        expect(text).to include("specs or narrow include")
+      end
+    end
+
+    it "does not match a lookalike blocker to its result" do
+      refuse(["no coverage"]) do |(id), results|
+        ["unexecuted:#{id}:", "unexecuted:#{id}:skipped!"].each do |lookalike|
+          expect(advice_for([lookalike], results)).to include("specs or narrow include")
+        end
+        expect(advice_for(["x-unexecuted:#{id}:skipped"], results)).not_to include("cover the skipped code")
+      end
+    end
+
+    it "gives no unexecuted advice for other blockers alone" do
+      refuse(["no coverage"]) do |_ids, results|
+        text = advice_for(["inputs_unverified"], results)
+        expect(text).not_to include("cover the skipped code")
+      end
+    end
   end
 
   it "refuses a missing or changed previous destination before running the engine" do
