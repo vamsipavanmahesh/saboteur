@@ -1,0 +1,9 @@
+lib/money/money/allocation.rb is vendored byte-identical from the money gem:
+  https://github.com/RubyMoney/money/blob/v6.19.0/lib/money/money/allocation.rb
+Copyright (c) 2005 Tobias Lutke (RubyMoney/money, MIT)
+Upstream license: MIT (RubyMoney/money). SHA-256 of the file:
+  eba0d629515300e12216024ebb08dd119b37ca56eba8e6f9694b0d4d98b80a72
+It is the standing survivor-ranking regression fixture for #1160 (external
+review #3, C2): the remainder statement at line 46 must rank in the top 2 of
+the 12-survivor distribution; line 36 carries the 21-covering-tests mutant.
+The pin lives in spec/saboteur/reporter/survivor_ranking_spec.rb.
