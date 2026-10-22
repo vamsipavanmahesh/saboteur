@@ -617,6 +617,33 @@ RSpec.describe Saboteur::Reporter::Html do
     expect(page.index("@other")).to be < page.index("19</pre>")
   end
 
+  # A killed mutant at an earlier line still sorts after the survivors,
+  # timeouts and errors: triage reads the table top down (#1233). The
+  # mutants sit at positions anti-correlated with their group and each
+  # group is passed in reverse, so any within-group or cross-group sort
+  # failure is visible.
+  it "lists survivors, timeouts and errors before the killed rows, in source order within each group" do
+    source = person_subject.file_source
+    at = ->(text) { source.index(text) }
+    make = lambda do |text, replacement, status|
+      edit = Saboteur::MutationSource::Edit.new(file: person_subject.file, start_byte: at.call(text),
+                                                end_byte: at.call(text) + text.size, replacement:)
+      mutation = Saboteur::MutationSource::Mutation.new(subject_id: person_subject.id, operator: "x", edits: [edit])
+      Saboteur::MutantResult.new(subject: person_subject, mutation:, status:,
+                                 mutated_source: person_subject.apply(mutation.edits))
+    end
+    page = visible_html(described_class.build(report_of(make.call("18", "rsurv", :survived),
+                                                        make.call(">=", "rkillb", :killed),
+                                                        make.call("@age", "rtimeout", :timeout),
+                                                        make.call("adult?", "rkilla", :killed))))
+    # Attention group first, in source order (timeout at "@age" before the
+    # survivor at "18"); then the killed rows in source order ("adult?"
+    # before ">="), not their input order.
+    expect(page.index("rtimeout")).to be < page.index("rsurv")
+    expect(page.index("rsurv")).to be < page.index("rkilla")
+    expect(page.index("rkilla")).to be < page.index("rkillb")
+  end
+
   it "writes the page to the given path, creating folders" do
     Dir.mktmpdir do |dir|
       path = File.join(dir, "nested", "report.html")

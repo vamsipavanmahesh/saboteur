@@ -318,7 +318,10 @@ module Saboteur
 
       def file_section(file, entry, names, results, report, survivor_count:, open_file:)
         open = open_file ? " open" : ""
-        ordered = entry[:mutants].sort_by { |mutant| position_key(mutant) }
+        # Attention rows (survivors, timeouts, errors) come first, so a big
+        # file's survivors are not buried between killed rows; position
+        # order holds within each group (#1233).
+        ordered = entry[:mutants].sort_by { |mutant| [attention_rank(mutant), *position_key(mutant)] }
         rows = ordered.map { |mutant| mutant_row(mutant, names, results[[file, mutant[:id]]], report) }
         "<details class=\"file\"#{open}><summary>#{escape(file)} " \
           "(#{entry[:mutants].size} mutants#{survivors_note(survivor_count, open_file)})</summary>\n" \
@@ -336,6 +339,10 @@ module Saboteur
 
       def survivors_note(survivor_count, open_file)
         open_file || survivor_count.zero? ? "" : ", #{survivor_count} survivor#{'s' unless survivor_count == 1}"
+      end
+
+      def attention_rank(mutant)
+        ATTENTION_STATUSES.include?(mutant[:status]) ? 0 : 1
       end
 
       def position_key(mutant)
