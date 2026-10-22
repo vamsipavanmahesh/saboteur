@@ -430,10 +430,6 @@ Saboteur.ignore do |i|
              subject: "Saboteur::Engine::Scheduler#reuse",
              reason: "equivalent: no covering tests means no stored cache verdict; execute then returns the same uncoverable result"
 
-  i.mutation "2775afca28a11bfe",
-             subject: "Saboteur::Selection::CoverageMap#sort_test_ids",
-             reason: "equivalent: ids come from by_method/by_line values, which store indices into tests, so order.fetch always hits and the default is unreachable"
-
   i.mutation "58015bc90175b563",
              subject: "Saboteur::Subject#pattern_coverage_lines",
              reason: "equivalent: walking unrelated AST children still returns nil; the InNode pattern containment check prevents them from supplying lines for this edit"
