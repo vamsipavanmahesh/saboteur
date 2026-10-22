@@ -29,10 +29,11 @@ Metrics/AbcSize:
   Max: 30
 Metrics/MethodLength:
   Max: 25
-# text_run's whole-suite covering-map plumbing and its cache-off gate (review C1)
-# take RunReporting to 106.
 Metrics/ModuleLength:
-  Max: 106
+  # RunReporting's replay command narrows to the mutant's covering specs
+  # (#1148), one line over the default; text_run's whole-suite covering-map
+  # plumbing and its cache-off gate (review C1) take it to 107.
+  Max: 107
 Metrics/CyclomaticComplexity:
   Max: 12
 Metrics/PerceivedComplexity:
@@ -51,11 +52,6 @@ Metrics/ClassLength:
   # clean screen's phase lines (baseline, coverage, dots) take it to 442;
   # the C1 whole-suite covering-map plumbing takes it to 447.
   Max: 447
-Metrics/ModuleLength:
-  # RunReporting's replay command narrows to the mutant's covering specs
-  # (#1148), one line over the default.
-  Max: 101
-
 Metrics/ParameterLists:
   CountKeywordArgs: false
 
