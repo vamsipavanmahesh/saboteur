@@ -908,9 +908,23 @@ RSpec.describe Saboteur::CLI do
                  "--json", File.join(Dir.mktmpdir, "r.json")).call).to eq(1)
     end
 
-    it "refuses --ignore-empty without --since" do
-      expect(cli("run", "--ignore-empty").call).to eq(2)
-      expect(err.string).to include("--ignore-empty applies to --since runs")
+    # #1266: the flag is documented as a no-op, so it must not fail a run.
+    it "accepts --ignore-empty without --since and ignores it" do
+      engine = engine_double(guessed_tests: nil, call: report_of(result_for(:killed)))
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      expect(cli("run", "--ignore-empty", "--json", File.join(Dir.mktmpdir, "r.json")).call).to eq(0)
+      expect(err.string).not_to include("applies to --since runs")
+    end
+
+    # #1265: a --since diff whose mutants all failed generation selected
+    # mutants and scored none, so it must not pass as an empty diff.
+    it "does not pass a --since diff whose every mutant failed generation, even under --threshold" do
+      engine = engine_double(guessed_tests: nil, call: report_of(invalid_mutations: 3))
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      allow(Saboteur::Selection::GitDiff).to receive(:verify_ref!)
+      expect(cli("run", "--since", "HEAD~1", "--threshold", "90",
+                 "--json", File.join(Dir.mktmpdir, "r.json")).call).not_to eq(0)
+      expect(err.string).not_to include("no mutants in the diff")
     end
 
     describe "--baseline run gate" do

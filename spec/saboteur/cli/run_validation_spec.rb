@@ -190,11 +190,10 @@ RSpec.describe Saboteur::CLI::RunValidation do
         expect(Saboteur::Selection::GitDiff).to have_received(:verify_ref!).with("main", root: "/proj")
       end
 
-      it "refuses --ignore-empty without --since" do
+      it "accepts --ignore-empty without --since: the flag is a no-op (#1266)" do
         allow(cli).to receive(:config).and_return({ "since" => nil, "ignore_empty" => true })
 
-        expect { cli.send(:validate_run_options) }.to raise_error(Saboteur::CLI::UsageError,
-                                                                  /--ignore-empty applies to --since runs/)
+        expect { cli.send(:validate_run_options) }.not_to raise_error
       end
     end
   end
