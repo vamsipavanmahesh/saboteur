@@ -36,6 +36,13 @@ Not at the same time. saboteur needs Ruby's `Coverage` library for itself, so
 SimpleCov must be off for the run. Most projects already guard SimpleCov with
 an environment variable; key it so saboteur runs skip it.
 
+## How do I turn colour on or off?
+
+Every command that prints text takes `--color=always`, `--color=never` or
+`--color=auto` (the default; `NO_COLOR` and a non-terminal output also turn
+it off). `--no-color` is a deprecated alias for `--color=never`. A command
+with nothing to colour accepts the flag and ignores it.
+
 ## What do the exit codes mean?
 
 | Exit | Meaning |

@@ -20,6 +20,7 @@ module Saboteur
           opts.on("--mark-partial", "Badge an incomplete run, labeled as partial") { @mark_partial = true }
           opts.on("--high PERCENT", Float, "brightgreen at or above (default #{DEFAULT_HIGH.to_i})") { |v| @high = v }
           opts.on("--low PERCENT", Float, "yellow at or above (default #{DEFAULT_LOW.to_i})") { |v| @low = v }
+          define_color_options(opts)
         end
       end
 
@@ -27,6 +28,7 @@ module Saboteur
         OptionParser.new do |opts|
           opts.banner = "Usage: saboteur trend [--history PATH]"
           opts.on("--history PATH", "Score history JSONL (default: c.score_history)") { |v| @history_path = v }
+          define_color_options(opts)
         end
       end
 

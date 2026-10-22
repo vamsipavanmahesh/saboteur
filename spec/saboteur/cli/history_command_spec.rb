@@ -77,13 +77,17 @@ RSpec.describe "saboteur badge and saboteur trend (#474)" do
                "--output PATH                Badge JSON destination (default: stdout)\n        " \
                "--mark-partial               Badge an incomplete run, labeled as partial\n        " \
                "--high PERCENT               brightgreen at or above (default 80)\n        " \
-               "--low PERCENT                yellow at or above (default 60)\n"
+               "--low PERCENT                yellow at or above (default 60)\n        " \
+               "--color [MODE]               Colour the text report: always, never or auto (default: auto)\n        " \
+               "--no-color                   Deprecated alias for --color=never\n"
     expect(cli_instance("badge").badge_parser.help).to eq(expected)
   end
 
   it "trend --help golden: banner and the history option" do
     expected = "Usage: saboteur trend [--history PATH]\n        " \
-               "--history PATH               Score history JSONL (default: c.score_history)\n"
+               "--history PATH               Score history JSONL (default: c.score_history)\n        " \
+               "--color [MODE]               Colour the text report: always, never or auto (default: auto)\n        " \
+               "--no-color                   Deprecated alias for --color=never\n"
     expect(cli_instance("trend").trend_parser.help).to eq(expected)
   end
 

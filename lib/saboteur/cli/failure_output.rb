@@ -26,8 +26,19 @@ module Saboteur
 
       def usage_error(message = nil)
         @err.puts(Reporter::Palette.for(@err, mode: @color || :auto).paint(:fail, message)) if message
-        @err.puts(USAGE)
-        agent_failure(message || USAGE, EXIT_USAGE)
+        usage = command_usage
+        @err.puts(usage)
+        agent_failure(message || usage, EXIT_USAGE)
+      end
+
+      # The usage line of the command that failed, never run's for another
+      # command (#1288).
+      def command_usage
+        banner = { "doctor" => :doctor_parser, "baseline" => :baseline_parser, "badge" => :badge_parser,
+                   "trend" => :trend_parser }[@command]
+        return USAGE unless banner
+
+        "#{send(banner).banner}\nRun 'saboteur help #{@command}' for every option."
       end
 
       def agent? = @format == "agent"

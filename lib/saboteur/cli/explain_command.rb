@@ -15,6 +15,7 @@ module Saboteur
       private
 
       def explain_command
+        consume_color_options
         name = @argv.shift
         raise UsageError, "usage: saboteur explain <operator>" if name.nil?
 
@@ -27,7 +28,7 @@ module Saboteur
           return EXIT_USAGE
         end
 
-        @out.puts(render_explain(entry, palette: Reporter::Palette.for(@out, mode: :auto)))
+        @out.puts(render_explain(entry, palette: Reporter::Palette.for(@out, mode: @color || :auto)))
         EXIT_OK
       rescue UsageError => e
         @err.puts("saboteur: #{e.message}")

@@ -13,6 +13,7 @@ require_relative "cli/error_cause"
 require_relative "cli/exit_status"
 require_relative "cli/baseline_gate"
 require_relative "preview"
+require_relative "cli/color_option"
 require_relative "cli/run_reporting"
 require_relative "cli/whole_suite_map_lookup"
 require_relative "cli/survivors_command"
@@ -44,6 +45,7 @@ module Saboteur
     include Baseline::Command
     include ExitStatus
     include BaselineGate
+    include ColorOption
     include RunReporting
     include WholeSuiteMapLookup
     include SurvivorsCommand
@@ -102,7 +104,7 @@ module Saboteur
     end
 
     def call
-      command = @argv.shift
+      command = @command = @argv.shift
       case command
       when "run" then run_command
       when "baseline" then baseline
@@ -111,7 +113,7 @@ module Saboteur
       when "doctor" then doctor_command
       when "badge", "trend" then history_entry(command)
       when "version", "--version" then @out.puts(VERSION) || EXIT_OK
-      when "help", "--help", "-h" then show_help(@argv.shift)
+      when "help", "--help", "-h" then help_command
       when "agent-skill" then @out.print(AgentSkill::TEXT) || EXIT_OK
       else preset_or_usage_error(command)
       end
