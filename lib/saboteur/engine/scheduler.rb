@@ -235,7 +235,8 @@ module Saboteur
 
         MutantResult.new(subject: plan.subject, mutation: mutation, status: hit[:status], mutated_source: text,
                          reason: hit[:reason], runtime: hit[:runtime], killed_by: hit[:killed_by],
-                         covered_by: tests, kill_cause: hit[:kill_cause], reused: true)
+                         covered_by: tests, kill_cause: hit[:kill_cause], reused: true,
+                         value_differed: hit[:value_differed])
       end
 
       def execute(plan, mutation, text)

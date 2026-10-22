@@ -433,6 +433,22 @@ RSpec.describe Saboteur::Engine::Scheduler, "verifying kills and timeouts" do
     expect(store).not_to have_received(:record)
   end
 
+  it "replays the cached value_differed on a reused survivor (#1290)" do
+    store = instance_double(Saboteur::Engine::ResultCache, record: nil)
+    allow(store).to receive(:lookup).and_return({ status: :survived, reason: nil, runtime: 0.2, killed_by: [],
+                                                  kill_cause: "cached cause", value_differed: false })
+    sched = described_class.new(config: Saboteur::Config.new({}), runner: runner, map: map,
+                                reevaluator: Saboteur::Execution::Reevaluator.new, diagnostics: diagnostics,
+                                cache: store)
+    allow(sched).to receive(:load_problem).and_return(nil)
+    results = sched.call(subject_under_test, candidates.for(subject_under_test))
+
+    expect(results.map(&:reused?).uniq).to eq([true])
+    expect(results.map(&:covered_by).uniq).to eq([%w[t1 t2]])
+    expect(results.map(&:kill_cause).uniq).to eq(["cached cause"])
+    expect(results.map(&:value_differed).uniq).to eq([false])
+  end
+
   it "does not count a pre-existing error as an overturned verdict (#296)" do
     allow(runner).to receive(:run) { |**| outcome(:error, message: "child crashed") }
     results = schedule(mutant: ->(_) { outcome(:error, message: "child crashed") })
