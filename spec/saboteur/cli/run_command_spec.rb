@@ -62,6 +62,39 @@ RSpec.describe Saboteur::CLI::RunCommand do
     end
   end
 
+  it "announces the Rails app/** default when no config file exists on a Rails app (#1171)" do
+    Dir.mktmpdir do |dir|
+      FileUtils.mkdir_p(File.join(dir, "config"))
+      File.write(File.join(dir, "config", "application.rb"), "module Demo; end\n")
+      FileUtils.mkdir_p(File.join(dir, "app", "models"))
+      File.write(File.join(dir, "app", "models", "user.rb"), "class User; end\n")
+      Dir.chdir(dir) do
+        run = cli("--all")
+        allow(run).to receive(:execute_run).and_raise(Saboteur::Error, "stop")
+        run.call
+        expect(err.string).to include("saboteur: no config/saboteur.rb - Rails app detected, " \
+                                      "mutating app/**/*.rb " \
+                                      "(bundle exec rails generate saboteur:install writes a config)")
+      end
+    end
+  end
+
+  it "keeps the plain notice when app/** was named explicitly, not detected (#1171)" do
+    Dir.mktmpdir do |dir|
+      FileUtils.mkdir_p(File.join(dir, "config"))
+      File.write(File.join(dir, "config", "application.rb"), "module Demo; end\n")
+      FileUtils.mkdir_p(File.join(dir, "app", "models"))
+      File.write(File.join(dir, "app", "models", "user.rb"), "class User; end\n")
+      Dir.chdir(dir) do
+        run = cli("--all", "app")
+        allow(run).to receive(:execute_run).and_raise(Saboteur::Error, "stop")
+        run.call
+        expect(err.string).to include("using defaults")
+        expect(err.string).not_to include("Rails app detected")
+      end
+    end
+  end
+
   it "names a custom --config path in the missing-config notice (#1172)" do
     Dir.mktmpdir do |dir|
       Dir.chdir(dir) do
