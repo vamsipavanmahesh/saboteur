@@ -2743,4 +2743,16 @@ i.mutation "fdc4600f4e8e8625",
              reason: "equivalent: mode: :auto is Palette.for's declared keyword default " \
                      "(palette.rb:22) - hand-applied removal leaves tty and pipe renders " \
                      "byte-identical and the cli + explain_command specs green"
+
+  # survivor_list.rb:206/:212 group.first.subject -> group.last.subject - equivalent:
+  # survivor groups are keyed by [subject.id, MutationText.line] (SurvivorList#groups),
+  # so every member of a group shares the subject and first/last agree.
+  i.mutation "d88447e3260c15f7",
+             subject: "Saboteur::Reporter::SurvivorList#covered",
+             reason: "equivalent: survivor groups are keyed by subject.id, so " \
+                     "group.first.subject and group.last.subject are always the same subject"
+  i.mutation "5b108859385f0247",
+             subject: "Saboteur::Reporter::SurvivorList#covered",
+             reason: "equivalent: same grouping key - group.first.subject == group.last.subject " \
+                     "because SurvivorList#groups keys on [subject.id, line]"
 end

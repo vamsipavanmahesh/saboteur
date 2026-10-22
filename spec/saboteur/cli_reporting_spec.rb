@@ -61,6 +61,28 @@ RSpec.describe "finished run reporting" do
     expect(cli.send(:text_run, report, engine)).to eq(0)
   end
 
+  it "passes the engine's cached whole-suite map through to the terminal (review C1)" do
+    report = report_of(result_for(:killed))
+    out = StringIO.new
+    cli = Saboteur::CLI.new([], out: out, err: StringIO.new)
+    terminal = instance_double(Saboteur::Reporter::Terminal)
+    map = instance_double(Saboteur::Selection::CoverageMap)
+    allow(cli).to receive(:survivor_replay_command).and_return(->(digest) { "replay #{digest}" })
+    expect(Saboteur::Reporter::Terminal).to receive(:new)
+      .with(out, verbose: false, quiet: false, color: :auto, overrides: {},
+                 replay_command: kind_of(Proc),
+                 all_mutants: false, exit_code: 0, threshold: nil, previous_score: nil, baseline_gate: nil,
+                 scope: "whole project", whole_suite_map: map, run_map: nil)
+      .and_return(terminal)
+    expect(terminal).to receive(:call).with(report)
+    allow(cli).to receive(:validate_history)
+    allow(cli).to receive(:write_html)
+    allow(cli).to receive(:record_history)
+    allow(cli).to receive(:write_json)
+    engine = engine_double(whole_suite_map_lookup?: true, whole_suite_coverage_map: map)
+    expect(cli.send(:text_run, report, engine)).to eq(0)
+  end
+
   it "forwards the agent engine config and err stream, preserving provenance output exclusions" do
     cli = Saboteur::CLI.new([], out: StringIO.new, err: StringIO.new)
     config = cli.config

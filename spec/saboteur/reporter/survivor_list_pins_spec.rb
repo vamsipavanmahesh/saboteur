@@ -48,7 +48,7 @@ RSpec.describe Saboteur::Reporter::SurvivorList, "survivor blocks" do
     report = Saboteur::Report.new(results:, subjects: results.map(&:subject).uniq, wall_time: 1.0, root:,
                                   warnings: [], seed: 1)
     described_class.new(out, palette).call(report, results)
-    out.string
+    out.string.dup
   end
 
   # The whole-suite lookup Terminal wires in production (review C1): real
@@ -61,7 +61,7 @@ RSpec.describe Saboteur::Reporter::SurvivorList, "survivor blocks" do
     report = Saboteur::Report.new(results:, subjects: results.map(&:subject).uniq, wall_time: 1.0, root:,
                                   warnings: [], seed: 1)
     described_class.new(out, palette, whole_suite_map: whole, run_map: run).call(report, results)
-    out.string
+    out.string.dup
   end
 
   # A real map where every coverage line of the subject is recorded as hit
@@ -447,6 +447,70 @@ RSpec.describe Saboteur::Reporter::SurvivorList, "survivor blocks" do
       text = render_with_maps([survivor], whole:, run:)
 
       expect(text).to include("covered by 2 specs, incl. ./spec/flow_spec.rb[1:1] (not run here)")
+      expect(text).to include("likely covered elsewhere: ./spec/flow_spec.rb[1:1] pins this line (not run here)")
+    end
+
+    it "counts only the run map's tests as run, not the covered-by union" do
+      outside = edited(PINS_CALCULATOR, "1 + rate", "1 - rate", operator: "comparison", dir:,
+                                                                covered_by: ["./spec/outside_spec.rb[1:1]"])
+      whole = map_for(outside.subject, [calculator_id, flow_id])
+      run = map_for(outside.subject, [calculator_id])
+      text = render_with_maps([outside], whole:, run:)
+
+      expect(text).to include("covered by 2 specs, incl. ./spec/flow_spec.rb[1:1] (not run here)")
+    end
+
+    it "falls back to the covered-by union when the run kept no map" do
+      whole = map_for(survivor.subject, [calculator_id, flow_id])
+      text = render_with_maps([survivor], whole:, run: nil)
+
+      expect(text).to include("covered by 2 specs, incl. ./spec/flow_spec.rb[1:1] (not run here)")
+    end
+
+    it "names the first of several covering specs the run never loaded" do
+      extra_id = "./spec/extra_spec.rb[1:1]"
+      whole = map_for(survivor.subject, [calculator_id, flow_id, extra_id])
+      run = map_for(survivor.subject, [calculator_id])
+      text = render_with_maps([survivor], whole:, run:)
+
+      expect(text).to include("covered by 3 specs, incl. ./spec/flow_spec.rb[1:1] (not run here)")
+      expect(text).to include("likely covered elsewhere: ./spec/flow_spec.rb[1:1] pins this line (not run here)")
+    end
+
+    it "skips the exact-line pin when no whole-suite spec pins the mutant's line" do
+      subject = survivor.subject
+      edit_lines = survivor.mutation.edits.flat_map { |edit| subject.coverage_lines_for(edit) }
+      other_lines = subject.coverage_lines - edit_lines
+      file = Saboteur::Selection::CoverageMap.canonical(subject.file)
+      whole = Saboteur::Selection::CoverageMap.new(
+        lines: { file => other_lines.to_h { |line| [line, [flow_id]] } }, tests: [flow_id]
+      )
+      run = map_for(subject, [calculator_id])
+      text = render_with_maps([survivor], whole:, run:)
+
+      expect(text).to include("covered by 1 spec, incl. ./spec/flow_spec.rb[1:1] (not run here)")
+      expect(text).not_to include("likely covered elsewhere")
+    end
+
+    it "takes the exact-line pin from the block's first mutant, not a multiline sibling" do
+      alpha_id = "./spec/alpha_spec.rb[1:1]"
+      source = "class Calculator\n  def compound(amount, rate, years)\n    amount *\n      " \
+               "(1 + rate)**years\n  end\nend\n"
+      narrow = edited(source, "amount *", "amount /", operator: "arithmetic", dir:,
+                                                      covered_by: [calculator_id])
+      wide = edited(source, "amount *\n      (1 + rate)**years", "nil", operator: "statement_removal", dir:,
+                                                                        covered_by: [calculator_id])
+      subject = narrow.subject
+      file = Saboteur::Selection::CoverageMap.canonical(subject.file)
+      whole = Saboteur::Selection::CoverageMap.new(
+        lines: { file => { 3 => [calculator_id, flow_id], 4 => [calculator_id, alpha_id] } },
+        tests: [calculator_id, alpha_id, flow_id]
+      )
+      run = Saboteur::Selection::CoverageMap.new(lines: { file => { 3 => [calculator_id], 4 => [calculator_id] } },
+                                                 tests: [calculator_id])
+      text = render_with_maps([narrow, wide], whole:, run:)
+
+      expect(text).to include("covered by 3 specs, incl. ./spec/alpha_spec.rb[1:1] (not run here)")
       expect(text).to include("likely covered elsewhere: ./spec/flow_spec.rb[1:1] pins this line (not run here)")
     end
 
