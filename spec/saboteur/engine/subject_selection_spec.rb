@@ -938,7 +938,7 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
       commit_all
       File.write(file, source.sub("def total = 1", "def total = 2"))
 
-      expect { select([file], since: "HEAD", subjects: ["Other", "Nope"]) }
+      expect { select([file], since: "HEAD", subjects: %w[Other Nope]) }
         .to raise_error(Saboteur::ConfigError,
                         "--subject Other, Nope matches no subject in the --since HEAD diff scope " \
                         "(the scope limits the search to changed files; drop --since or pass --all)")
