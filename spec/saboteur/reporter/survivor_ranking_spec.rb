@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require "digest"
 require "stringio"
 require "timeout"
 
@@ -161,15 +162,25 @@ RSpec.describe Saboteur::Reporter::SurvivorRanking do
     expect(ordered.index(thin)).to be < ordered.index(thick)
   end
 
-  # Synthetic 12-survivor fixture mirroring the reviewer P3 money-gem distribution (recorded
-  # fixture did not fit the cap): remainder statement with 4 mutants and thin coverage,
-  # allocation-style mutant with 21 covering tests, seven single-mutant statements.
-  it "ranks the money-gem remainder case in the top 2 of 12 survivors" do
-    subjects = subjects_in("class Money\n#{(1..9).map { |i| "  def s#{i}\n    v#{i}\n  end\n" }.join}end\n")
-    remainder = Array.new(4) { |i| ranked_result(subjects[0], first: 3, tests: %w[a b], replacement: "rem#{i}") }
-    allocation = ranked_result(subjects[1], first: 6, tests: (1..21).map(&:to_s), replacement: "alloc")
-    singles = subjects[2..8].each_with_index.map do |sub, i|
-      ranked_result(sub, first: 9 + (i * 3), tests: (1..(3 + i)).map(&:to_s), replacement: "x#{i}")
+  # P3 (#1160): the standing ranking regression fixture is the money gem
+  # itself - lib/money/money/allocation.rb from RubyMoney/money v6.19.0 (MIT),
+  # vendored byte-identical under spec/fixtures/projects/money_ranking (see
+  # UPSTREAM.txt there) so the reviewer's line numbers stay real. The
+  # reviewer run (external review #3, C2) saw 12 survivors: 4 mutants on the
+  # remainder statement (allocation.rb:46, thin coverage) sat at #10 of 12
+  # while allocation.rb:36 with 21 covering tests ranked #1. The remainder
+  # statement must now rank in the top 2.
+  it "ranks the money-gem remainder statement (allocation.rb:46) in the top 2 of 12 survivors" do
+    fixture = File.expand_path("../../fixtures/projects/money_ranking/lib/money/money/allocation.rb", __dir__)
+    source = File.read(fixture)
+    expect(Digest::SHA256.hexdigest(source))
+      .to eq("eba0d629515300e12216024ebb08dd119b37ca56eba8e6f9694b0d4d98b80a72")
+    generate = subjects_in(source, name: "allocation.rb").find { |item| item.id == "Money::Allocation.generate" }
+    expect(generate).not_to be_nil
+    remainder = Array.new(4) { |i| ranked_result(generate, first: 46, tests: %w[a b], replacement: "rem#{i}") }
+    allocation = ranked_result(generate, first: 36, tests: (1..21).map(&:to_s), replacement: "alloc")
+    singles = [17, 25, 29, 32, 37, 41, 45].each_with_index.map do |line, i|
+      ranked_result(generate, first: line, tests: (1..(3 + i)).map(&:to_s), replacement: "x#{i}")
     end
     all = [allocation, *singles, *remainder].shuffle(random: Random.new(7))
     expect(all.size).to eq(12)
