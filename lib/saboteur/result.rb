@@ -35,9 +35,13 @@ module Saboteur
     # status keeps its meaning either way.
     attr_reader :confirmation
 
+    # Whether the mutated expression ever produced a value different from the
+    # original one while the covering tests ran; nil when not probed (#1290).
+    attr_reader :value_differed
+
     def initialize(subject:, mutation:, status:, mutated_source:, reason: nil, runtime: nil, killed_by: [],
                    covered_by: [], kill_cause: nil, reused: false, rejected_kill: false, executed: nil,
-                   confirmation: nil)
+                   confirmation: nil, value_differed: nil)
       raise ArgumentError, "unknown status #{status.inspect}" unless STATUSES.include?(status)
 
       @subject = subject
@@ -53,6 +57,7 @@ module Saboteur
       @rejected_kill = rejected_kill
       @reused = reused
       @confirmation = confirmation
+      @value_differed = value_differed
       @ignored = nil
       # triage_state/triage_reason stay unset until the ignore list writes
       # them: the accessors read as nil before that, and there is no
@@ -69,7 +74,7 @@ module Saboteur
       MutantResult.new(subject: subject, mutation: mutation, status: status, mutated_source: mutated_source,
                        reason: reason, runtime: runtime, killed_by: killed_by, covered_by: covered_by,
                        kill_cause: kill_cause, reused: reused?, rejected_kill: rejected_kill?,
-                       executed: executed, confirmation: confirmation)
+                       executed: executed, confirmation: confirmation, value_differed: value_differed)
     end
 
     # The reason a --flaky-check disagreement starts with: unverified, but

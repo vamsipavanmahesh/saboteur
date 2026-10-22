@@ -1404,7 +1404,7 @@ i.mutation "fdc4600f4e8e8625",
                      "already killed first and reaped either way - hand-applied " \
                      "mutant leaves all 14 run_many examples green"
 
-  i.mutation "0b52736c7cda4d11",
+  i.mutation "cb9be2e979cdeb53",
              subject: "Saboteur::Engine::Scheduler#execute",
              reason: "equivalent: plan.killers only orders tests by kill count in Scheduler.prioritize, " \
                      "and counting each kill as 2 keeps every comparison the same"
@@ -2408,7 +2408,7 @@ i.mutation "fdc4600f4e8e8625",
       reason: "Returning nil instead of false when the file has no load-time lines changes nothing: " \
               "every caller only tests the result for truthiness."
 
-  i.mutation "6c3afec3a0cc2e9f",
+  i.mutation "74a57e157d328325",
       subject: "Saboteur::MutantResult#initialize",
       reason: "equivalent: dropping the nil assignment leaves @ignored unset, and " \
               "its attr_accessor reads nil either way"

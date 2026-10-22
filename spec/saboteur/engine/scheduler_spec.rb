@@ -91,8 +91,10 @@ RSpec.describe Saboteur::Engine::Scheduler, "verifying kills and timeouts" do
     end
   end
 
-  def outcome(status, failed_ids: [], runtime: 1.0, message: nil)
-    Saboteur::Execution::Runner::Outcome.new(status: status, runtime: runtime, failed_ids: failed_ids, message: message)
+  def outcome(status, failed_ids: [], runtime: 1.0, message: nil, executed_ids: [], value_differed: nil)
+    Saboteur::Execution::Runner::Outcome.new(status: status, runtime: runtime, failed_ids: failed_ids,
+                                             message: message, executed_ids: executed_ids,
+                                             value_differed: value_differed)
   end
 
   def unchanged_runs
@@ -396,6 +398,13 @@ RSpec.describe Saboteur::Engine::Scheduler, "verifying kills and timeouts" do
     overturned = results.size
     expect(diagnostics.warnings)
       .to include("#{subject_under_test.id}: #{overturned} verdict(s) failed with the method unchanged")
+  end
+
+  it "carries the executed ids and the value_differed observation onto the result (#1290)" do
+    results = schedule(mutant: ->(_) { outcome(:survived, executed_ids: ["t1"], value_differed: false) })
+
+    expect(results.map(&:executed).uniq).to eq([["t1"]])
+    expect(results.map(&:value_differed).uniq).to eq([false])
   end
 
   it "does not warn when no verdict was overturned (#296)" do
