@@ -32,13 +32,14 @@ module Saboteur
       # A --since diff that selected no mutants exits 0 with a plain note,
       # with or without --ignore-empty: a docs-only change has no score, so a
       # threshold must not fail it (#1142). Suppressed, omitted or
-      # undiscovered mutants still gate - the selection must be honestly
-      # empty, not just empty-handed.
+      # undiscovered mutants still gate, and so do mutants dropped because they
+      # did not parse (#1265) - the selection must be honestly empty, not just
+      # empty-handed.
       def empty_clean_diff?(report)
         return false unless config["since"] && report.results.empty?
         return false if unverifiable_scope?(report)
         return false unless report.omissions.empty? && report.inline_suppressions.empty? &&
-                            report.discovery_failures.empty?
+                            report.discovery_failures.empty? && report.invalid_mutations.zero?
 
         @err.puts("saboteur: no mutants in the diff - nothing to gate")
         true

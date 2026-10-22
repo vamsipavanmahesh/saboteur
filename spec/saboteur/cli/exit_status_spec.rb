@@ -412,8 +412,9 @@ RSpec.describe Saboteur::CLI::ExitStatus do
       end.new(config)
     end
 
-    def empty_report(results, omissions: [], inline_suppressions: [], discovery_failures: [])
-      instance_double(Saboteur::Report, results:, omissions:, inline_suppressions:, discovery_failures:)
+    def empty_report(results, omissions: [], inline_suppressions: [], discovery_failures: [], invalid_mutations: 0)
+      instance_double(Saboteur::Report, results:, omissions:, inline_suppressions:, discovery_failures:,
+                                        invalid_mutations:)
     end
 
     context "with the flag and --since set" do
@@ -436,6 +437,11 @@ RSpec.describe Saboteur::CLI::ExitStatus do
         expect(harness.ignore_empty?(empty_report([], inline_suppressions: ["Person#adult?"]))).to be(false)
       end
 
+      it "is false when the diff's mutants were dropped because they did not parse (#1265)" do
+        expect(harness.ignore_empty?(empty_report([], invalid_mutations: 2))).to be(false)
+        expect(harness.err.string).to be_empty
+      end
+
       it "is false when mutant discovery failed in the diff" do
         expect(harness.ignore_empty?(empty_report([], discovery_failures: ["lib/a.rb: parse error"]))).to be(false)
       end
@@ -445,7 +451,7 @@ RSpec.describe Saboteur::CLI::ExitStatus do
       expect(harness.ignore_empty?(empty_report([]))).to be(false)
     end
 
-    context "with the flag but no --since (below the validation that refuses it)" do
+    context "with the flag but no --since (a no-op, #1266)" do
       let(:config) { { "ignore_empty" => true } }
 
       it "is false and silent" do

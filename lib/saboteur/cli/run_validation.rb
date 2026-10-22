@@ -36,7 +36,6 @@ module Saboteur
       def validate_run_options
         reject_format_conflicts
         validate_shard_options
-        raise UsageError, "--ignore-empty applies to --since runs" if config["ignore_empty"] && !config["since"]
 
         validate_baseline_options
 
