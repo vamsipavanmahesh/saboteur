@@ -59,6 +59,53 @@ RSpec.describe Saboteur::Engine, "ignore list warnings" do
     end
   end
 
+  # A config-less Rails app defaults include to app/** (#1171); nobody set
+  # it, so the run is still a full run for stale ignore entries (#1255).
+  describe "a Rails app with no config file (#1255)" do
+    def full_run_flag(root, overrides: {}, config: nil)
+      allow(Saboteur::Engine::Boot).to receive(:refuse_recursion!)
+      integration = instance_double(Saboteur::Integration::RSpec, test_files: [])
+      boot = instance_double(Saboteur::Engine::Boot, load_target: integration, rails: nil)
+      allow(Saboteur::Engine::Boot).to receive(:new).and_return(boot)
+      selection = instance_double(Saboteur::Engine::SubjectSelection, select: [], behavior_lines: nil)
+      allow(Saboteur::Engine::SubjectSelection).to receive(:new).and_return(selection)
+      ignore_list = instance_double(Saboteur::IgnoreList, apply: [])
+      allow(Saboteur::IgnoreList).to receive(:load).and_return(ignore_list)
+      described_class.new(config || Saboteur::Config.load(root: root, overrides: overrides), err: StringIO.new).call
+      captured = nil
+      expect(ignore_list).to have_received(:apply) { |*, **kwargs| captured = kwargs[:full_run] }
+      captured
+    end
+
+    around do |example|
+      Dir.mktmpdir do |dir|
+        @root = File.realpath(dir)
+        FileUtils.mkdir_p(File.join(@root, "config"))
+        FileUtils.mkdir_p(File.join(@root, "app"))
+        File.write(File.join(@root, "config", "application.rb"), "module Demo; class Application; end; end\n")
+        example.run
+      end
+    end
+
+    it "treats the detected Rails include as a full run" do
+      expect(Saboteur::Config.load(root: @root)["include"]).to eq(Saboteur::Config::RAILS_INCLUDE)
+      expect(full_run_flag(@root)).to be(true)
+    end
+
+    it "treats the same pattern given explicitly as a scoped run" do
+      expect(full_run_flag(@root, overrides: { include: Saboteur::Config::RAILS_INCLUDE })).to be(false)
+    end
+
+    it "treats a narrowed include as scoped even when no key was marked explicit" do
+      config = Saboteur::Config.new({ "include" => ["app/models/**/*.rb"] }, root: @root, explicit: [])
+      expect(full_run_flag(@root, config: config)).to be(false)
+    end
+
+    it "treats a --subject filter as a scoped run" do
+      expect(full_run_flag(@root, overrides: { subjects: ["User#name"] })).to be(false)
+    end
+  end
+
   # A scoped run still judges staleness against the unscoped candidate set,
   # so the engine must hand the selection's unscoped digests to the ignore
   # list (#284).

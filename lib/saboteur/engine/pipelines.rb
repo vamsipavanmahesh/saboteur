@@ -104,9 +104,16 @@ module Saboteur
       # "Full run" for ignore staleness (#1206): no --since diff, no --subject
       # filter, and no narrowed include (explicit file arguments replace the
       # configured include) - only then was every in-scope subject examined, so
-      # an entry whose subject never appears really points at gone code.
+      # an entry whose subject never appears really points at gone code. The
+      # include nobody set counts as unscoped whether it is the generic
+      # default or the Rails one a config-less app gets (#1255).
       def unscoped_full_run?
-        !config["since"] && config["subjects"].empty? && config["include"] == Config::DEFAULTS["include"]
+        !config["since"] && config["subjects"].empty? && default_include?
+      end
+
+      def default_include?
+        config["include"] == Config::DEFAULTS["include"] ||
+          (config["include"] == Config::RAILS_INCLUDE && !config.explicit?("include"))
       end
 
       def external_command? = !config["test_command"].to_s.empty?
