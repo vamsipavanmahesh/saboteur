@@ -29,11 +29,6 @@ Metrics/AbcSize:
   Max: 30
 Metrics/MethodLength:
   Max: 25
-Metrics/ModuleLength:
-  # OperatorExplain carries the curated survives/kill guidance for all 37
-  # registry operators; those content lines are intrinsic to the feature.
-  Exclude:
-    - lib/saboteur/mutation_source/operator_explain.rb
 # The explain command's dispatch entry takes CLI#call to 13.
 Metrics/CyclomaticComplexity:
   Max: 13
@@ -56,6 +51,10 @@ Metrics/ModuleLength:
   # RunReporting's replay command narrows to the mutant's covering specs
   # (#1148), one line over the default.
   Max: 101
+  # OperatorExplain carries the curated survives/kill guidance for all 37
+  # registry operators; those content lines are intrinsic to the feature.
+  Exclude:
+    - lib/saboteur/mutation_source/operator_explain.rb
 
 Metrics/ParameterLists:
   CountKeywordArgs: false
