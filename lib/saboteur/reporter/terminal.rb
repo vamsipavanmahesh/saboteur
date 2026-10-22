@@ -165,6 +165,7 @@ module Saboteur
         @out.puts @palette.paint(:dim, tally)
         @out.puts report.shard.line if report.shard
         score_headline(report)
+        no_coverage_note(report)
         details(report)
         @score_table.call(report)
         not_scored(report)
@@ -254,6 +255,20 @@ module Saboteur
                                              "not scored - #{Wording.no_execution(untested.size)}")}"
         end
         @out.puts line
+      end
+
+      # NoCoverage mutants ride in the mutant count but outside the score
+      # (#1190): say how many sit on lines no test runs, and how to list
+      # them. Stryker.status maps this skip-reason prefix to NoCoverage.
+      def no_coverage_note(report)
+        count = report.results.count do |result|
+          result.status == :skipped && result.reason&.start_with?("no coverage")
+        end
+        return if count.zero?
+
+        counted = Text.counted(count, "mutant")
+        note = "#{counted} on lines no test runs (not in the score): the JSON report lists them as NoCoverage"
+        @out.puts "  #{@palette.paint(:dim, note)}"
       end
 
       # The share of tested mutants the run detected: "killed" alone would
