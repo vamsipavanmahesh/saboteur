@@ -101,8 +101,15 @@ RSpec.describe Saboteur::CLI, "agent mode in this process" do
 
   describe "answers when the output is not agent output" do
     it "puts the usage text in the payload for an unknown command" do
-      expect(cli("explode", "--agent").call).to eq(2)
-      expect(JSON.parse(out.string)["message"]).to eq(described_class::USAGE)
+      # A mutant that dispatches an unknown command to install_command writes
+      # files into the working directory; keep that side effect out of the repo.
+      Dir.mktmpdir do |dir|
+        Dir.chdir(dir) do
+          expect(cli("explode", "--agent").call).to eq(2)
+          expect(JSON.parse(out.string)["message"]).to eq(described_class::USAGE)
+          expect(Dir.children(dir)).to be_empty
+        end
+      end
     end
 
     it "does not answer with JSON for --format text or for a value that merely is 'agent'" do

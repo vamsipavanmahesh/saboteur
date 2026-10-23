@@ -3,6 +3,7 @@
 
 require "fileutils"
 require_relative "text"
+require_relative "install/workflows"
 
 module Saboteur
   # Writes the Rails starter files: config/saboteur.rb, bin/saboteur and a
@@ -70,6 +71,15 @@ module Saboteur
       [write("config/saboteur.rb", config_text), write("bin/saboteur", BIN, mode: 0o755), gitignore]
     end
 
+    # The two CI workflows for the whole-suite map (#1317). An existing file
+    # is never overwritten, even with force: a workflow is the project's own.
+    def ci_workflows
+      ruby_pinned = File.file?(File.join(@root, ".ruby-version")) || File.file?(File.join(@root, ".tool-versions"))
+      Workflows.files(ruby_version_file: ruby_pinned).map do |relative, text|
+        write(relative, text, force: false)
+      end
+    end
+
     RUN_HINT = "Next: bin/saboteur doctor, then bin/saboteur run --since origin/main " \
                "(keep SimpleCov off for the run)."
 
@@ -96,11 +106,11 @@ module Saboteur
     # symlinked directory above it (bin -> elsewhere). Without force the file is
     # skipped; with force the link is removed and replaced by a real file or
     # directory inside the project, and the old target is left alone.
-    def write(relative, content, mode: nil)
+    def write(relative, content, mode: nil, force: @force)
       path = File.join(@root, relative)
       link = symlink_component(relative)
       existed = present?(path)
-      return Result.new(:skipped, relative) if (existed || link) && !@force
+      return Result.new(:skipped, relative) if (existed || link) && !force
 
       File.delete(link) if link
       FileUtils.mkdir_p(File.dirname(path))

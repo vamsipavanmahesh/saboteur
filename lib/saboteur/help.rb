@@ -114,6 +114,17 @@ module Saboteur
                    ["Run only some specs twice", "saboteur doctor --test spec/models"]]
       ),
       Command.new(
+        name: "install",
+        summary: "Write the GitHub Actions workflows that build and use the whole-suite map",
+        description: "Writes .github/workflows/saboteur-map.yml (on pushes to main: saboteur run --all, then " \
+                     "save the whole-suite map to the Actions cache) and .github/workflows/saboteur-pr.yml " \
+                     "(on pull requests: the saboteur action restores that map, mutates the changed lines and " \
+                     "posts review comments). An existing workflow file is never overwritten.",
+        takes_options: false,
+        exit_codes: nil,
+        examples: [["Write both workflows into this project", "saboteur install"]]
+      ),
+      Command.new(
         name: "baseline",
         summary: "Check, propose or accept a fresh opt-in survivor baseline",
         description: "Check runs every mutant fresh and reports new, changed or unmatched accepted survivors. " \

@@ -29,6 +29,7 @@
 - [Mutation testing on pull requests](pull-requests.md) - the diff-mode workflow.
 - [Saboteur in CI on a pull request](guides/ci-pull-request.md) - a narrated real PR check on a Rails app.
 - [GitHub Action](github-action.md) - advisory-by-default PR checks, baseline gate.
+- [The whole-suite map in CI](ci-whole-suite-map.md) - the two workflows `saboteur install` writes, their cache, size and runtime cost.
 - [Scores](scores.md) - what every number on the report counts.
 - [Stability policy](stability.md) - the agent JSON, exit codes and report contracts.
 - [Baseline stability check](baseline-stability.md) - the unchanged-suite runs before mutants start.
