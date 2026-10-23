@@ -6,6 +6,65 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.12.4] - 2026-10-23
+
+### Added
+
+- `saboteur install` writes two CI workflows: one builds the
+  whole-suite survivor map on pushes to main and on manual dispatch (a
+  nightly cron is included as a commented-out example), and one restores
+  the map on pull requests and posts review comments - so a fresh
+  project gets map-backed mutation testing in CI without hand-writing a
+  workflow (#1317, #1318). (e2e: spec/e2e/install_ci_spec.rb)
+- Default output prints a one-line confirmation summary -
+  "confirmation: N survivors killed by specs this run didn't load, M
+  confirmed" - and the per-mutant "killed on confirmation by" lines move
+  behind `--verbose`. `--quiet` suppresses the summary unless
+  unconfirmed survivors remain (#1313, #1322).
+  (e2e: spec/e2e/scoped_confirmation_spec.rb)
+- Survivors carry an explicit `kind` field for the mutation kind,
+  separate from the gap dimension: findings and report.json emit `kind`
+  (killed mutants omit it), and terminal group headers print kind-first
+  (#1314, #1323).
+  (e2e: spec/e2e/money_kind_labels_spec.rb)
+
+### Changed
+
+- A kill keeps the observed value truthfully: an assertion, not the
+  value, decided the verdict, so a kill never reports
+  `valueDiffered: false`. A confirmed survivor merges the observation
+  across the initial selection and the confirmation run (#1311, #1319).
+  (e2e: spec/e2e/value_probe_spec.rb)
+- `saboteur run --quiet` hides the two-line "inferred specs: running
+  only ..." notice; the real warnings (dirty tree, unconfirmed
+  survivors) still print (#1316, #1329).
+  (e2e: spec/e2e/quiet_inference_notice_spec.rb)
+
+### Fixed
+
+- A confirmed survivor's block named its confirmation specs as "likely
+  covered elsewhere (not run here)" even when the confirmation run did
+  run them. The block now names the confirmation spec as having run on
+  confirmation, and the not-run lines only appear when no confirmation
+  applied (#1312, #1321). (e2e: spec/e2e/scoped_confirmation_spec.rb)
+- The terminal group header, the `--quiet` line and the default findings
+  could name a mutant whose digest and diff did not match the JSON
+  classification for the same group. All three surfaces now show the
+  diff, digest and hint of the mutant that carries the group's label,
+  matching the JSON (#1332, #1335).
+  (e2e: spec/e2e/label_carrier_spec.rb)
+- README's "Flakiness contained" bullet said `pr` skips confirmation,
+  contradicting "Know the limits". The skip is now scoped correctly:
+  without a whole-suite map, default inferred-spec runs and `pr` skip
+  confirmation; with a map, `pr` confirms (#1333, #1335).
+  (e2e: spec/e2e/survivor_confirmation_spec.rb)
+  (e2e: spec/e2e/scoped_confirmation_spec.rb)
+- docs/guides/reading-survivors.md claimed the agent JSON carries
+  `kind`/`gapKind`. It now names the actual output: report.json carries
+  `kind`; the agent JSON does not (#1334, #1335).
+  (e2e: spec/e2e/label_carrier_spec.rb)
+  (e2e: spec/e2e/money_kind_labels_spec.rb)
+
 ## [0.12.3] - 2026-10-22
 
 ### Added

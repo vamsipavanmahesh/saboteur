@@ -78,3 +78,13 @@ enumerated in a retrievable source.
   product-or-expectation mismatch, split by when it was found.
 - Metric 3 is counted per pull request at merge time from the Evidence
   section, per the definition above.
+
+## 0.12.4 (2026-10-23)
+
+| Metric | This release | Cumulative |
+| --- | --- | --- |
+| Claims found false by the reviewer | 1, plus 2 partly true (docs/reviews/0.12.4.md: terminal/--quiet gap label contradicts JSON for a value-neutral mutant; README "Flakiness contained" vs "Know the limits" on pr confirmation; docs claim kind/gapKind in the agent JSON, which carries neither (report.json carries kind)) | 1 false + 2 partly true (first recorded cycle) |
+| Acceptance failures caught before release | 0 confirmed product failures in the audited window (the 2 baseline cases were frozen contract-decision expectations, resolved; 1 infrastructure incident excluded; the window is not the whole cycle) | Not established from the audited window |
+| Acceptance failures reported after release | Not yet applicable (no release exists since the acceptance suite) | Not yet applicable |
+| PRs with summary-only evidence | 6 of 7 - merger's own read of the PR bodies, not independently audited (#1318, #1319 no evidence section; #1321, #1322, #1323, #1330 prose about runs without pasted output; #1329 pasted command output) | 6 of 7 (same basis) |
+
