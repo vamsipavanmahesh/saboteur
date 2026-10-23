@@ -303,3 +303,31 @@ review-to-checks loop in [agents/review-to-checks.md](agents/review-to-checks.md
 - Prevented by: paste hashes and counts from the command output that
   produced them; a report containing a placeholder is re-issued before
   anyone acts on it. The mechanical-evidence rule covers the general case.
+
+## 25. A full suite ran against the wrong loaded JSON gem
+
+- Class: wasted run (preventable preflight miss).
+- What happened: a full unit suite (7584 examples, about 16 minutes) for
+  the #1316 validation failed exactly one example: an agent-report pin
+  expected `"warnings": []` and got the pretty-printed `[\n\n]` form. The
+  sandbox toolchain loaded the default gem json 2.7.1 while
+  `Gem.loaded_specs` reported the lockfile pin 3.1.0. A probe of the
+  actually loaded library (`require "json"; puts JSON::VERSION` plus
+  `$LOADED_FEATURES` paths) showed 2.7.1 loading from the default-gem
+  directory; after the toolchain fix it showed 3.1.0 from the pinned path.
+  On the same head, re-introducing the shadow reproduced the identical
+  one-example failure (7 examples, 1 failure, same diff) and the corrected
+  toolchain passed (7 examples, 0 failures). Standing guidance had already
+  warned about this exact default-gem shadow class after an earlier prism
+  conflict; only `Gem.loaded_specs` was checked before the long run, so the
+  failure cost the full run. A second long run launched before the fix also
+  carried the wrong version.
+- Root cause: process. The preflight verified the lockfile spec, not the
+  actually loaded library.
+- Prevented by: before any long run, the toolchain preflight asserts the
+  loaded version of pinned native/default gems (`require` then the runtime
+  VERSION constant equals the lockfile pin) and records the
+  `$LOADED_FEATURES` paths. `Gem.loaded_specs` output is not proof of what
+  is loaded. A wrong-toolchain run is closed only for the failure that was
+  causally reproduced wrong-vs-right on the same head; its other results
+  are not automatically carried as final gate evidence.
