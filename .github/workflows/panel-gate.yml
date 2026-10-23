@@ -38,7 +38,6 @@ concurrency:
   # events keep the shared per-PR/head lane.
   group: panel-head-gate-${{ github.event.issue.number || github.event.workflow_run.pull_requests[0].number || github.event.workflow_run.head_sha || inputs.pr_number || github.ref }}${{ github.event_name == 'issue_comment' && '-comment' || '' }}${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion != 'success' && '-inactive' || '' }}
   cancel-in-progress: true
-  queue: max
 
 jobs:
   verify:
