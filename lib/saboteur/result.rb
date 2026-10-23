@@ -70,7 +70,7 @@ module Saboteur
     # ignore marking (IgnoreList#apply) writes those.
     def with_confirmation(confirmation, status: @status, reason: @reason, runtime: @runtime,
                           killed_by: @killed_by, covered_by: @covered_by, kill_cause: @kill_cause,
-                          executed: @executed)
+                          executed: @executed, value_differed: @value_differed)
       MutantResult.new(subject: subject, mutation: mutation, status: status, mutated_source: mutated_source,
                        reason: reason, runtime: runtime, killed_by: killed_by, covered_by: covered_by,
                        kill_cause: kill_cause, reused: reused?, rejected_kill: rejected_kill?,

@@ -64,6 +64,30 @@ RSpec.describe Saboteur::Reporter::Stryker do
     expect(mutants.map { |m| [m["classification"], m["gapKind"]] }).to eq([%w[input_gap boundary], ["boundary", nil]])
   end
 
+  it "carries confirmation state and the credited test on confirmation results (#1311)" do
+    confirmed = result_for(:survived, covered_by: %w[t1]).with_confirmation("confirmed")
+    credited = result_for(:killed, killed_by: ["t1"], covered_by: %w[t1]).with_confirmation("killed_by_confirmation")
+    entries = JSON.parse(JSON.generate(described_class.build(report_of(confirmed, credited))))
+                  .dig("files", "person.rb", "mutants")
+
+    expect(entries.map { |m| m["confirmation"] }).to eq(%w[confirmed killed_by_confirmation])
+    expect(entries.last["creditedTest"]).to eq("0")
+  end
+
+  it "omits optional keys whose value is nil, so unobserved fields never read as explicit nulls (#1311)" do
+    report = report_of(result_for(:survived, covered_by: %w[t1]))
+    entry = JSON.parse(JSON.generate(described_class.build(report))).dig("files", "person.rb", "mutants").first
+
+    expect(entry).not_to include("rejectedKill", "creditedTest", "killedBy", "executed")
+  end
+
+  it "always carries valueDiffered: an explicit null when unprobed, the observation otherwise (#1311)" do
+    report = report_of(result_for(:killed, covered_by: %w[t1]),
+                       result_for(:survived, covered_by: %w[t1], value_differed: true))
+    mutants = JSON.parse(JSON.generate(described_class.build(report))).dig("files", "person.rb", "mutants")
+    expect(mutants.map { |m| m.fetch("valueDiffered") }).to eq([nil, true])
+  end
+
   it "builds valid JSON with multibyte source on and before the edited line (#192)" do
     source = "class Person\n  # caf\u00e9\n  def tell(msg)\n    puts \"\u00e9 \#{msg}\"\n  end\nend\n"
     dir = Dir.mktmpdir("saboteur-stryker-utf8-")

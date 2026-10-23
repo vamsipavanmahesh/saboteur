@@ -26,9 +26,12 @@ module Saboteur
     # every source file is watched instead: reuse turns conservative, never
     # stale.
     class ResultCache
+      # 3: kills keep a true observation, merged across the initial and the
+      # confirmation run (#1311); a version 2 file can replay a confirmation
+      # kill with the observation the old code dropped.
       # 2: entries carry value_differed (#1290); a version 1 file is dropped so
       # no cached survivor reads as "never differed" without having been observed.
-      FORMAT = 2
+      FORMAT = 3
       MAX_BYTES = 64 * 1024 * 1024
       STORED = %i[killed survived timeout].freeze
       LOCKFILES = %w[Gemfile.lock gems.locked].freeze

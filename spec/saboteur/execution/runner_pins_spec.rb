@@ -127,6 +127,12 @@ RSpec.describe Saboteur::Execution::Runner, "parent-side outcomes" do
 
     let(:base) { { "failed" => %w[a b], "executed" => %w[a b] } }
 
+    it "keeps a true observation on a kill and never reports false (#1311)" do
+      expect(killed(base.merge("value_differed" => true)).value_differed).to be(true)
+      expect(killed(base.merge("value_differed" => false)).value_differed).to be_nil
+      expect(killed(base).value_differed).to be_nil
+    end
+
     it "uses the first failed test for the message and the kill cause" do
       outcome = killed(base.merge("failure_messages" => { "a" => "ma", "b" => "mb" },
                                   "failure_classes" => { "a" => "NoMethodError",

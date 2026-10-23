@@ -144,17 +144,26 @@ module Saboteur
           # Additive (#1286): confirmed, killed_by_confirmation or unconfirmed.
           # An unconfirmed survivor reports Ignored: outside the score.
           confirmation: result.confirmation_state,
-          # Additive (#1290): whether the mutated expression ever produced a
-          # different value from the original; absent when not probed.
-          valueDiffered: result.value_differed,
           creditedTest: result.credited_test&.then { |name| test_ids.fetch(name) },
-          killedBy: result.killed_by.map { |name| test_ids.fetch(name) }.then { |ids| ids.empty? ? nil : ids },
-          coveredBy: result.covered_by.map { |name| test_ids.fetch(name) }.then { |ids| ids.empty? ? nil : ids },
+          killedBy: test_id_list(result.killed_by, test_ids),
+          coveredBy: test_id_list(result.covered_by, test_ids),
           # Which of the covering tests actually ran against the mutant; absent
           # when the run did not record them (a reused result, an older worker).
-          executed: result.executed.to_a.map { |name| test_ids.fetch(name) }.then { |ids| ids.empty? ? nil : ids },
+          executed: test_id_list(result.executed.to_a, test_ids),
           duration: result.runtime && (result.runtime * 1000).round
-        }.compact
+        }.compact.merge(observation_fields(result))
+      end
+
+      # Test names as their testFiles ids; nil when the list is empty.
+      def self.test_id_list(names, test_ids)
+        names.map { |name| test_ids.fetch(name) }.then { |ids| ids.empty? ? nil : ids }
+      end
+
+      # Additive (#1290): whether the mutated expression ever produced a
+      # different value from the original; an explicit null when no run
+      # probed the site, so unobserved never reads as never-differed (#1311).
+      def self.observation_fields(result)
+        { valueDiffered: result.value_differed }
       end
 
       def self.status(result)

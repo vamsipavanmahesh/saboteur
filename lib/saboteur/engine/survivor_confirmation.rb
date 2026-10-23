@@ -92,7 +92,8 @@ module Saboteur
         @remaining -= outcome.runtime || 0
         case outcome.status
         when :killed then checked_kill(result, tests, outcome)
-        when :survived then result.with_confirmation("confirmed")
+        when :survived then result.with_confirmation("confirmed",
+                                                     value_differed: merged_observation([result, outcome]))
         else unconfirmed(result, "the confirmation run #{outcome.status}: #{outcome.message}")
         end
       end
@@ -127,6 +128,24 @@ module Saboteur
                               eval_prefix: @scheduler.confirmation_prefix(result.subject))
       end
 
+      # The value observation across every run against the mutant, initial
+      # selection plus confirmation: any run that saw the value differ
+      # decides, and a run that could not probe the site never erases
+      # another run's observation (#1311). One pair argument: the merge is
+      # order-insensitive, so no argument order exists for a test to pin.
+      def merged_observation(runs)
+        observations = runs.map(&:value_differed).compact
+        return nil if observations.empty?
+
+        observations.any?
+      end
+
+      # A kill keeps only a true observation: an assertion, not the value,
+      # decided the verdict, so a not-differed run never reads as false (#1311).
+      def kill_observation(runs)
+        merged_observation(runs) || nil
+      end
+
       # A confirmation kill stands only after the same VerdictCheck the
       # scheduler runs: the kill sequence, in order, must pass with the
       # method unchanged, so an order-dependent spec cannot convert a true
@@ -138,7 +157,8 @@ module Saboteur
           "killed_by_confirmation", status: :killed, reason: outcome.message, killed_by: outcome.failed_ids,
                                     covered_by: tests, kill_cause: outcome.kill_cause,
                                     runtime: (result.runtime || 0) + (outcome.runtime || 0),
-                                    executed: (result.executed || []) + outcome.executed_ids
+                                    executed: (result.executed || []) + outcome.executed_ids,
+                                    value_differed: kill_observation([result, outcome])
         )
         checked = VerdictCheck.new(run_unchanged: unchanged_runner(result.subject),
                                    baseline_timeout: @config["baseline_timeout"]).call([kill]).first

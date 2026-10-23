@@ -36,15 +36,16 @@ RSpec.describe Saboteur::Engine::SurvivorConfirmation, "#1063" do
                         budget_exceeded: budget_exceeded)
   end
 
-  def survivor(executed: ["./spec/thing_1_spec.rb[1:1]"], runtime: 1.0, covered_by: tids)
+  def survivor(executed: ["./spec/thing_1_spec.rb[1:1]"], runtime: 1.0, covered_by: tids, value_differed: nil)
     Saboteur::MutantResult.new(subject: subject_double, mutation: mutation, status: :survived,
                                mutated_source: "def call; end", runtime: runtime, covered_by: covered_by,
-                               executed: executed)
+                               executed: executed, value_differed: value_differed)
   end
 
-  def outcome(status:, runtime: 0.5, failed: [], message: "ok", executed: [])
+  def outcome(status:, runtime: 0.5, failed: [], message: "ok", executed: [], value_differed: nil)
     double("outcome", status: status, runtime: runtime, failed_ids: failed, message: message,
-                      executed_ids: executed, kill_cause: status == :killed ? "assertion" : nil)
+                      executed_ids: executed, kill_cause: status == :killed ? "assertion" : nil,
+                      value_differed: value_differed)
   end
 
   # The mutant run gets the mutated source; the VerdictCheck re-run gets the
@@ -126,6 +127,58 @@ RSpec.describe Saboteur::Engine::SurvivorConfirmation, "#1063" do
     expect(confirmed.reason).to include("confirmation budget is spent")
   end
 
+  {
+    [true, true] => true, [true, false] => true, [true, nil] => true,
+    [false, true] => true, [false, false] => false, [false, nil] => false,
+    [nil, true] => true, [nil, false] => false, [nil, nil] => nil
+  }.each do |(initial, confirmation_run), expected|
+    it "merges #{initial.inspect} and #{confirmation_run.inspect} into #{expected.inspect} (#1311)" do
+      result = survivor(value_differed: initial)
+      allow(runner).to receive(:run).and_return(outcome(status: :survived, value_differed: confirmation_run))
+
+      confirmed = confirmation.call([result], ignore_list: ignore_list).first
+
+      expect(confirmed.status).to eq(:survived)
+      expect(confirmed.confirmation).to eq("confirmed")
+      expect(confirmed.value_differed).to be(expected)
+    end
+  end
+
+  it "keeps a true observation from the first run on a confirmation kill (#1311)" do
+    result = survivor(value_differed: true)
+    stub_mutant_and_unchanged(outcome(status: :killed, failed: ["./spec/thing_3_spec.rb[1:1]"],
+                                      executed: ["./spec/thing_3_spec.rb[1:1]"], message: "1 failed"),
+                              outcome(status: :survived))
+
+    confirmed = confirmation.call([result], ignore_list: ignore_list).first
+
+    expect(confirmed.status).to eq(:killed)
+    expect(confirmed.value_differed).to be(true)
+  end
+
+  it "marks a confirmation kill true when the confirmation run probed a difference (#1311)" do
+    result = survivor(value_differed: false)
+    stub_mutant_and_unchanged(outcome(status: :killed, failed: ["./spec/thing_3_spec.rb[1:1]"],
+                                      executed: ["./spec/thing_3_spec.rb[1:1]"], value_differed: true),
+                              outcome(status: :survived))
+
+    confirmed = confirmation.call([result], ignore_list: ignore_list).first
+
+    expect(confirmed.value_differed).to be(true)
+  end
+
+  it "reports no observation on a confirmation kill no run probed as differing (#1311)" do
+    result = survivor(value_differed: false)
+    stub_mutant_and_unchanged(outcome(status: :killed, failed: ["./spec/thing_3_spec.rb[1:1]"],
+                                      executed: ["./spec/thing_3_spec.rb[1:1]"], message: "1 failed"),
+                              outcome(status: :survived))
+
+    confirmed = confirmation.call([result], ignore_list: ignore_list).first
+
+    expect(confirmed.status).to eq(:killed)
+    expect(confirmed.value_differed).to be_nil
+  end
+
   it "keeps the survivor status when every unrun covering spec passes" do
     allow(runner).to receive(:run).and_return(outcome(status: :survived))
 
@@ -133,6 +186,7 @@ RSpec.describe Saboteur::Engine::SurvivorConfirmation, "#1063" do
 
     expect(confirmed.status).to eq(:survived)
     expect(confirmed.confirmation).to eq("confirmed")
+    expect(confirmed.value_differed).to be_nil
   end
 
   it "runs only covering specs the mutant did not already execute, fastest first, capped at eight" do

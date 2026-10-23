@@ -407,7 +407,15 @@ module Saboteur
       def killed_outcome(result, runtime, failed, executed, verbose_failure)
         Outcome.new(status: :killed, runtime: runtime, failed_ids: failed, executed_ids: executed,
                     message: failure_message(result, failed.first, verbose_failure),
-                    kill_cause: kill_cause(result.fetch("failure_classes", {})[failed.first]))
+                    kill_cause: kill_cause(result.fetch("failure_classes", {})[failed.first]),
+                    value_differed: kill_observation(result["value_differed"]))
+      end
+
+      # An assertion, not the value, decided a kill: keep a true observation
+      # (the site was probed and the value did differ before the assertion
+      # fired) and never report false (#1311).
+      def kill_observation(observed)
+        observed == true ? true : nil
       end
 
       # A neutral check (the verdict re-run, no mutation) needs the full

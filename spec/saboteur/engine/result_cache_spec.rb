@@ -60,6 +60,16 @@ RSpec.describe Saboteur::Engine::ResultCache do
       expect(cache.lookup(person_subject, comparison_mutation, tests)).to be_nil
     end
 
+    it "drops a cache file from before kills kept their observation, so no kill replays a dropped true (#1311)" do
+      store = cache
+      store.record(survivor(nil))
+      store.save
+      old = JSON.parse(File.read(path)).merge("format" => 2)
+      File.write(path, JSON.generate(old))
+
+      expect(cache.lookup(person_subject, comparison_mutation, tests)).to be_nil
+    end
+
     it "ignores a crafted non-boolean value_differed in the cache file" do
       store = cache
       store.record(survivor(false))

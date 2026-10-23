@@ -237,12 +237,20 @@ RSpec.describe Saboteur::MutantResult, "copies (#1290)" do
     expect(result_for(:survived).value_differed).to be_nil
   end
 
-  it "reports valueDiffered in the Stryker JSON only when it was observed" do
+  it "with_confirmation replaces value_differed when the confirmation run observed more (#1311)" do
+    result = result_for(:survived, value_differed: false)
+
+    copy = result.with_confirmation("confirmed", value_differed: true)
+
+    expect(copy.value_differed).to be(true)
+    expect(result.value_differed).to be(false)
+  end
+
+  it "reports valueDiffered in the Stryker JSON as an explicit null when it was not observed (#1311)" do
     observed = result_for(:survived, replacement: ">", value_differed: false)
     mutants = Saboteur::Reporter::Stryker.build(report_of(observed, result_for(:survived, replacement: "<")))
                                          .fetch(:files).values.flat_map { |file| file[:mutants] }
 
-    expect(mutants.map { |m| m[:valueDiffered] }).to eq([false, nil])
-    expect(mutants.last).not_to have_key(:valueDiffered)
+    expect(mutants.map { |m| m.fetch(:valueDiffered) }).to eq([false, nil])
   end
 end

@@ -407,6 +407,12 @@ RSpec.describe Saboteur::Engine::Scheduler, "verifying kills and timeouts" do
     expect(results.map(&:value_differed).uniq).to eq([false])
   end
 
+  it "carries a kill's true observation onto the result (#1311)" do
+    results = schedule(mutant: ->(_) { outcome(:killed, failed_ids: ["t1"], value_differed: true) })
+
+    expect(results.map(&:value_differed).uniq).to eq([true])
+  end
+
   it "does not warn when no verdict was overturned (#296)" do
     io = StringIO.new
     diagnostics = Saboteur::Engine::Diagnostics.new(io)
