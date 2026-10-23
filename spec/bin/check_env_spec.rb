@@ -76,9 +76,34 @@ RSpec.describe EnvCheck do
   end
 
   it "fails when the suite's Ruby under bundle exec is not the gate's Ruby" do
+    # Derived from the interpreter running the example, never a fixed
+    # version: a canned value can equal the CI leg's real Ruby (a hardcoded
+    # "4.0.7" passed for the wrong reason on the ruby-4.0 legs).
+    different = Gem::Version.new(RUBY_VERSION).bump.to_s
+    status, output = run_check(probes: { described_class::RUBY_PROBE => [different, true] })
+    expect(status).to eq(1)
+    expect(output).to include("FAIL suite ruby")
+  end
+
+  it "fails on a 3.3 gate with a 4.x suite ruby" do
+    stub_const("RUBY_VERSION", "3.3.9")
     status, output = run_check(probes: { described_class::RUBY_PROBE => ["4.0.7", true] })
     expect(status).to eq(1)
     expect(output).to include("FAIL suite ruby")
+  end
+
+  it "fails on a 4.x gate with a 3.3 suite ruby" do
+    stub_const("RUBY_VERSION", "4.0.7")
+    status, output = run_check(probes: { described_class::RUBY_PROBE => ["3.3.9", true] })
+    expect(status).to eq(1)
+    expect(output).to include("FAIL suite ruby")
+  end
+
+  it "passes the suite-ruby check when a 4.x suite ruby equals the gate" do
+    stub_const("RUBY_VERSION", "4.0.7")
+    status, output = run_check
+    expect(status).to eq(0)
+    expect(output).to include("ok   suite ruby - 4.0.7 under bundle exec (gate runs on 4.0.7)")
   end
 
   it "fails when Bundler cannot run" do
