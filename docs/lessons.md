@@ -403,7 +403,7 @@ review-to-checks loop in [agents/review-to-checks.md](agents/review-to-checks.md
   the checker itself). Verification claims name each input exercised.
 ## 28. The acceptance runner's RUBYLIB shadowed the gate's prism
 
-- Class: environment parity (local green did not transfer to the gate).
+- Class: environment parity (local baseline did not transfer to the gate).
 - What happened: the acceptance runner unconditionally put the running
   Ruby's stdlib dirs on the child's RUBYLIB, a workaround one Ruby build
   needs to resolve its own stdlib. RUBYLIB entries shadow gem activation,
@@ -413,12 +413,13 @@ review-to-checks loop in [agents/review-to-checks.md](agents/review-to-checks.md
   Prism::ParseResult superclass mismatch (exit 70); the crash masked
   every assertion, so the run said nothing about the product. The
   controlled product-break proof on that baseline hit the same crash,
-  was recorded inconclusive, and closed unmerged. Local acceptance runs
-  were green only because the local Ruby has no bundled prism in
-  rubylibdir: the shadow never fired there.
+  was recorded inconclusive, and closed unmerged. Local runs reached the
+  assertions with only the two frozen expectation failures; the local
+  Ruby lacked bundled Prism in rubylibdir: the shadow never fired
+  there.
 - Root cause: process. A workaround for one Ruby build's stdlib layout
   was applied unconditionally, and the gate environment's different
-  layout was never probed. The local green was environment-narrow.
+  layout was never probed. The local baseline was environment-narrow.
 - Prevented by: the runner keeps the child's RUBYLIB to the project lib
   and appends stdlib dirs only for builds that fail a once-per-runner
   probe (`require "rubygems"` with RUBYLIB/RUBYOPT cleared). An
