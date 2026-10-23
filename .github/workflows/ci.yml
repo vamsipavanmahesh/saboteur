@@ -326,6 +326,7 @@ jobs:
           path: |
             .saboteur/coverage-*.json
             .saboteur/inputs-*.json
+            .saboteur/whole-suite-map-v2
           key: saboteur-${{ runner.os }}-${{ hashFiles('Gemfile.lock', 'config/saboteur.rb', 'config/saboteur_custom_map.rb', 'config/saboteur_ignore.rb') }}-${{ github.sha }}
           restore-keys: |
             saboteur-${{ runner.os }}-${{ hashFiles('Gemfile.lock', 'config/saboteur.rb', 'config/saboteur_custom_map.rb', 'config/saboteur_ignore.rb') }}-
