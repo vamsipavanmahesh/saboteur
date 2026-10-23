@@ -140,14 +140,14 @@ tree refuses with exit 2 and points at the generator. Engine gem with
   be a missing test, an equivalent change, a flaky test, or a limit of
   the tool. Read it before you write a test for it. (e2e: spec/e2e/survivor_triage_spec.rb)
 - A survivor can be false when the test that kills it lives in a spec
-  file saboteur did not select. Runs without `--test` pick specs by file
-  name and by the constants they read, so a test in a differently named
-  spec (say `spec/integration/flow_spec.rb` for `lib/ledger/router.rb`)
-  may never run against the mutant, and the "covered by ... ran, still
-  passed" lines list the specs that ran, plus any others marked "not run
-  here". If you know
-  another spec exercises the code, run again with `--test` naming it
-  before you trust the survivor. (e2e: spec/e2e/reference_selection_spec.rb) (e2e: spec/e2e/explicit_files_spec.rb) (e2e: spec/e2e/inference_miss_spec.rb)
+  file the run did not select. Build the whole-suite map on main with
+  `saboteur run --all` (in CI on pushes to main, or nightly -
+  [`saboteur install` wires it up](docs/ci-whole-suite-map.md)); PR and
+  `--since` runs then confirm survivors against specs they did not load.
+  Without the map, survivors are flagged as unconfirmed, and a test in a
+  spec never mapped to the code can still leave a survivor.
+  (e2e: spec/e2e/whole_suite_covering_map_spec.rb) (e2e: spec/e2e/scoped_confirmation_spec.rb)
+  (e2e: spec/e2e/install_ci_spec.rb) (e2e: spec/e2e/inferred_map_not_whole_suite_spec.rb)
 - `--since` and `--incremental` are iteration aids. Run the whole project
   on main and before a release. (e2e: spec/e2e/phase3_spec.rb) (e2e: spec/e2e/since_changed_specs_spec.rb)
 - Sandboxing varies by platform and network access is never restricted.
