@@ -30,6 +30,7 @@ require_relative "cli/matrix_option"
 require_relative "cli/output_options"
 require_relative "cli/explicit_file_options"
 require_relative "cli/doctor_command"
+require_relative "cli/install_command"
 require_relative "cli/agent_provenance"
 require_relative "cli/preview_command"
 require_relative "cli/help_command"
@@ -61,6 +62,7 @@ module Saboteur
     include OutputOptions
     include ExplicitFileOptions
     include DoctorCommand
+    include InstallCommand
     include AgentProvenance
     include HelpOptions
     include PreviewCommand

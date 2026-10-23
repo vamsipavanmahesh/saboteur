@@ -41,6 +41,10 @@ bundle exec saboteur run
 bundle exec saboteur pr
 ```
 
+On GitHub Actions, `bundle exec saboteur install` writes the two workflows
+that build the whole-suite map on main and restore it on every pull request
+(see [the CI map guide](docs/ci-whole-suite-map.md)).
+
 You need Ruby 3.3 or newer, RSpec, and Linux or macOS with `fork`. The
 sandbox layers use fiddle, which ships with Ruby; on Ruby 4.0+, where
 fiddle is a bundled gem, add `gem "fiddle"` to your Gemfile. Outside

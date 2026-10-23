@@ -32,6 +32,93 @@ RSpec.describe Saboteur::CLI do
     end
   end
 
+  # `install` must reach the CI workflow writer: from an empty directory it
+  # writes both workflows, never the unknown-command fallback a dropped
+  # dispatch would take.
+  it "dispatches install to the CI workflow writer, not the unknown-command fallback" do
+    Dir.mktmpdir do |dir|
+      Dir.chdir(dir) do
+        expect(cli("install").call).to eq(0)
+        expect(File).to exist(File.join(dir, ".github/workflows/saboteur-map.yml"))
+        expect(File).to exist(File.join(dir, ".github/workflows/saboteur-pr.yml"))
+        expect(out.string).to include("created  .github/workflows/saboteur-map.yml")
+        expect(err.string).to be_empty
+      end
+    end
+  end
+
+  it "prints one line per workflow and the next step when it created anything" do
+    Dir.mktmpdir do |dir|
+      Dir.chdir(dir) do
+        expect(cli("install").call).to eq(0)
+        expect(out.string).to eq(
+          " created  .github/workflows/saboteur-map.yml\n " \
+          "created  .github/workflows/saboteur-pr.yml\n" \
+          "#{Saboteur::Install::Workflows::NEXT_STEP}\n"
+        )
+      end
+    end
+  end
+
+  it "reports existing workflows as skipped and keeps the next step to itself" do
+    Dir.mktmpdir do |dir|
+      Dir.chdir(dir) do
+        cli("install").call
+        out.truncate(0)
+        out.rewind
+        expect(cli("install").call).to eq(0)
+        expect(out.string).to eq(
+          " skipped  .github/workflows/saboteur-map.yml (already there, left as it is)\n " \
+          "skipped  .github/workflows/saboteur-pr.yml (already there, left as it is)\n"
+        )
+      end
+    end
+  end
+
+  it "rejects arguments to install as a usage error" do
+    Dir.mktmpdir do |dir|
+      Dir.chdir(dir) do
+        expect(cli("install", "extra").call).to eq(2)
+        expect(err.string).to include("saboteur: unexpected arguments: extra")
+        expect(File).not_to exist(File.join(dir, ".github"))
+      end
+    end
+  end
+
+  it "prints the next step when only one of the two workflows was created" do
+    Dir.mktmpdir do |dir|
+      Dir.chdir(dir) do
+        FileUtils.mkdir_p(".github/workflows")
+        File.write(".github/workflows/saboteur-map.yml", "mine\n")
+        expect(cli("install").call).to eq(0)
+        expect(out.string).to include(" skipped  .github/workflows/saboteur-map.yml",
+                                      " created  .github/workflows/saboteur-pr.yml",
+                                      Saboteur::Install::Workflows::NEXT_STEP)
+      end
+    end
+  end
+
+  it "installs into the current working directory" do
+    installer = instance_double(Saboteur::Install, ci_workflows: [])
+    allow(Saboteur::Install).to receive(:new).and_return(installer)
+    Dir.mktmpdir do |dir|
+      Dir.chdir(dir) do
+        expect(cli("install").call).to eq(0)
+        expect(Saboteur::Install).to have_received(:new).with(root: Dir.pwd)
+      end
+    end
+  end
+
+  it "shows install's own help without writing anything" do
+    Dir.mktmpdir do |dir|
+      Dir.chdir(dir) do
+        expect(cli("install", "--help").call).to eq(0)
+        expect(out.string).to include("saboteur install - ")
+        expect(File).not_to exist(File.join(dir, ".github"))
+      end
+    end
+  end
+
   # B3: an unexpected failure must not escape as a bare stack trace and
   # an accidental exit 1; it is reported as ours and exits 70.
   it "reports an unexpected failure as an internal error and exits 70" do
@@ -649,8 +736,15 @@ RSpec.describe Saboteur::CLI do
   end
 
   it "prints usage and exits 2 for an unknown command" do
-    expect(cli("explode").call).to eq(2)
-    expect(err.string).to include("Usage: saboteur run")
+    # A mutant that dispatches an unknown command to install_command writes
+    # files into the working directory; keep that side effect out of the repo.
+    Dir.mktmpdir do |dir|
+      Dir.chdir(dir) do
+        expect(cli("explode").call).to eq(2)
+        expect(err.string).to include("Usage: saboteur run")
+        expect(Dir.children(dir)).to be_empty
+      end
+    end
   end
 
   it "prints usage and exits 2 for a bad option" do
@@ -1716,19 +1810,32 @@ RSpec.describe Saboteur::CLI, "details" do
   end
 
   it "names an unknown command, then prints the usage line" do
-    cli("explode").call
-    expect(err.string).to eq("unknown command: explode. Run 'saboteur help' for the commands.\n" \
-                             "#{described_class::USAGE}\n")
+    Dir.mktmpdir do |dir|
+      Dir.chdir(dir) do
+        cli("explode").call
+        expect(err.string).to eq("unknown command: explode. Run 'saboteur help' for the commands.\n" \
+                                 "#{described_class::USAGE}\n")
+        expect(Dir.children(dir)).to be_empty
+      end
+    end
   end
 
   it "points a setup word at the Rails generator, and only a setup word" do
-    %w[init install setup].each do |word|
-      err.truncate(0)
-      err.rewind
-      cli(word).call
-      expect(err.string).to eq("unknown command: #{word}. Run 'saboteur help' for the commands.\n" \
-                               "To set up a Rails app, run: bin/rails generate saboteur:install\n" \
-                               "#{described_class::USAGE}\n")
+    # A mutant that dispatches a setup word to install_command writes files
+    # into the working directory; keep that side effect out of the repo.
+    Dir.mktmpdir do |dir|
+      Dir.chdir(dir) do
+        %w[init setup].each do |word|
+          err.truncate(0)
+          err.rewind
+          cli(word).call
+          expect(err.string).to eq("unknown command: #{word}. Run 'saboteur help' for the commands.\n" \
+                                   "To set up a Rails app, run: bin/rails generate saboteur:install " \
+                                   "(for the CI workflows alone: saboteur install)\n" \
+                                   "#{described_class::USAGE}\n")
+          expect(Dir.children(dir)).to be_empty
+        end
+      end
     end
   end
 

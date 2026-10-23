@@ -30,7 +30,10 @@ RSpec.describe "coverage map cache wiring" do
     expect(action_save.fetch("if")).to eq("always() && #{action_cache.fetch('if')}")
     expect(action_save.fetch("with").fetch("key")).to eq(action_cache.fetch("with").fetch("key"))
     expect(paths(action_save)).to eq(paths(action_cache))
-    expect(paths(action_cache)).to eq([".saboteur/coverage-*.json", ".saboteur/inputs-*.json"])
+    # The pointer rides with the map: without it a restored cache is never
+    # read as whole-suite and pull requests lose the confirmation (#1317).
+    expect(paths(action_cache)).to eq([".saboteur/coverage-*.json", ".saboteur/inputs-*.json",
+                                       ".saboteur/whole-suite-map-v2"])
   end
 
   it "warms the map on main pushes with the action's key, and pins every action to a full SHA" do

@@ -189,9 +189,12 @@ runs:
       with:
         # The inputs snapshot rides with the map: a later run reads it to
         # tell which files changed, and without it the map is never reused.
+        # The pointer names the freshest whole-suite map: without it a pull
+        # request never confirms survivors against it (#1317).
         path: |
           .saboteur/coverage-*.json
           .saboteur/inputs-*.json
+          .saboteur/whole-suite-map-v2
         key: saboteur-${{ runner.os }}-${{ hashFiles('Gemfile.lock', 'config/saboteur.rb', 'config/saboteur_custom_map.rb', 'config/saboteur_ignore.rb') }}-${{ github.sha }}
         restore-keys: |
           saboteur-${{ runner.os }}-${{ hashFiles('Gemfile.lock', 'config/saboteur.rb', 'config/saboteur_custom_map.rb', 'config/saboteur_ignore.rb') }}-
@@ -235,6 +238,7 @@ runs:
         path: |
           .saboteur/coverage-*.json
           .saboteur/inputs-*.json
+          .saboteur/whole-suite-map-v2
         key: saboteur-${{ runner.os }}-${{ hashFiles('Gemfile.lock', 'config/saboteur.rb', 'config/saboteur_custom_map.rb', 'config/saboteur_ignore.rb') }}-${{ github.sha }}
     # Only a report this run produced and could trust is kept: an early
     # failure (bad inputs, missing base SHA, no jq) leaves report-valid unset,
