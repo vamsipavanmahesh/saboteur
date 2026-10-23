@@ -1,0 +1,199 @@
+#!/usr/bin/env ruby
+# SPDX-License-Identifier: MIT
+# frozen_string_literal: true
+
+# Fail-fast environment gate (AGENTS.md, "Run discipline"). Run before any
+# test or acceptance run, locally and in CI. It proves the toolchain the run
+# will use and records the environment that shapes its output. A manual
+# probe of individual tools is not a substitute.
+#
+# Requirements (each one fails the run):
+# - the Ruby running the gate satisfies saboteur.gemspec's
+#   required_ruby_version, and the suite's Ruby under `bundle exec` is the
+#   same interpreter (a divergent bundle exec Ruby means a wrong toolchain)
+# - Bundler runs, with the same major version as Gemfile.lock's BUNDLED WITH
+# - `bundle check` passes, so every locked gem (RSpec included) is installed
+# - the activated rspec-core matches the version Gemfile.lock pins
+# - the activated prism satisfies the gemspec dependency: a stale RUBYLIB
+#   entry can shadow the locked gem with Ruby's bundled prism 0.19
+#
+# Every probe runs with the checked root as its working directory, so
+# invoking the gate from elsewhere still validates this checkout's bundle.
+# A missing gemspec or Gemfile.lock fails closed without probing: bundler
+# would otherwise walk up and resolve some parent directory's Gemfile.
+#
+# Locale and color (LANG, LC_ALL, LC_CTYPE, NO_COLOR) shape the output the
+# suite prints, so they are reported, never forced: the CI locale job runs
+# LANG=C on purpose.
+#
+# Exit 0: every requirement holds. Exit 1: a requirement failed.
+
+require "open3"
+
+class EnvCheck
+  ROOT = File.expand_path("..", __dir__)
+  RUBY_PROBE = "bundle exec ruby -e 'print RUBY_VERSION'"
+  RSPEC_PROBE = "bundle exec ruby -e 'require \"rspec/core\"; print RSpec::Core::Version::STRING'"
+  PRISM_PROBE = "bundle exec ruby -e 'require \"prism\"; print Prism::VERSION'"
+
+  Result = Struct.new(:name, :passed, :detail, keyword_init: true)
+
+  def initialize(out: $stdout, runner: nil, root: ROOT)
+    @out = out
+    @runner = runner || method(:capture)
+    @root = root
+    @results = []
+  end
+
+  def run
+    unless File.file?(gemspec_path) && File.file?(lockfile_path)
+      record("repo layout", false, missing_layout_detail)
+      print_report
+      return 1
+    end
+
+    check_ruby
+    check_suite_ruby
+    check_bundler
+    check_bundle_check
+    check_rspec
+    check_prism
+    report_locale
+    print_report
+    @results.all?(&:passed) ? 0 : 1
+  end
+
+  private
+
+  # Probes run from the checked root, so the bundle they validate is always
+  # that checkout's Gemfile.lock, never the caller's working directory.
+  def capture(command)
+    output, status = Open3.capture2e(command, chdir: @root)
+    [output, status.success?]
+  end
+
+  def gemspec_path
+    File.join(@root, "saboteur.gemspec")
+  end
+
+  def lockfile_path
+    File.join(@root, "Gemfile.lock")
+  end
+
+  # A missing layout fails closed: no probe runs, because bundler walks up
+  # from the root and would silently resolve some parent directory's
+  # Gemfile. The gate never installs, resolves or writes anything.
+  def missing_layout_detail
+    missing = []
+    missing << "saboteur.gemspec" unless File.file?(gemspec_path)
+    missing << "Gemfile.lock" unless File.file?(lockfile_path)
+    "#{missing.join(' and ')} not found under #{@root}; no probe run"
+  end
+
+  def record(name, passed, detail)
+    @results << Result.new(name: name, passed: passed, detail: detail)
+  end
+
+  def gemspec
+    @gemspec ||= Gem::Specification.load(gemspec_path)
+  end
+
+  def check_ruby
+    requirement = gemspec.required_ruby_version
+    actual = Gem::Version.new(RUBY_VERSION)
+    record("ruby", requirement.satisfied_by?(actual), "#{RUBY_VERSION} (gemspec requires #{requirement})")
+  end
+
+  def check_suite_ruby
+    output, ok = @runner.call(RUBY_PROBE)
+    return record("suite ruby", false, "probe failed: #{output.strip.lines.first}") unless ok
+
+    same = output.strip == RUBY_VERSION
+    record("suite ruby", same, "#{output.strip} under bundle exec (gate runs on #{RUBY_VERSION})")
+  end
+
+  def check_bundler
+    output, ok = @runner.call("bundle --version")
+    return record("bundler", false, "bundle --version failed: #{output.strip}") unless ok
+
+    actual = output[/\d+\.\d+\.\d+/]
+    locked = lockfile_bundler_version
+    return record("bundler", false, "Gemfile.lock has no BUNDLED WITH line") unless locked
+    return record("bundler", false, "could not parse bundle --version: #{output.strip}") unless actual
+
+    record("bundler", same_major?(actual, locked), "#{actual} (lockfile BUNDLED WITH: #{locked})")
+  end
+
+  def check_bundle_check
+    output, ok = @runner.call("bundle check")
+    detail = ok ? "locked gems installed" : output.strip.lines.first(3).join.strip
+    record("bundle check", ok, detail)
+  end
+
+  def check_rspec
+    locked = locked_gem_version("rspec-core")
+    return record("rspec-core", false, "rspec-core is not pinned in Gemfile.lock") unless locked
+
+    output, ok = @runner.call(RSPEC_PROBE)
+    return record("rspec-core", false, "probe failed: #{output.strip.lines.first}") unless ok
+
+    record("rspec-core", output.strip == locked, "#{output.strip} activated (lockfile: #{locked})")
+  end
+
+  def check_prism
+    requirement = gemspec.dependencies.find { |dependency| dependency.name == "prism" }&.requirement
+    output, ok = @runner.call(PRISM_PROBE)
+    return record("prism", false, "probe failed: #{output.strip.lines.first}") unless ok
+
+    actual = parse_version(output.strip)
+    return record("prism", false, "could not parse probed version: #{output.strip}") unless actual
+
+    satisfied = requirement.nil? || requirement.satisfied_by?(actual)
+    record("prism", satisfied, "#{actual} activated (gemspec requires #{requirement})")
+  end
+
+  def report_locale
+    values = %w[LANG LC_ALL LC_CTYPE NO_COLOR].map { |key| "#{key}=#{ENV[key].inspect}" }.join(" ")
+    encoding = Encoding.default_external
+    detail = "#{values} default_external=#{encoding}"
+    unless encoding == Encoding::UTF_8
+      detail += " (not UTF-8; reported, never forced - the CI locale job runs LANG=C on purpose)"
+    end
+    record("locale/color", true, detail)
+  end
+
+  def print_report
+    @results.each do |result|
+      state = result.passed ? "ok  " : "FAIL"
+      @out.puts "check-env: #{state} #{result.name} - #{result.detail}"
+    end
+    failed = @results.count { |result| !result.passed }
+    @out.puts(failed.zero? ? "check-env: environment ok" : "check-env: #{failed} requirement(s) failed")
+  end
+
+  def parse_version(text)
+    Gem::Version.new(text)
+  rescue ArgumentError
+    nil
+  end
+
+  def lockfile_bundler_version
+    lines = File.readlines(lockfile_path)
+    index = lines.index { |line| line.strip == "BUNDLED WITH" }
+    index && lines[index + 1]&.strip
+  end
+
+  def locked_gem_version(name)
+    File.foreach(lockfile_path) do |line|
+      match = line.match(/^    #{Regexp.escape(name)} \((\d+\.\d+\.\d+)\)$/)
+      return match[1] if match
+    end
+    nil
+  end
+
+  def same_major?(actual, locked)
+    actual.split(".").first == locked.split(".").first
+  end
+end
+
+exit EnvCheck.new.run if __FILE__ == $PROGRAM_NAME
