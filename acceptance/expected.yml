@@ -63,11 +63,11 @@ scenarios:
     description: |
       Fx.convert(a) = 83 * a; spec/ledger/fx_spec.rb asserts convert(0) == 0;
       spec/integration/fx_flow_spec.rb asserts convert(10) > 0. After `run --all` on
-      main and pr on an edit: mutant 83 → 84 survives with gapKind assertion_gap and
+      main and pr on an edit: mutant 83 → 84 survives with classification assertion_gap and
       valueDiffered true.
     cases:
       - name: mutant 83 to 84 survives with assertion_gap
-        expect_description: "mutant 83 → 84 survives with gapKind assertion_gap and valueDiffered true"
+        expect_description: "mutant 83 → 84 survives with classification assertion_gap and valueDiffered true"
         steps:
           - checkout: main
           - run: run --all
@@ -78,7 +78,7 @@ scenarios:
               mutants:
                 - match: { replacement: "84" }
                   status: Survived
-                  gapKind: assertion_gap
+                  classification: assertion_gap
                   valueDiffered: true
 
   docs_only:
@@ -96,17 +96,16 @@ scenarios:
 
   stubbed:
     fixture: stubbed
-    description: 'a method only ever stubbed in specs is reported as "no test executes them", never "no tests exist".'
+    description: 'a method only ever stubbed in specs is reported as "no test executes it" or "them", never "no tests exist".'
     cases:
       - name: stubbed-only method wording
-        expect_description: 'reported as "no test executes them", never "no tests exist"'
+        expect_description: 'reported as "no test executes it" or "them", never "no tests exist"'
         steps:
           - run: run
             expect:
-              # The maintainer's literal words. If the report says "it" for
-              # this fixture instead, the case stays red until the maintainer
-              # changes the product or the expectation.
-              stdout_includes: ["no test executes them"]
+              # Maintainer decision 2026-10-23: singular "it" or plural
+              # "them" both accepted; "no tests exist" remains forbidden.
+              stdout_matches: ["no test executes (it|them)"]
               stdout_not_matches: ["(?i)no tests exist"]
 
   baseline_legacy:
@@ -137,16 +136,18 @@ scenarios:
     source:
       repo: https://github.com/RubyMoney/money
       commit: 1d60efeaeea009cfc69374421561b23b851bd36e
-    description: "RubyMoney/money pinned to a commit, arithmetic.rb + allocation.rb: arithmetic.rb:306 remainder ranks #1, line 302 in the top 3 labelled branch."
+    description: "RubyMoney/money pinned to a commit, arithmetic.rb + allocation.rb: arithmetic.rb:306 remainder ranks #1, line 302 in the top 3 labelled boundary or branch."
     cases:
-      - name: remainder ranks first, line 302 top 3 labelled branch
-        expect_description: "arithmetic.rb:306 remainder ranks #1, line 302 in the top 3 labelled branch"
+      - name: remainder ranks first, line 302 top 3 labelled boundary or branch
+        expect_description: "arithmetic.rb:306 remainder ranks #1, line 302 in the top 3 labelled boundary or branch"
         steps:
           - run: run --all --seed 1
           - run: survivors
             expect:
               ranked_first: { file_suffix: "lib/money/money/arithmetic.rb", line: 306 }
-              ranked_top3: [ { line: 302, label: branch } ]
+              # Maintainer decision 2026-10-23: boundary or branch allowed;
+              # input_gap and coarse stay forbidden - the allowed set is the enforcement.
+              ranked_top3: [ { line: 302, label: [boundary, branch] } ]
 
   determinism:
     fixture: router_pr
