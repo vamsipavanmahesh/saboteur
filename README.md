@@ -129,6 +129,10 @@ tree refuses with exit 2 and points at the generator. Engine gem with
 
 ## Know the limits
 
+- Class-body validation options are not mutation subjects. Tests can pass
+  without saboteur testing those declarations;
+  ordinary methods (including supported DSL method bodies) are separate subjects.
+  (e2e: spec/e2e/class_body_validation_limit_spec.rb)
 - RSpec-only, and no Minitest ([why, and what it would
   take](docs/minitest.md)). (e2e: spec/e2e/minitest_project_spec.rb)
   It also needs `fork` - a Ruby platform constraint, not saboteur
