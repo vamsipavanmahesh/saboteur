@@ -188,14 +188,33 @@ review-to-checks loop in [agents/review-to-checks.md](agents/review-to-checks.md
   nothing was killed. The log was discarded as evidence and the affected
   old-base diagnostic full runs were declared dead; the prospective
   combined tree made them unnecessary anyway.
+- Recurrence, same day: during the final full-gate launch, a first
+  mis-configured attempt (a CLI `--exclude-pattern` overrode the `.rspec`
+  fixtures exclusion, so a fixture spec failed to load: exit 1 in about a
+  second, zero examples run) was stopped with a broad pattern
+  (`pkill -f "rspec spec/e2e"`) that also matched and killed the older
+  diagnostic e2e run about 78 minutes in, against an explicit
+  no-interrupt instruction. That run's evidence ends discarded (about 280
+  example dots, no failure lines, no final summary or exit) and it was
+  not rerun. The mis-launch was never treated as evidence: the corrected
+  launch targets the unit directories explicitly and was verified by a
+  dry-run example count (7593 examples) before starting.
 - Root cause: process. The kill was attempted with an assumed pattern
   instead of the observed process name, and duplicate long runs were
-  started before the previous one's state was known.
+  started before the previous one's state was known. The recurrence is
+  the same class with the opposite match failure: selection by
+  command-line substring matched more than the target, so a protected
+  run died with it.
 - Prevented by: one long run per lane at a time; before relaunching, list
-  matching processes (`pgrep -af`) and kill by verified pid/pgid. Before
-  any long run, state the expected result and the decision it drives; a run
-  whose evidence is discarded is reported as discarded, not silently
-  replaced.
+  matching processes (`pgrep -af`) and kill by verified pid/pgid. Signal
+  only the captured identity: the pid or process-group id recorded at
+  launch, re-verified by command line and ancestry immediately before
+  signaling; never a broad pattern while any other run is alive. Before
+  any long run, state the expected result and the decision it drives; a
+  run whose evidence is discarded is reported as discarded, not silently
+  replaced; an interrupted run is not counted as completed and is not
+  rerun without authorization. Verify a launch's test selection with a
+  dry-run example count before the real run starts.
 
 ## 17. A conflicted `git am` silently committed only the resolved file
 
