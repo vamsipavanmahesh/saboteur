@@ -1,0 +1,7 @@
+diff --git a/lib/ledger/router.rb b/lib/ledger/router.rb
+index 5ff0bff..71ee83c 100644
+--- a/lib/ledger/router.rb
++++ b/lib/ledger/router.rb
+@@ -1 +1 @@
+-class Router; def self.bank_for(amount) = amount > 5_000_000 ? :hdfc : :icici; end
++class Router; def self.bank_for(amount) = amount >= 5_000_001 ? :hdfc : :icici; end

@@ -1,0 +1,7 @@
+diff --git a/lib/ledger/fx.rb b/lib/ledger/fx.rb
+index bf232f7..3d81372 100644
+--- a/lib/ledger/fx.rb
++++ b/lib/ledger/fx.rb
+@@ -1 +1 @@
+-class Fx; def self.convert(a) = 83 * a; end
++class Fx; def self.convert(amount) = 83 * amount; end

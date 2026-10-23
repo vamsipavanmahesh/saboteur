@@ -1,0 +1,48 @@
+name: Harness
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  claims-check:
+    # Every behavior claim in the unreleased CHANGELOG and the README
+    # "Highlights"/"Know the limits" bullets must carry a live (e2e:) ref.
+    name: claims-check
+    runs-on: nscloud-ubuntu-24.04-amd64-1x2
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          # claims-check exempts tagged release sections; a shallow,
+          # tagless checkout makes every section look unreleased.
+          fetch-depth: 0
+      - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+      - run: bundle exec rake claims:check
+
+  acceptance:
+    # Fast tier of the black-box acceptance suite: the maintainer's expected
+    # results in acceptance/expected.yml, checked against the real CLI.
+    # money_ranking is full-tier (release gate) and does not run here.
+    name: acceptance
+    runs-on: nscloud-ubuntu-24.04-amd64-1x2
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          # claims-check exempts tagged release sections; a shallow,
+          # tagless checkout makes every section look unreleased.
+          fetch-depth: 0
+      - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+      - run: bundle exec rake acceptance:fast

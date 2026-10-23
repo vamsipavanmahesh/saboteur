@@ -6,7 +6,7 @@ module Preflight
     # Same file set and fixture exemption as the CI SPDX step, limited to files this change touches.
     class SpdxHeaders
       HEADER = "SPDX-License-Identifier: MIT"
-      EXEMPT = %r{\Aspec/fixtures/projects/}
+      EXEMPT = %r{\A(spec/fixtures/projects|acceptance/fixtures)/}
       COVERED = %r{(\.rb|\.gemspec)\z|\Aexe/[^/]+\z|\A(Gemfile|Rakefile)\z|\Ascript/preflight\z}
 
       def initialize(repository:, head:)

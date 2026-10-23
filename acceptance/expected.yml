@@ -1,0 +1,164 @@
+# Maintainer-owned expected results for saboteur's black-box acceptance suite.
+#
+# Given by the maintainer on 2026-10-23 and transcribed exactly; do not derive
+# or adjust them. Agents must never edit this file or anything under
+# acceptance/ (AGENTS.md, "Evidence rules"). New expectations come from a
+# review round through the loop in docs/agents/review-to-checks.md and are
+# approved by the maintainer.
+#
+# Each scenario's `description` and every case's `expect_description` is the
+# maintainer's text, verbatim. The structured `expect` keys are the runner's
+# machine-checkable reading of that text; acceptance/README.md defines each
+# key.
+version: 1
+
+scenarios:
+  router_pr:
+    fixture: router_pr
+    description: |
+      Router.bank_for; spec/ledger/router_spec.rb smoke test
+      (`be_a(Symbol)`); spec/integration/flow_spec.rb asserts 6_000_000 → :hdfc and
+      5_000_000 → :icici; no lib/ file named after flow_spec. Branch changes
+      `amount > 5_000_000` to `amount >= 5_000_001`.
+    cases:
+      - name: no main map
+        expect_description: 'no main map: exit 1, a "survivors unconfirmed" line, no block contains "ran, still passed".'
+        steps:
+          - checkout: change
+          - run: pr
+            expect:
+              exit: 1
+              stdout_includes: ["survivors unconfirmed"]
+              stdout_excludes: ["ran, still passed"]
+      - name: default run on main, then pr
+        expect_description: "default `saboteur run` on main, then pr: same as no map."
+        steps:
+          - reset_state: true
+          - checkout: main
+          - run: run
+          - checkout: change
+          - run: pr
+            expect:
+              exit: 1
+              stdout_includes: ["survivors unconfirmed"]
+              stdout_excludes: ["ran, still passed"]
+      - name: run --all on main, then pr
+        expect_description: "`saboteur run --all` on main, then pr: exit 1, exactly 2 survivors, score 83.3%, 8 mutants killed and credited to spec/integration/flow_spec.rb."
+        steps:
+          - reset_state: true
+          - checkout: main
+          - run: run --all
+          - checkout: change
+          - run: pr
+            expect:
+              exit: 1
+              survivors: 2
+              score: "83.3%"
+              killed_credited_to:
+                file: spec/integration/flow_spec.rb
+                count: 8
+
+  fx_gap:
+    fixture: fx_gap
+    description: |
+      Fx.convert(a) = 83 * a; spec/ledger/fx_spec.rb asserts convert(0) == 0;
+      spec/integration/fx_flow_spec.rb asserts convert(10) > 0. After `run --all` on
+      main and pr on an edit: mutant 83 → 84 survives with gapKind assertion_gap and
+      valueDiffered true.
+    cases:
+      - name: mutant 83 to 84 survives with assertion_gap
+        expect_description: "mutant 83 → 84 survives with gapKind assertion_gap and valueDiffered true"
+        steps:
+          - checkout: main
+          - run: run --all
+          - checkout: change
+          - run: pr
+            expect:
+              exit: 1
+              mutants:
+                - match: { replacement: "84" }
+                  status: Survived
+                  gapKind: assertion_gap
+                  valueDiffered: true
+
+  docs_only:
+    fixture: docs_only
+    description: 'README-only diff with `--threshold 80`: exit 0, "nothing to gate".'
+    cases:
+      - name: docs-only diff under a threshold
+        expect_description: 'exit 0, "nothing to gate"'
+        steps:
+          - checkout: change
+          - run: run --since main --threshold 80
+            expect:
+              exit: 0
+              stdout_includes: ["nothing to gate"]
+
+  stubbed:
+    fixture: stubbed
+    description: 'a method only ever stubbed in specs is reported as "no test executes them", never "no tests exist".'
+    cases:
+      - name: stubbed-only method wording
+        expect_description: 'reported as "no test executes them", never "no tests exist"'
+        steps:
+          - run: run
+            expect:
+              # The maintainer's literal words. If the report says "it" for
+              # this fixture instead, the case stays red until the maintainer
+              # changes the product or the expectation.
+              stdout_includes: ["no test executes them"]
+              stdout_not_matches: ["(?i)no tests exist"]
+
+  baseline_legacy:
+    fixture: baseline_legacy
+    description: "a tested method with an untested rescue line: `baseline propose --subject` exits 0 and writes the proposal."
+    cases:
+      - name: propose with an untested rescue line
+        expect_description: "exits 0 and writes the proposal"
+        steps:
+          - run: baseline propose --baseline baseline.json --proposal proposal.json --subject 'Ledger::Transfer'
+            expect:
+              exit: 0
+              file_written: proposal.json
+
+  money_ranking:
+    # Full tier: mutating two money files takes minutes, so this scenario runs
+    # in `rake acceptance:full` (release gate), not in every-PR `acceptance:fast`.
+    tier: full
+    fixture: money_ranking
+    # Provenance: only the prose above is the maintainer's - "RubyMoney/money
+    # pinned to a commit", without naming it. The concrete pin is the harness
+    # author's choice, not the maintainer's: the newest commit on the default
+    # branch at the time of the review (1d60efea, 2026-09-29), verified to
+    # carry the expected lines: arithmetic.rb:302 is the currency branch and
+    # :306 the remainder sign branch at this commit. (The v6.19.0 tag vendored
+    # in spec/fixtures/projects/money_ranking does NOT carry these line
+    # numbers.) The runner clones the repo and verifies HEAD is this commit.
+    source:
+      repo: https://github.com/RubyMoney/money
+      commit: 1d60efeaeea009cfc69374421561b23b851bd36e
+    description: "RubyMoney/money pinned to a commit, arithmetic.rb + allocation.rb: arithmetic.rb:306 remainder ranks #1, line 302 in the top 3 labelled branch."
+    cases:
+      - name: remainder ranks first, line 302 top 3 labelled branch
+        expect_description: "arithmetic.rb:306 remainder ranks #1, line 302 in the top 3 labelled branch"
+        steps:
+          - run: run --all --seed 1
+          - run: survivors
+            expect:
+              ranked_first: { file_suffix: "lib/money/money/arithmetic.rb", line: 306 }
+              ranked_top3: [ { line: 302, label: branch } ]
+
+  determinism:
+    fixture: router_pr
+    description: "router_pr with the main map, three runs, identical report (ids, statuses, killedBy, gapKind)."
+    cases:
+      - name: three runs, identical report
+        expect_description: "three runs, identical report (ids, statuses, killedBy, gapKind)"
+        steps:
+          - checkout: main
+          - run: run --all
+          - checkout: change
+          - run: pr
+            repeat: 3
+            expect:
+              deterministic: [id, status, killedBy, gapKind]

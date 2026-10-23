@@ -9,7 +9,11 @@ evidence; a pull request without them filled fails review.
 
 ## Evidence
 
-<!-- e2e spec(s) demonstrating the change, as (e2e: spec/e2e/<file>.rb). -->
+<!-- e2e spec(s) demonstrating the change, as (e2e: spec/e2e/<file>.rb).
+     Paste the actual command and its raw output - never a summary.
+     For a bug fix, paste BOTH: the spec failing on the parent sha and
+     passing on this change. If you did not run something, write
+     "not run" for it. -->
 
 Fails on <parent sha>: yes/no
 

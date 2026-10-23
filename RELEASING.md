@@ -20,6 +20,8 @@ Before any release:
 2. A reviewer report (see `docs/agents/reviewer.md`, run in a fresh context)
    must have no open blocker for the release candidate.
 3. Batch work: at most one release per review round.
+4. Update `docs/harness-metrics.md` with the release's three counters,
+   per release and cumulative.
 
 An acceptance scenario that fails is listed in the release notes as a known
 gap, never edited to pass.

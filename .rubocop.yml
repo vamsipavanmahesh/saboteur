@@ -7,6 +7,7 @@ AllCops:
     - "tmp/**/*"
     # Target code for end-to-end runs; written to exercise saboteur, not to lint clean.
     - "spec/fixtures/projects/**/*"
+    - "acceptance/fixtures/**/*"
     # The project's own config files; data DSL loaded at runtime, not linted as source.
     - "config/saboteur.rb"
     - "config/saboteur_ignore.rb"

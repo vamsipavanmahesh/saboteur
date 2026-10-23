@@ -53,6 +53,11 @@ Names follow Uncle Bob's Clean Code conventions:
   CHANGELOG for it and quote what exists. A plan item may not describe
   existing behavior as missing.
 - Never edit files under acceptance/ or the expected results in them.
+- Never write "validated", "verified", "passing" or "fixed" without the
+  command and its output in the same message or PR. If you didn't run it,
+  say "not run".
+- Before any long run, state what result you expect and what you will do
+  with it. If you can't say, don't run it.
 
 ## Documentation
 

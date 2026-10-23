@@ -1,0 +1,48 @@
+name: Acceptance guard
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    # acceptance/expected.yml is the maintainer's record of expected
+    # results. There is no approval or label bypass inside a pull request:
+    # agent pull requests come from the maintainer's own account and GitHub
+    # cannot let an author approve their own PR, so any PR touching
+    # expected.yml fails, and the maintainer lands expectation updates as
+    # direct commits on main. Other acceptance/ files (runner, fixtures)
+    # are ordinary code; pull requests touching them fail only from the
+    # agent task-branch convention (p<N>-..., per the maintainer's harness
+    # brief), where CODEOWNERS review is the backstop. An admin can always
+    # merge past a red check; this makes tampering loud, not impossible.
+    name: acceptance-guard
+    runs-on: nscloud-ubuntu-24.04-amd64-1x2
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - name: Block expectation tampering
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          set -euo pipefail
+          git fetch origin "$BASE_REF" --depth=1000
+          base=$(git merge-base "origin/$BASE_REF" HEAD)
+          touched=$(git diff --name-only "$base"...HEAD -- acceptance/)
+          [ -z "$touched" ] && { echo "no acceptance/ changes"; exit 0; }
+          if echo "$touched" | grep -qx "acceptance/expected.yml"; then
+            echo "::error::this pull request changes acceptance/expected.yml - expectation updates land on main directly, never through a PR"
+            exit 1
+          fi
+          if printf '%s' "$HEAD_REF" | grep -qE '^p[0-9]+(-|$)'; then
+            echo "::error::agent task branch $HEAD_REF must not change acceptance/"
+            echo "$touched"
+            exit 1
+          fi
+          echo "acceptance/ code changes from a non-agent branch: CODEOWNERS review applies"
