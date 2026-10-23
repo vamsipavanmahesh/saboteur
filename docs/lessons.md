@@ -81,3 +81,225 @@ review-to-checks loop in [agents/review-to-checks.md](agents/review-to-checks.md
 - Root cause: code. The fix was not swept across siblings.
 - Prevented by: the Sibling-sweep evidence rule (search all siblings; fix
   or list them in the pull request).
+
+## 9. A suite with failures was reported as "green"
+
+- Class: validation overstatement.
+- What happened: during the #1312 validation (Oct 23), a full-suite run
+  finished with `EXIT=1`, 7947 examples and 4 failures. The first report
+  called it "FULL VALIDATION COMPLETE - green". A follow-up one minute later
+  corrected it to "7943/7947 pass with 4 failures, NOT green".
+- Root cause: claim. The verdict word was written before it was reconciled
+  with the exit code in the same message.
+- Prevented by: the mechanical-evidence rule (no "green"/"passing"/
+  "validated" without the command and its output in the same message; if it
+  was not run, say "not run"). The exit code is part of the pasted output,
+  so the word and the number cannot drift apart.
+
+## 10. A dogfood run with a `--test` override was reported as the CI mirror
+
+- Class: validation overstatement and wasted run.
+- What happened: the first #1316 dogfood gate was run with explicit `--test`
+  flags from a `/tmp` clone, bypassing spec inference, so it did not count
+  as the CI-mirror gate. It was re-done as the true CI mirror (default
+  inference, HOME-placed worktree) before the gate was accepted.
+- Root cause: claim. The evidence came from a different invocation than the
+  one the gate exists to mirror, and the report did not flag the difference.
+- Prevented by: gate reports carry the full command line and working
+  directory. A dogfood run only counts as the CI mirror with default spec
+  inference and no `--test` flags; any deviation is named in the report.
+
+## 11. A suite was claimed to run in HOME while it ran in /tmp
+
+- Class: validation overstatement; the same placement mistake also wasted
+  diagnosis effort.
+- What happened: the #1315 combined validation was reported with "HOME
+  placement" while the suite's working directory was `/tmp/p4comb`. The
+  placement mattered: earlier the same day, `/tmp` placement caused four
+  sandbox-grant spec failures in the #1312 full suite that then needed
+  causal isolation. The claim was corrected after the running process's
+  real cwd was inspected.
+- Root cause: claim. Placement was asserted from intention, not verified
+  from the running process.
+- Prevented by: placement claims are verified against the live process
+  (`/proc/<pid>/cwd`) and quoted with the command's output. Suites run from
+  a HOME-placed worktree so sandbox-grant specs see the same shape as CI.
+
+## 12. A "measured floor" mixed a complete and an incomplete CI run
+
+- Class: measurement overstatement.
+- What happened: a "13-15 minute measured floor" for CI was derived partly
+  from a run whose platform coverage was incomplete (the macOS legs never
+  ran). The complete run measured 5m37s; the floor was retracted.
+- Root cause: claim. A number was presented as measured without naming the
+  runs it came from, so an incomplete run was averaged in.
+- Prevented by: every timing claim names the exact run IDs it is derived
+  from, with each run's completion status. Incomplete runs are excluded and
+  said to be excluded.
+
+## 13. A commit timestamp was reported as the push time
+
+- Class: reporting error.
+- What happened: during #1318 recovery, a commit's author timestamp was
+  reported as the time the commit was pushed ("pushed at 09:05:50",
+  "execution unblocked"). The push had in fact happened later, and the
+  claim was corrected.
+- Root cause: claim. An event on the remote was inferred from local
+  metadata instead of being checked against the remote.
+- Prevented by: claims about remote state (pushes, run status, coverage)
+  are verified against the remote (`git ls-remote`, `gh api`) at report
+  time; local timestamps are not evidence for remote events.
+
+## 14. Two CI runs were wasted on dispatch mechanics
+
+- Class: wasted runs.
+- What happened: for #1318, one `workflow_dispatch` ran at `ref=main` and
+  tested the wrong code (cancelled), and the next ran without the head
+  repository input, so the macOS legs never ran and platform coverage was
+  incomplete. A third dispatch with all inputs produced the usable green.
+- Root cause: process. Dispatch inputs were not verified before triggering,
+  and the run's head SHA and job list were not inspected before treating it
+  as coverage.
+- Prevented by: CI confirms, never discovers. Before dispatch, verify ref,
+  head repository and PR number; after dispatch, inspect the run's head SHA
+  and job list before citing it as evidence. One dispatch with all inputs,
+  not a retry chain.
+
+## 15. An "exact tree" claim held while the worktree had uncommitted changes
+
+- Class: validation overstatement.
+- What happened: a #1314 validation suite was relaunched as an "exact-tree"
+  run while unrelated uncommitted README content sat in the validation
+  worktree. The content was stashed and the run restarted after the
+  mismatch was caught.
+- Root cause: claim. Tree-exactness was asserted without checking the
+  worktree against the commit.
+- Prevented by: a tree-exact claim requires `git status` clean and
+  `git diff --quiet HEAD` on the validation worktree, quoted in the same
+  report. `git write-tree` on the actual worktree must equal the stated
+  tree hash.
+
+## 16. Three overlapping suite runs produced one unusable log
+
+- Class: wasted runs.
+- What happened: during #1314 diagnostics, retry launches left three rspec
+  processes writing interleaved to one log. The kill pattern
+  (`pkill -f "bundle exec rspec"`) never matched the real process name, so
+  nothing was killed. The log was discarded as evidence and the affected
+  old-base diagnostic full runs were declared dead; the prospective
+  combined tree made them unnecessary anyway.
+- Root cause: process. The kill was attempted with an assumed pattern
+  instead of the observed process name, and duplicate long runs were
+  started before the previous one's state was known.
+- Prevented by: one long run per lane at a time; before relaunching, list
+  matching processes (`pgrep -af`) and kill by verified pid/pgid. Before
+  any long run, state the expected result and the decision it drives; a run
+  whose evidence is discarded is reported as discarded, not silently
+  replaced.
+
+## 17. A conflicted `git am` silently committed only the resolved file
+
+- Class: near-miss (not an overstatement; the check caught it).
+- What happened: during the #1313 restack, a conflicted `git am` was
+  resolved by hand and committed only the manually resolved e2e file,
+  silently dropping the rest of the patch. The write-tree comparison caught
+  it mid-restack, before any PR, at the cost of redoing the staging.
+- Root cause: process. Conflict resolution bypassed the tree check that
+  clean applies get.
+- Prevented by: the write-tree check runs after every `git am` or rebase,
+  including conflicted ones: `git write-tree` must equal the stated target
+  tree before the result is reported, and the report quotes the command and
+  output. This entry stands as evidence the check is worth its cost.
+
+## 18. An overlap claim was drafted from a truncated diff
+
+- Class: near-miss (caught internally before it drove an action).
+- What happened: a file-overlap claim between two staged patches was
+  derived from a diff stat read through `tail`, which had cut off part of
+  the file list. The claim ("does not touch diagnostics.rb") was wrong and
+  was reversed after the full stat was read.
+- Root cause: claim. A file list was derived from truncated output.
+- Prevented by: file lists come from full `git diff --numstat` or
+  `--name-only` output. Never derive scope from a `tail` of a stat.
+
+## 19. A direct push put a lint-red script on main
+
+- Class: process gap (check missing on a review-waived route).
+- What happened: a harness slice pushed straight to main added
+  `script/claims-check` with 9 rubocop offenses (782 files checked). Main
+  was lint-red and every product PR's preflight blocked until a corrective
+  slice landed.
+- Root cause: process. The direct-to-main route had no local lint gate; a
+  maintainer waiver of PR review was treated as covering correctness too.
+- Prevented by: a direct push that adds or changes any Ruby file, script or
+  workflow requires `bundle exec rubocop` green on the exact post-apply
+  tree, pasted as raw output in the push report, re-executed independently
+  where a toolchain is available. The review waiver never waives checks.
+
+## 20. A capacity root cause was claimed, then withdrawn as unproven
+
+- Class: causal overstatement.
+- What happened: agent failures during #1318 recovery were attributed to
+  retry contention. The claim was later withdrawn: it was correlation, and
+  evidence from the same window argued against it.
+- Root cause: claim. A causal story was asserted from correlation.
+- Prevented by: causal claims about the environment are labeled as
+  hypotheses until reproduced, and the report names the observation and the
+  test that would confirm or refute it.
+
+## 21. Expected results were nearly reinterpreted to match the code
+
+- Class: near-miss (proposal overruled before it took effect).
+- What happened: when the acceptance prototype found the fx_gap expectation
+  (`gapKind: assertion_gap`) disagreed with the JSON the code emits, a
+  reinterpretation of the expected field was proposed. It was overruled:
+  expected results are the maintainer's, transcribed exactly; the mismatch
+  is reported as a discrepancy, not edited away.
+- Root cause: plan. The fixture was being adjusted to the code instead of
+  the code being measured against the maintainer's expectation.
+- Prevented by: the acceptance immutability rule in AGENTS.md (never edit
+  files under `acceptance/` or the expected results in them) and the
+  CI guard that fails any agent PR touching `acceptance/expected.yml`.
+
+## 22. Round over round, half-done fixes were accepted as done
+
+- Class: validation overstatement (systemic).
+- What happened: across the external review rounds, fixes were accepted
+  that were presentation-only or half the requested behavior (review #3's
+  C1 and D6; round-4 items P0, P1, P5 and P7 all traced to incomplete
+  earlier fixes, per the Oct 22 recap). The reviewer found them again the
+  next round.
+- Root cause: claim and acceptance. "Fixed" was accepted without an e2e
+  that demonstrates the claimed behavior.
+- Prevented by: the harness as a whole: `rake claims:check` (no claim
+  without an e2e reference), the acceptance suite, the negative-check rule
+  (a bug-fix e2e must fail on the parent commit), and the independent
+  reviewer whose report must show no open blocker before release.
+
+## 23. Mid-review environment losses forced repeated re-runs
+
+- Class: wasted work.
+- What happened: twice during the batch, a review sandbox was rebuilt
+  mid-work (worktrees, logs and in-flight runs lost). Completed checks had
+  to be re-derived and in-flight ones restarted.
+- Root cause: process. Work in progress lived only in scratch storage.
+- Prevented by: durable checkpoints before any long validation: every patch
+  is sent as an attachment, and gate state is reported with the exact
+  head/tree it covers, so a rebuilt environment resumes from the last
+  checkpoint instead of repeating the work.
+
+## 24. Reports carried placeholder or mistyped SHAs
+
+- Class: reporting integrity (recurring).
+- What happened: across Oct 19-23, at least seven reports had to be
+  re-issued because a SHA, tree hash or count was a literal shell
+  placeholder, a tree hash typed as a head, or a mis-added number (examples
+  on Oct 19 alone: a wrong v3 head, a placeholder rebase head, a tree sent
+  as a head; on Oct 23 a verdict carried a mistyped tree-hash prefix and a
+  shell placeholder). Each needed a correction message before the value
+  could be used.
+- Root cause: claim. Values were typed from memory or left as unexpanded
+  shell substitutions instead of being pasted from command output.
+- Prevented by: paste hashes and counts from the command output that
+  produced them; a report containing a placeholder is re-issued before
+  anyone acts on it. The mechanical-evidence rule covers the general case.
