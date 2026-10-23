@@ -11,8 +11,9 @@ RSpec.describe "coverage map cache wiring" do
   let(:action_steps) { action.fetch("runs").fetch("steps") }
   let(:action_cache) { action_steps.find { |step| step["name"] == "Restore the coverage map" } }
   let(:action_save) { action_steps.find { |step| step["name"] == "Save the coverage map" } }
-  let(:warm_steps) { ci.fetch("jobs").fetch("warm-map").fetch("steps") }
-  let(:warm_cache) { warm_steps.find { |step| step["uses"].to_s.start_with?("actions/cache@") } }
+  let(:dogfood_steps) { ci.fetch("jobs").fetch("dogfood").fetch("steps") }
+  let(:dogfood_restore) { dogfood_steps.find { |step| step["uses"].to_s.start_with?("actions/cache/restore@") } }
+  let(:dogfood_save) { dogfood_steps.find { |step| step["uses"].to_s.start_with?("actions/cache/save@") } }
 
   def paths(step)
     step.fetch("with").fetch("path").split("\n")
@@ -36,16 +37,23 @@ RSpec.describe "coverage map cache wiring" do
                                        ".saboteur/whole-suite-map-v2"])
   end
 
-  it "warms the map on main pushes with the action's key, and pins every action to a full SHA" do
-    expect(ci.fetch("jobs").fetch("warm-map").fetch("if")).to eq("github.event_name == 'push'")
-    expect(warm_cache.fetch("with").fetch("key")).to eq(action_cache.fetch("with").fetch("key"))
-    expect(warm_cache.fetch("with").fetch("restore-keys")).to eq(action_cache.fetch("with").fetch("restore-keys"))
-    expect(paths(warm_cache)).to eq(paths(action_cache))
-    expect(warm_steps.filter_map { |step| step["uses"] }).to all(match(/\A[^@]+@[0-9a-f]{40}\z/))
+  it "keeps the map fresh from the push/nightly dogfood with the action's key and paths" do
+    expect(ci.fetch("jobs").fetch("dogfood").fetch("if")).to eq("github.event_name != 'workflow_dispatch'")
+    expect(dogfood_restore.fetch("with").fetch("key")).to eq(action_cache.fetch("with").fetch("key"))
+    expect(dogfood_restore.fetch("with").fetch("restore-keys")).to eq(action_cache.fetch("with").fetch("restore-keys"))
+    expect(paths(dogfood_restore)).to eq(paths(action_cache))
+    expect(paths(dogfood_save)).to eq(paths(action_cache))
+    expect(dogfood_save.fetch("with").fetch("key")).to eq(action_cache.fetch("with").fetch("key"))
+    # Save after the run even when it failed: a survivors-red run still
+    # built a valid map.
+    expect(dogfood_save.fetch("if")).to eq("always()")
+    mutate = dogfood_steps.index { |step| step["name"] == "Mutate the changed methods" }
+    expect(dogfood_steps.index(dogfood_save)).to be > mutate
+    expect(dogfood_steps.filter_map { |step| step["uses"] }).to all(match(/\A[^@]+@[0-9a-f]{40}\z/))
   end
 
   it "checks out without persisting credentials" do
-    checkout = warm_steps.find { |step| step["uses"].to_s.start_with?("actions/checkout@") }
+    checkout = dogfood_steps.find { |step| step["uses"].to_s.start_with?("actions/checkout@") }
     expect(checkout.fetch("with").fetch("persist-credentials")).to be(false)
   end
 end
