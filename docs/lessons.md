@@ -331,3 +331,44 @@ review-to-checks loop in [agents/review-to-checks.md](agents/review-to-checks.md
   is loaded. A wrong-toolchain run is closed only for the failure that was
   causally reproduced wrong-vs-right on the same head; its other results
   are not automatically carried as final gate evidence.
+
+## 26. A sorted tail was read as the whole tag list
+
+- Class: validation overstatement.
+- What happened: while fixing the claims checker, the tag list was read
+  through `git tag --list 'v*' | tail -3`. Lexical ordering ends with
+  v0.8.0, v0.8.1, v0.9.0 ("0.10" sorts before "0.8"), so the sample looked
+  like the whole set and became the claim that released versions past
+  v0.9.0 were untagged upstream, with a tag backfill proposed. A live
+  `git ls-remote --tags` showed all 18 release tags (v0.1.0 through
+  v0.12.3) present, each an ancestor of main and matching a GitHub
+  release; the author retracted (`sort -V | tail -4` shows v0.12.0 through
+  v0.12.3). A related number, "344 checker failures", came from a stale
+  local tree (a pre-0.12.3-release CHANGELOG) with no tags fetched; on
+  current main the fixed checker reports 15 failures (14 README bullets
+  plus the historical 0.0.1 skeleton bullet). No tag was written.
+- Root cause: claim. The extent of a versioned set was derived from the
+  tail of a lexically sorted list, and a stale working tree was treated as
+  current main.
+- Prevented by: never read a sorted tail as the extent of a versioned set;
+  use `sort -V` and count the full list. Claims about remote state need a
+  live `git ls-remote` (or API) quoted in the same report. Diagnostic runs
+  state the exact tree they ran on: "current main" means a fresh fetch and
+  a quoted `git rev-parse`.
+
+## 27. A shipped checker's second input path was dead code
+
+- Class: validation overstatement.
+- What happened: the claims checker shipped in the first harness slice
+  called `.each_line` on the CHANGELOG's path string instead of reading
+  the file, so the CHANGELOG half of the check always returned no sections
+  and never ran. The slice's verification ("passes on a clean tree, fails
+  on the current README") exercised the README path only, so the dead path
+  shipped. It was found when a spec for the CHANGELOG path failed for the
+  wrong reason (expected one checker failure, got zero).
+- Root cause: test. The checker landed without a failing-then-passing
+  spec for each of its input paths, and the verification claim did not
+  name which inputs were exercised.
+- Prevented by: every check lands with a spec per input path that fails
+  when the check is disabled and passes when it runs (a negative check for
+  the checker itself). Verification claims name each input exercised.
