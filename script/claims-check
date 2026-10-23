@@ -1,0 +1,121 @@
+#!/usr/bin/env ruby
+# SPDX-License-Identifier: MIT
+# frozen_string_literal: true
+
+require "open3"
+
+# Claims check (AGENTS.md, "Evidence rules"): every CHANGELOG entry under the
+# unreleased/next version and every README bullet in "Highlights" or
+# "Know the limits" must end with the e2e spec that demonstrates it, as
+# `(e2e: spec/e2e/<file>.rb)`. The referenced spec must exist and contain at
+# least one example. CHANGELOG sections for tagged releases are exempt.
+
+module ClaimsCheck
+  E2E_REF = /\(e2e:\s*(spec\/e2e\/[A-Za-z0-9_\-\.]+\.rb)\)/.freeze
+  VERSION_HEADING = /^## \[(?<name>[^\]]+)\]/.freeze
+  SECTION_HEADING = /^## /.freeze
+  BULLET = /^- /.freeze
+  EXAMPLE = /^\s*(it|specify|example|scenario)\s/.freeze
+  README_SECTIONS = ["## Highlights", "## Know the limits"].freeze
+  # A claim is a top-level bullet under a checked section, or any of its
+  # continuation lines (a wrapped bullet carries its reference anywhere in
+  # the bullet's line block).
+  Claim = Struct.new(:file, :line, :text, :refs, keyword_init: true)
+
+  module_function
+
+  # Returns the names of CHANGELOG sections that are not released yet:
+  # [Unreleased] plus any versioned section with no matching git tag.
+  def unreleased_sections(changelog, tagged_versions)
+    sections = []
+    changelog.each_line do |line|
+      match = VERSION_HEADING.match(line)
+      next unless match
+
+      name = match[:name]
+      sections << name if name == "Unreleased" || !tagged_versions.include?(name)
+    end
+    sections
+  end
+
+  # Top-level bullets under the named `## ` sections, with continuation
+  # lines folded in. Returns [Claim] with raw refs collected.
+  def claims_in(path, sections, every_section: false)
+    lines = File.readlines(path, encoding: "UTF-8")
+    claims = []
+    current = nil
+    checked = false
+    lines.each_with_index do |line, index|
+      if (heading = SECTION_HEADING.match(line))
+        name = every_section ? VERSION_HEADING.match(line)&.[](:name) : line.chomp
+        checked = sections.include?(name)
+        current = nil
+        next
+      end
+      next unless checked
+
+      if BULLET.match?(line)
+        current = Claim.new(file: path, line: index + 1, text: line.dup, refs: line.scan(E2E_REF).flatten)
+        claims << current
+      elsif current && line.strip != ""
+        current.text << line
+        current.refs.concat(line.scan(E2E_REF).flatten)
+      end
+    end
+    claims
+  end
+
+  def tagged_versions(root)
+    out, = Open3.capture2("git", "-C", root, "tag", "--list", "v*")
+    out.lines.map { |tag| tag.strip.sub(/\Av/, "") }
+  rescue SystemCallError
+    [] # no git: only [Unreleased] is checked
+  end
+
+  def spec_has_example?(root, relative)
+    path = File.join(root, relative)
+    return :missing unless File.file?(path)
+
+    File.foreach(path, encoding: "UTF-8").any? { |line| EXAMPLE.match?(line) } ? :ok : :no_example
+  end
+
+  # Returns a list of failure strings; empty means pass.
+  def run(root)
+    failures = []
+    changelog = File.join(root, "CHANGELOG.md")
+    unreleased = unreleased_sections(changelog, tagged_versions(root))
+    readme = File.join(root, "README.md")
+
+    claims = claims_in(changelog, unreleased, every_section: true) +
+             claims_in(readme, README_SECTIONS)
+
+    claims.each do |claim|
+      if claim.refs.empty?
+        failures << "#{claim.file}:#{claim.line}: claim lacks an (e2e: spec/e2e/<file>.rb) reference: " \
+                    "#{claim.text.lines.first.to_s.strip[0, 100]}"
+        next
+      end
+      claim.refs.each do |ref|
+        case spec_has_example?(root, ref)
+        when :missing
+          failures << "#{claim.file}:#{claim.line}: referenced spec does not exist: #{ref}"
+        when :no_example
+          failures << "#{claim.file}:#{claim.line}: referenced spec has no example: #{ref}"
+        end
+      end
+    end
+    failures
+  end
+end
+
+if __FILE__ == $PROGRAM_NAME
+  root = File.expand_path("..", __dir__)
+  failures = ClaimsCheck.run(root)
+  if failures.empty?
+    puts "claims:check: every unreleased CHANGELOG entry and README claim carries a live (e2e: ...) reference"
+    exit 0
+  end
+  failures.each { |failure| warn failure }
+  warn "claims:check: #{failures.size} failure(s) - see AGENTS.md, \"Evidence rules\""
+  exit 1
+end

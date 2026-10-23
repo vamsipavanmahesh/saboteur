@@ -1,0 +1,11 @@
+# The acceptance harness and its enforcement machinery are maintainer-owned.
+# Agents must not edit these paths (see AGENTS.md, "Evidence rules").
+# Note for the maintainer: this file routes review; requiring code-owner
+# review is a ruleset setting (see acceptance/README.md, "Enforcement").
+acceptance/ @vamsipavanmahesh
+.github/CODEOWNERS @vamsipavanmahesh
+.github/workflows/acceptance-guard.yml @vamsipavanmahesh
+rakelib/acceptance.rake @vamsipavanmahesh
+rakelib/claims.rake @vamsipavanmahesh
+rakelib/release.rake @vamsipavanmahesh
+script/claims-check @vamsipavanmahesh
