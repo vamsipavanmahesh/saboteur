@@ -290,10 +290,10 @@ jobs:
           BASE_SHA: ${{ steps.base.outputs.sha }}
         run: |
           if git diff --quiet "$BASE_SHA" HEAD -- "lib/*.rb"; then
-            echo "::notice::dogfood: no changed file lies inside the include scope (config-only diff); nothing to mutate, no-op green"
+            echo "::notice::dogfood: no mutation measured - no changed file lies inside the include scope (config-only diff); green reports no mutation score"
             echo "empty=true" >> "$GITHUB_OUTPUT"
           elif [ -z "$(git diff --name-only "$BASE_SHA" HEAD -- "lib/*.rb" | grep -vx 'lib/saboteur/version.rb')" ]; then
-            echo "::notice::dogfood: only lib/saboteur/version.rb changed and config/saboteur.rb excludes it from mutation; nothing to mutate, no-op green"
+            echo "::notice::dogfood: no mutation measured - only lib/saboteur/version.rb changed and config/saboteur.rb excludes it; green reports no mutation score"
             echo "empty=true" >> "$GITHUB_OUTPUT"
           fi
       # Direct CLI run, not the action: the action is pull request shaped.
