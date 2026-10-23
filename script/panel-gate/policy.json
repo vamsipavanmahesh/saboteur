@@ -73,5 +73,19 @@
       "Ruby 4.0 / linux / shard 3",
       "Ruby 4.0 / linux / shard 4"
     ]
+  },
+  "conditionalJobs": {
+    ".github/workflows/ci.yml": {
+      "ignore-audit": {
+        "pull_request": ["skipped", "absent"],
+        "workflow_dispatch": ["success"],
+        "push": ["skipped", "absent"]
+      },
+      "warm-map": {
+        "pull_request": ["skipped", "absent"],
+        "workflow_dispatch": ["skipped", "absent"],
+        "push": ["success", "absent"]
+      }
+    }
   }
 }
