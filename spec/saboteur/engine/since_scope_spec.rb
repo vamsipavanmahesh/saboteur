@@ -540,6 +540,21 @@ RSpec.describe Saboteur::Engine, "test selection" do
                                                 custom_map: an_instance_of(Saboteur::CustomMap))
     end
 
+    # P5 (#1316): under --quiet the two-line inference notice stays off
+    # stderr; it remains a report warning for machine consumers.
+    it "hides the inferred-specs notice under --quiet, keeping it as a report warning" do
+      write_subject_project
+      guess(specs: ["spec/people_spec.rb"], unmatched: [], changed: 1)
+      stub_boot_phase
+      stub_test_phases
+      @engine = described_class.new(Saboteur::Config.new({ "jobs" => 2, "subjects" => ["Person#adult?"] },
+                                                         root: @root),
+                                    err: err, quiet: true)
+      @report = @engine.call
+      expect(err.string).not_to include("inferred specs")
+      expect(@report.warnings).to include(a_string_starting_with("inferred specs: running only spec/people_spec.rb"))
+    end
+
     it "names the spec files the diff deleted in a --subject run (#307)" do
       write_subject_project
       guess(specs: %w[spec/people_spec.rb], unmatched: [], changed: 1,

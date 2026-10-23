@@ -184,7 +184,7 @@ module Saboteur
       # empty guess must never read as "run the whole suite" (#369).
       return if guess.specs.empty?
 
-      @diagnostics.announce(scope_to_guesses(guess))
+      @diagnostics.announce_unless_quiet(scope_to_guesses(guess))
     end
 
     # The run's immutable report, built once the last result is in.

@@ -73,8 +73,15 @@ Names follow Uncle Bob's Clean Code conventions:
   SABOTEUR_EXTERNAL_CHILD set) spec_helper skips the gate; the parent run
   checks the environment before spawning them. Probing tools by hand is
   not a substitute.
-- Run the fast checks first and the full suite once per tree. Do not start
-  a second full run to answer a question a targeted check can answer.
+- Locally run only `bin/check-env`, the specs for the files changed, and
+  `rake acceptance:fast`. The full unit and e2e suites run in CI (minutes
+  there, hours here). Run a full local suite only to diagnose something CI
+  cannot answer, and say why first.
+- Diagnose with the smallest run that answers the question: one spec file
+  or one example, never the whole e2e suite.
+- Batch commits so the pull request head does not move while its CI runs.
+- Stop processes by PID only, never by name pattern. One run per log file,
+  named with the timestamp and the command.
 - Start a long run in the background with a captured log, and never
   interrupt one. A partial log is not a result; the run does not count.
 - Report status as a stage - code ready / tests passing locally / CI green
@@ -96,7 +103,18 @@ Names follow Uncle Bob's Clean Code conventions:
 - A pull request opens with the first push. Open it as a draft while the work is in progress. No branch sits on origin without a pull request.
 - Adversarial panel reviewers analyze the open pull request in parallel. Each reviewer posts their review as a comment on it as soon as their analysis is done, independently of the others.
 - The author starts resolving each comment as soon as it is posted, without waiting for the rest of the panel. Fixes land as new commits, then the panel re-reviews.
-- Merge only when the panel and the author agree and CI is green.
+- Merge only when the review is resolved and the required checks are green.
+- The single required CI check is `ci-passed` (see ci.yml): it needs every
+  other job in the workflow and fails when any of them failed or was
+  cancelled, so adding a job can never strand a merge on a stale required
+  list.
+- `.github/`, `bin/` and the panel-gate scripts go through a pull request;
+  they never push straight to `main`. Other harness docs may still go to
+  `main` under the docs exception below.
+- Changes under `acceptance/`, `.github/workflows/`, `script/panel-gate/`
+  and `bin/check-env` merge only with the owner's approval on the exact
+  head. Everything else merges on a green `ci-passed` alone (its `dco` job
+  carries the sign-off check).
 - Exception: a docs-only change (Markdown files and `docs/` only, no code, specs, scripts or workflows) may be pushed straight to `main` without a pull request, CI or panel once an independent reviewer has approved the exact diff. It still carries the DCO sign-off.
 
 ## Preflight

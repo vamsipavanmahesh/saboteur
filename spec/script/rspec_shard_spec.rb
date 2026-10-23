@@ -5,8 +5,10 @@ require "fileutils"
 require "open3"
 require "tmpdir"
 
-# Drives script/rspec-shard in a throwaway git repo with fake spec files and
-# a stub `bundle` that prints its arguments, so no real rspec run happens.
+# Drives script/rspec-shard in a throwaway git repo with fake spec files, a
+# stub `bundle` that prints its arguments (so no real rspec run happens) and
+# a silent stub environment gate (these examples test shard selection, not
+# the gate; bin/check-env has its own specs under spec/bin).
 RSpec.describe "script/rspec-shard" do
   let(:source) { File.expand_path("../../script/rspec-shard", __dir__) }
   let(:repo) { Dir.mktmpdir("rspec-shard") }
@@ -35,6 +37,9 @@ RSpec.describe "script/rspec-shard" do
   def build_repo(weights: nil, spec_files: files)
     write_file("script/rspec-shard", File.read(source), mode: 0o755)
     write_file("script/rspec-shard-weights.txt", weights) if weights
+    # The script fail-fasts through the gate next to its repository root;
+    # the fixture stubs it silent-green so the examples exercise sharding.
+    write_file("bin/check-env", "exit 0\n", mode: 0o755)
     write_file("bin/bundle", "#!/usr/bin/env bash\nprintf '%s\\n' \"$@\"\n", mode: 0o755)
     (spec_files + ["spec/fixtures/app/skipped_spec.rb"]).each { |file| write_file(file) }
     git("init", "-q")
@@ -165,6 +170,18 @@ RSpec.describe "script/rspec-shard" do
     build_repo(weights: all_weights(files.first(6)))
 
     expect(picked_by_shard(3)).to eq(picked_by_shard(3))
+  end
+
+  it "stops before sharding when the environment gate is red" do
+    build_repo
+    write_file("bin/check-env", "warn \"check-env: FAIL stub gate\"\nexit 1\n", mode: 0o755)
+
+    out, err, status = Open3.capture3(clean_env("PATH" => "#{repo}/bin:#{ENV.fetch('PATH')}"),
+                                      File.join(repo, "script", "rspec-shard"), "1", "3", chdir: repo)
+
+    expect(status).not_to be_success
+    expect(err).to include("check-env: FAIL stub gate")
+    expect(out).not_to include("shard 1/3")
   end
 
   it "lets a later weights line win for the same path" do

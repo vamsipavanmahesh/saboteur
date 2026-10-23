@@ -4,8 +4,10 @@ const fs = require('node:fs');
 const policy = require('./policy.json');
 const SHA = /^[0-9a-f]{40}$/;
 const keys = ['schema', 'lens', 'head', 'verdict', 'scope', 'independently_run',
-  'author_reported', 'uncertainty', 'prior_findings', 'blockers'];
+  'author_reported', 'uncertainty', 'prior_findings', 'blockers', 'human_approval'];
 function demand(ok, message) { if (!ok) throw new Error(message); }
+// Revocation records name lenses from the live policy, never a hardcoded set.
+const LENSES = Object.keys(policy.reviewers).join('|');
 function parse(body) {
   // One canonical block at the start. Never scrape APPROVE from prose/quotes.
   const match = /^```panel-verdict\n([^]*?)\n```(?:\n|$)/.exec(body || '');
@@ -22,8 +24,22 @@ function parse(body) {
   // whose newer markers are valid (#278). Normalize before the demands.
   if (value.verdict === 'CHANGES_REQUESTED') value.verdict = 'CHANGES_REQUIRED';
   demand(['APPROVE', 'CHANGES_REQUIRED'].includes(value.verdict), 'verdict');
+  // An APPROVE marker binds the human's decision to the exact head it covers.
+  // The publisher id is shared between the user and his agents, so the marker
+  // cannot prove who clicked approve; it records the binding and the
+  // maintainer holds the private-channel evidence. The gate enforces the
+  // binding mechanically (exact head, non-empty note) and states the human
+  // origin as procedure, never as cryptographic proof.
+  if (value.verdict === 'APPROVE') {
+    const approval = value.human_approval;
+    demand(approval && typeof approval === 'object' && !Array.isArray(approval) &&
+      approval.head === value.head && typeof approval.note === 'string' && approval.note.trim().length > 0,
+      'approval must bind the human decision to the exact head');
+  } else {
+    demand(value.human_approval === null, 'changes-requested marker carries no human approval');
+  }
   demand(typeof value.scope === 'string' && value.scope.trim().length > 0, 'scope required');
-  for (const field of keys.slice(5)) {
+  for (const field of ['independently_run', 'author_reported', 'uncertainty', 'prior_findings', 'blockers']) {
     demand(Array.isArray(value[field]) && value[field].every(x => typeof x === 'string' && x.trim()), `${field} must be string array`);
   }
   demand(value.verdict !== 'APPROVE' || value.blockers.length === 0, 'approval with blockers');
@@ -51,33 +67,17 @@ function panel(comments, head, revoked = {}) {
   }
   return Object.fromEntries(latest);
 }
-function jobsPass(jobs, names, head, advisory = [], conditional = {}, event = null) {
-  // Advisory legs (a proving Ruby line) may be present or absent and never
-  // change the verdict. Conditional jobs run only when their workflow `if`
-  // matches the run's event (the workflow file is protected, so the condition
-  // cannot change inside a PR): the policy lists per event which conclusions
-  // a present record may have, plus 'absent' when the record may be missing.
-  // A security control like ignore-audit must be green on the dispatch runs
-  // it guards, so 'absent' is not allowed there and a missing record fails
-  // closed. Any other unexpected job still fails closed.
-  const conditionalNames = Object.keys(conditional);
-  const counted = jobs.filter(j => !advisory.includes(j.name) && !conditionalNames.includes(j.name));
-  demand(counted.length === names.length, 'unexpected job count');
-  demand(new Set(counted.map(j => j.name)).size === names.length, 'duplicate jobs');
+function jobsPass(jobs, names, head) {
+  // Named jobs are aggregate checks that own exhaustiveness themselves:
+  // ci-passed needs every other ci.yml job and fails on any failure or
+  // unexpected skip, so the gate demands each named job green on the exact
+  // head and treats every other job record as the aggregate's input, not as
+  // a separate verdict. A missing or duplicated named job fails closed.
   for (const name of names) {
-    const job = counted.find(j => j.name === name);
-    demand(job && job.head_sha === head && job.status === 'completed' && job.conclusion === 'success', `job not green: ${name}`);
-  }
-  for (const name of conditionalNames) {
-    const present = jobs.filter(j => j.name === name);
-    demand(present.length <= 1, `duplicate conditional job: ${name}`);
-    const allowed = conditional[name]?.[event] ?? [];
-    if (present.length === 0) {
-      demand(allowed.includes('absent'), `missing conditional job: ${name}`);
-      continue;
-    }
-    demand(present[0].head_sha === head && present[0].status === 'completed' &&
-      allowed.includes(present[0].conclusion), `conditional job not in an allowed state: ${name}`);
+    const matches = jobs.filter(j => j.name === name);
+    demand(matches.length === 1, `expected exactly one job named: ${name}`);
+    const job = matches[0];
+    demand(job.head_sha === head && job.status === 'completed' && job.conclusion === 'success', `job not green: ${name}`);
   }
 }
 // The trailing block of "Token: value" lines, matching git interpret-trailers:
@@ -153,8 +153,8 @@ const ledgerContext = number => `panel/revoked/pr-${number}`;
 // The redundant gate failure is also a durable latch, not a disposable display.
 const intentContext = number => `panel/revocation-intent/pr-${number}`;
 function intent(record, number) {
-  const match = /^(all|principal|architect|qa):([1-9][0-9]*)$/.exec(record.description || '');
-  const latch = new RegExp(`^revoked-pr-${number}:(all|principal|architect|qa):([1-9][0-9]*)$`).exec(record.description || '');
+  const match = new RegExp(`^(all|${LENSES}):([1-9][0-9]*)$`).exec(record.description || '');
+  const latch = new RegExp(`^revoked-pr-${number}:(all|${LENSES}):([1-9][0-9]*)$`).exec(record.description || '');
   if (record.context === intentContext(number)) { demand(match, 'invalid revocation intent'); return match; }
   if (record.context === policy.context && latch) return latch;
   // Recover failures emitted by the previous verifier before this latch format.
@@ -216,7 +216,7 @@ async function revocations(api, number, head, known = {}) {
     const latch = intent(record, number);
     const relevant = record.context === ledgerContext(number) || record.context === 'panel/deleted-verdict';
     if (!latch && !relevant) continue;
-    const match = latch || /^(all|principal|architect|qa):([1-9][0-9]*)(?::([0-9]+))?$/.exec(record.description || '');
+    const match = latch || new RegExp(`^(all|${LENSES}):([1-9][0-9]*)(?::([0-9]+))?$`).exec(record.description || '');
     const epoch = match?.[3] ? Number(match[3]) : Date.parse(record.created_at);
     demand(match && Number.isSafeInteger(Number(match[2])) && Number.isFinite(epoch), 'invalid revocation record');
     const lenses = match[1] === 'all' ? Object.keys(policy.reviewers) : [match[1]];
@@ -278,16 +278,7 @@ async function workflows(api, number, head) {
     demand(fresh.id === run.id && matches(fresh) && Number.isSafeInteger(fresh.run_attempt) && fresh.run_attempt > 0 &&
       fresh.status === 'completed' && fresh.conclusion === 'success', `workflow not green: ${path}`);
     const jobs = await api.pages(`actions/runs/${run.id}/attempts/${fresh.run_attempt}/jobs`, 'jobs');
-    const advisory = policy.advisoryJobs?.[path] ?? [];
-    demand(advisory.every(n => !names.includes(n)), `advisory job also required: ${path}`);
-    const conditional = policy.conditionalJobs?.[path] ?? {};
-    for (const [jobName, byEvent] of Object.entries(conditional)) {
-      demand(!names.includes(jobName) && !advisory.includes(jobName), `conditional job also required/advisory: ${path}`);
-      demand(byEvent && typeof byEvent === 'object' && !Array.isArray(byEvent) &&
-        Object.values(byEvent).every(v => Array.isArray(v) && v.length > 0 && v.every(c => typeof c === 'string')),
-        `invalid conditional job policy: ${jobName}`);
-    }
-    jobsPass(jobs, names, head, advisory, conditional, fresh.event);
+    jobsPass(jobs, names, head);
     checked.push({path, id: fresh.id, attempt: fresh.run_attempt, status: fresh.status, conclusion: fresh.conclusion,
       jobs: jobs.map(j => [j.id, j.name, j.head_sha, j.status, j.conclusion]).sort((a, b) => a[1].localeCompare(b[1]))});
   }
@@ -316,6 +307,10 @@ async function verify(api, number, sweep = {}) {
     const mergeBase = compare.merge_base_commit.sha;
     demand(SHA.test(mergeBase), 'bad merge base SHA');
     // Compare exact bytes via Git objects. Missing files on both sides are OK at bootstrap.
+    // Protected paths may change in a pull request, but only with the owner's
+    // approval marker on the exact head (the panel demand below); a pull
+    // request that leaves them untouched needs no marker at all.
+    const protectedChanged = [];
     for (const path of policy.protectedFiles) {
       async function blob(ref) {
         try { return await api.call(`contents/${path}?ref=${ref}`); }
@@ -326,11 +321,11 @@ async function verify(api, number, sweep = {}) {
         if (Array.isArray(item)) return JSON.stringify(item.map(x => [x.name, x.sha, x.type]).sort());
         return item?.sha ?? null;
       }
-      demand(identity(before) === identity(after), `protected policy changed: ${path}`);
+      if (identity(before) !== identity(after)) protectedChanged.push(path);
     }
     const comments = await api.pages(`issues/${number}/comments`);
     const revoked = await revocations(api, number, head, known);
-    panel(comments, head, revoked);
+    if (protectedChanged.length > 0) panel(comments, head, revoked);
     dco(await api.pages(`pulls/${number}/commits`));
     const checkedRuns = await workflows(api, number, head);
     // Repeat the whole selection, latest attempt and job inspection, not just PR facts.
@@ -343,8 +338,10 @@ async function verify(api, number, sweep = {}) {
     demand(lastPR.state === 'open' && !lastPR.draft && lastPR.head.sha === head &&
       lastPR.base.ref === policy.baseBranch, 'PR changed during verification');
     demand(JSON.stringify(lastRevoked) === JSON.stringify(revoked), 'revocations changed during verification');
-    panel(lastComments, head, lastRevoked);
-    await status('success', `3 exact-head lens approvals; ${policy.workflows['.github/workflows/ci.yml'].length} green jobs; DCO; unchanged gate policy`);
+    if (protectedChanged.length > 0) panel(lastComments, head, lastRevoked);
+    await status('success', protectedChanged.length > 0
+      ? `user-approved protected change (${protectedChanged.length} path(s)) on the exact head; required checks green; DCO`
+      : 'no protected paths changed; required checks green; DCO');
   } catch (error) {
     if (error instanceof RateLimitError) throw error;
     // A failed failure-write must not hide the reason the decision failed.

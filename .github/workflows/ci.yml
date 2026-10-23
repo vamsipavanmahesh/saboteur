@@ -12,8 +12,8 @@ on:
       - '*.md'
       - 'docs/**'
       - 'assets/**'
-  # PR CI is manual: the matrix does not run on pull_request events (the DCO
-  # workflow in dco.yml still does). A maintainer runs it against the exact
+  # PR CI is manual: the matrix does not run on pull_request events. A
+  # maintainer runs it against the exact
   # PR head with
   #   gh workflow run ci.yml --ref <head-branch> -f pr_number=<n> -f base_sha=<base-sha>
   # --ref must be a branch or tag name (the dispatch API rejects a raw SHA),
@@ -61,16 +61,12 @@ jobs:
     # 1 vCPU is enough: one rspec process is single-threaded.
     runs-on: nscloud-ubuntu-24.04-amd64-1x2
     timeout-minutes: 15
-    # Job level, not strategy level (#402 put it under strategy:, which is
-    # invalid there): a red 4.0 leg cannot fail the run's conclusion while
-    # the line proves itself; the gate's advisoryJobs does the verdict side.
-    continue-on-error: ${{ matrix.ruby == '4.0' }}
     strategy:
       fail-fast: false
       matrix:
         # "4.0" pins the proving 4.0 line (today 4.0.7) so coverage does not
-        # end when "ruby" floats to 4.1; the panel gate treats these legs as
-        # advisory (policy.json advisoryJobs), so they never block a merge.
+        # end when "ruby" floats to 4.1. The leg is blocking: ci-passed fails
+        # when any needed job fails, so a red 4.0 blocks a merge.
         ruby: ["3.3", "3.4", "4.0", "ruby"] # "ruby" = latest stable
         # The full suite runs as 4 round-robin file shards per Ruby leg so
         # each parallel job stays short instead of one long leg per version.
@@ -389,3 +385,64 @@ jobs:
         run: |
           git worktree add --detach "$RUNNER_TEMP/ignore-audit-base" "$BASE_SHA"
           bundle exec ruby "$RUNNER_TEMP/ignore-audit-base/script/ignore-audit" "$BASE_SHA"
+
+  # The single required check for this workflow: it needs every other job and
+  # fails when any of them failed or was cancelled. Branch protection and the
+  # The DCO sign-off check lives here so ci-passed covers it: one required
+  # check, no separate workflow verdict. Dispatches are pull request runs,
+  # so the job checks base_sha..github.sha like the old dco.yml did; on main
+  # pushes it skips (each commit was checked when its pull request merged)
+  # and the aggregator allows exactly that skip.
+  dco:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: nscloud-ubuntu-24.04-amd64-1x2
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - name: Check Signed-off-by on every commit
+        env:
+          BASE: ${{ inputs.base_sha }}
+          HEAD: ${{ github.sha }}
+        run: script/check-dco "$BASE" "$HEAD"
+
+  # panel gate wait on this one name instead of a fixed job list, so adding
+  # or renaming a job can never strand a merge; spec/ci_workflow_spec.rb
+  # asserts the needs list always covers every job in this file.
+  ci-passed:
+    name: ci-passed
+    if: always()
+    needs: [test, test-macos, locale, lint, integration-gems, dogfood, warm-map, ignore-audit, dco]
+    runs-on: nscloud-ubuntu-24.04-amd64-1x2
+    timeout-minutes: 5
+    steps:
+      - name: Fail when any needed job failed, was cancelled, or skipped unexpectedly
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+          EVENT: ${{ github.event_name }}
+          HEAD_REPO: ${{ inputs.head_repo || '' }}
+          REPO: ${{ github.repository }}
+        run: |
+          node -e '
+            const needs = JSON.parse(process.env.NEEDS);
+            const event = process.env.EVENT, headRepo = process.env.HEAD_REPO, repo = process.env.REPO;
+            // A job may skip only when its own `if` legitimately excludes
+            // this event; any other skip fails closed, so a typo in a job
+            // condition cannot silently drop a leg from the gate.
+            const allowedSkip = {
+              "warm-map": event !== "push",
+              "dogfood": event !== "workflow_dispatch",
+              "ignore-audit": event !== "workflow_dispatch",
+              "test-macos": !(event === "push" || (event === "workflow_dispatch" && headRepo === repo)),
+              "dco": event === "push"
+            };
+            const bad = [];
+            for (const [name, data] of Object.entries(needs)) {
+              console.log(`${name}: ${data.result}`);
+              if (["failure", "cancelled"].includes(data.result)) bad.push(`${name}: ${data.result}`);
+              else if (data.result === "skipped" && !allowedSkip[name]) bad.push(`${name}: unexpected skip`);
+            }
+            if (bad.length) { console.error(`ci-passed: ${bad.join("; ")}`); process.exit(1); }
+            console.log(`ci-passed: ${Object.keys(needs).length} needed jobs green or conditionally skipped`);
+          '

@@ -261,6 +261,14 @@ module Saboteur
         @live_announced << safe
       end
 
+      # An announcement the --quiet contract (findings, score and verdict)
+      # keeps off stderr (#1316). It stays a live-announced report warning,
+      # so JSON, HTML and agent consumers still see it and the terminal
+      # does not reprint it at the end of the run.
+      def announce_unless_quiet(message)
+        @quiet ? announce_demoted(message) : announce(message)
+      end
+
       # A heartbeat for a long phase: the supervisor's wait loop calls tick
       # in the parent after the fork, so no extra thread is ever alive at
       # fork time. Prints "<label>: N s elapsed" about every interval

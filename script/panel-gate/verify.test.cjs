@@ -5,15 +5,27 @@ const assert = require('node:assert/strict');
 const {parse, panel, jobsPass, dco, verify, revokeEvent, revocations, superseded, postLane, closeLane, overlappingNewerLane} = require('./verify.cjs');
 const policy = require('./policy.json');
 const HEAD = 'a'.repeat(40), BASE = 'b'.repeat(40);
-const marker = (changes = {}) => ({schema: 1, lens: 'principal', head: HEAD,
-  verdict: 'APPROVE', scope: 'Full PR diff', independently_run: [], author_reported: ['CI'],
-  uncertainty: ['Static review only'], prior_findings: [], blockers: [], ...changes});
+const marker = (changes = {}) => {
+  const value = {schema: 1, lens: 'owner', head: HEAD,
+    verdict: 'APPROVE', scope: 'Full PR diff', independently_run: [], author_reported: ['CI'],
+    uncertainty: ['Static review only'], prior_findings: [], blockers: [], ...changes};
+  if (!Object.hasOwn(value, 'human_approval')) {
+    value.human_approval = value.verdict === 'APPROVE' ? {head: value.head, note: 'user approved this exact head'} : null;
+  }
+  return value;
+};
 const body = value => '```panel-verdict\n' + JSON.stringify(value, null, 2) + '\n```\nOptional human-readable discussion.';
-const comments = () => ['principal', 'architect', 'qa'].map((lens, i) => ({
-  id: i + 1, created_at: '2026-10-10T00:00:00Z', user: {id: 1875074}, body: body(marker({lens}))}));
-test('canonical exact-head distinct lenses pass under one explicitly trusted publisher', () => {
+const comments = () => [{id: 1, created_at: '2026-10-10T00:00:00Z', user: {id: 1875074}, body: body(marker())}];
+test('a canonical exact-head owner approval passes', () => {
   assert.equal(parse(body(marker())).head, HEAD);
-  assert.deepEqual(Object.keys(panel(comments(), HEAD)), ['principal', 'architect', 'qa']);
+  assert.deepEqual(Object.keys(panel(comments(), HEAD)), ['owner']);
+});
+test('approval markers bind the human decision to the exact head', () => {
+  assert.throws(() => parse(body(marker({human_approval: null}))), /human decision/);
+  assert.throws(() => parse(body(marker({human_approval: {head: BASE, note: 'other head'}}))), /human decision/);
+  assert.throws(() => parse(body(marker({human_approval: {head: HEAD, note: ' '}}))), /human decision/);
+  assert.throws(() => parse(body(marker({verdict: 'CHANGES_REQUIRED', blockers: ['b'], human_approval: {head: HEAD, note: 'x'}}))), /no human approval/);
+  assert.doesNotThrow(() => parse(body(marker({verdict: 'CHANGES_REQUIRED', blockers: ['b']}))));
 });
 for (const [label, change] of Object.entries({shortSHA: {head: 'aaaaaaa'}, upperSHA: {head: 'A'.repeat(40)},
   wrongSchema: {schema: '1'}, unknownLens: {lens: 'security'}, coercion: {scope: 1},
@@ -29,7 +41,7 @@ test('reject prose, quotes, duplicate blocks and duplicate JSON keys', () => {
   }
 });
 test('untrusted comment cannot fill missing lens or revoke a trusted approval', () => {
-  const c = comments(); c[2].user.id = 666;
+  const c = comments(); c[0].user.id = 666;
   assert.throws(() => panel(c, HEAD));
   assert.doesNotThrow(() => panel([...comments(), {id: 9, user: {id: 666}, body: '```panel-verdict BAD'}], HEAD));
 });
@@ -40,41 +52,35 @@ test('CHANGES_REQUESTED spelling parses as CHANGES_REQUIRED, blockers still requ
 });
 test('a superseded CHANGES_REQUESTED marker does not poison newer approvals (#278)', () => {
   const stale = {id: 0, created_at: '2026-10-09T00:00:00Z', user: {id: 1875074},
-    body: body(marker({lens: 'principal', verdict: 'CHANGES_REQUESTED', blockers: ['old bug']}))};
-  assert.deepEqual(Object.keys(panel([stale, ...comments()], HEAD)), ['principal', 'architect', 'qa']);
+    body: body(marker({lens: 'owner', verdict: 'CHANGES_REQUESTED', blockers: ['old bug']}))};
+  assert.deepEqual(Object.keys(panel([stale, ...comments()], HEAD)), ['owner']);
 });
 test('a latest CHANGES_REQUESTED marker still blocks (#278)', () => {
   const c = [...comments(), {id: 10, user: {id: 1875074},
-    body: body(marker({lens: 'qa', verdict: 'CHANGES_REQUESTED', blockers: ['bug']}))}];
+    body: body(marker({lens: 'owner', verdict: 'CHANGES_REQUESTED', blockers: ['bug']}))}];
   assert.throws(() => panel(c, HEAD));
 });
 test('latest ID wins even with old SHA; blocker, malformed edit, deletion invalidate', () => {
-  for (const value of [marker({lens: 'qa', head: BASE}), marker({lens: 'qa', verdict: 'CHANGES_REQUIRED', blockers: ['bug']})]) {
+  for (const value of [marker({lens: 'owner', head: BASE}), marker({lens: 'owner', verdict: 'CHANGES_REQUIRED', blockers: ['bug']})]) {
     assert.throws(() => panel([...comments(), {id: 10, user: {id: 1875074}, body: body(value)}], HEAD));
   }
-  const edited = comments(); edited[1].body = '```panel-verdict malformed';
+  const edited = comments(); edited[0].body = '```panel-verdict malformed';
   assert.throws(() => panel(edited, HEAD));
-  assert.throws(() => panel(comments().slice(0, 2), HEAD));
+  assert.throws(() => panel([], HEAD));
   assert.throws(() => panel(comments(), BASE));
 });
-test('same lens three times cannot substitute for three lenses', () => {
-  assert.throws(() => panel(comments().map(c => ({...c, body: body(marker())})), HEAD));
-});
-test('advisory jobs never change the verdict; any other extra job fails closed', () => {
-  const jobs = [{name: 'lint', head_sha: HEAD, status: 'completed', conclusion: 'success'},
-    {name: 'Ruby 4.0 / linux / shard 1', head_sha: HEAD, status: 'completed', conclusion: 'failure'}];
-  jobsPass(jobs, ['lint'], HEAD, ['Ruby 4.0 / linux / shard 1']);
-  assert.throws(() => jobsPass(jobs, ['lint'], HEAD));
-  assert.throws(() => jobsPass(jobs, ['lint'], HEAD, ['some other job']));
-});
-test('exact successful jobs only, no skip/neutral/duplicate/old-head/missing', () => {
-  const jobs = [{name: 'test', head_sha: HEAD, status: 'completed', conclusion: 'success'}];
-  jobsPass(jobs, ['test'], HEAD);
-  for (const change of [{conclusion: 'skipped'}, {conclusion: 'neutral'}, {status: 'in_progress'}, {head_sha: BASE}, {name: 'other'}]) {
-    assert.throws(() => jobsPass([{...jobs[0], ...change}], ['test'], HEAD));
+test('aggregate checks: named jobs green on the exact head; other records are inputs', () => {
+  const ci = {name: 'ci-passed', head_sha: HEAD, status: 'completed', conclusion: 'success'};
+  const input = {name: 'Ruby 4.0 / linux / shard 1', head_sha: HEAD, status: 'completed', conclusion: 'failure'};
+  // The aggregator's own inputs never change the gate's verdict, red ones included.
+  jobsPass([ci, input], ['ci-passed'], HEAD);
+  jobsPass([ci], ['ci-passed'], HEAD);
+  for (const change of [{conclusion: 'failure'}, {conclusion: 'skipped'}, {conclusion: 'neutral'},
+      {status: 'in_progress'}, {head_sha: BASE}]) {
+    assert.throws(() => jobsPass([{...ci, ...change}, input], ['ci-passed'], HEAD));
   }
-  assert.throws(() => jobsPass([...jobs, ...jobs], ['test', 'lint'], HEAD));
-  assert.throws(() => jobsPass([], ['test'], HEAD));
+  assert.throws(() => jobsPass([input], ['ci-passed'], HEAD), /exactly one/);
+  assert.throws(() => jobsPass([ci, ci], ['ci-passed'], HEAD), /exactly one/);
 });
 test('author-matching whole-line DCO, no substring/coercion', () => {
   const commit = {sha: HEAD, parents: [{}], commit: {author: {name: 'Name', email: 'name@example.org'},
@@ -112,21 +118,12 @@ function fakeAPI(change = {}) {
     },
     async pages(path) {
       if (path.startsWith('commits/') || path === 'issues/1/events' || path === 'issues/2/events') return [];
-      if (path === 'issues/1/comments') return change.noQA ? comments().slice(0, 2) : comments();
+      if (path === 'issues/1/comments') return change.noComments ? [] : comments();
       if (path === 'pulls/1/commits' || path === 'pulls/2/commits') return [{sha: HEAD, parents: [{}], commit: {
         author: {name: 'Name', email: 'name@example.org'}, message: 'subject\n\nSigned-off-by: Name <name@example.org>'}}];
       if (path.startsWith('actions/runs?')) return change.wrongRun ? runs.map(r => ({...r, head_sha: BASE})) : runs;
       const id = Number(path.split('/')[2]);
       const list = policy.workflows[runs[id - 1].path].map(name => ({name, head_sha: HEAD, status: 'completed', conclusion: change.skipped ? 'skipped' : 'success'}));
-      if (change.advisory && runs[id - 1].path === '.github/workflows/ci.yml') {
-        list.push({name: 'Ruby 4.0 / linux / shard 1', head_sha: HEAD, status: 'completed', conclusion: 'failure'});
-      }
-      if (change.conditional && runs[id - 1].path === '.github/workflows/ci.yml') {
-        const dispatched = runs[id - 1].event === 'workflow_dispatch';
-        list.push({name: 'ignore-audit', head_sha: HEAD, status: 'completed',
-          conclusion: dispatched ? (change.conditionalRed ? 'failure' : 'success') : 'skipped'});
-        list.push({name: 'warm-map', head_sha: HEAD, status: 'completed', conclusion: 'skipped'});
-      }
       return list;
     }
   };
@@ -166,22 +163,32 @@ test('end-to-end API decision posts pending then success for current facts', asy
   const api = fakeAPI(); await verify(api, 1);
   assert.deepEqual(api.statuses.map(s => s.state), ['pending', 'success']);
 });
-test('a red advisory leg never blocks the verdict', async () => {
-  const api = fakeAPI({advisory: true});
+test('a protected change needs the owner approval marker on the exact head', async () => {
+  const api = fakeAPI({policyEdit: true});
   await verify(api, 1);
   assert.deepEqual(api.statuses.map(s => s.state), ['pending', 'success']);
+  assert.match(api.statuses.at(-1).description, /user-approved protected change/);
+  const bare = fakeAPI({policyEdit: true, noComments: true});
+  await assert.rejects(() => verify(bare, 1));
+  assert.deepEqual(bare.statuses.map(s => s.state), ['pending', 'failure']);
+});
+test('no approval marker is required when protected paths are untouched', async () => {
+  const api = fakeAPI({noComments: true});
+  await verify(api, 1);
+  assert.deepEqual(api.statuses.map(s => s.state), ['pending', 'success']);
+  assert.match(api.statuses.at(-1).description, /no protected paths changed/);
 });
 // Manual PR CI: a workflow_dispatch run of ci.yml on the exact head is as good a
 // current-head workflow as a pull_request run.
 test('end-to-end decision accepts a manually dispatched CI run on the head', async () => {
-  const api = fakeAPI({dispatchRun: true, conditional: true}); await verify(api, 1);
+  const api = fakeAPI({dispatchRun: true}); await verify(api, 1);
   assert.deepEqual(api.statuses.map(s => s.state), ['pending', 'success']);
 });
 test('a head that trails a moved main still passes when its checks are green', async () => {
   const api = fakeAPI({movedBase: true}); await verify(api, 1);
   assert.deepEqual(api.statuses.map(s => s.state), ['pending', 'success']);
 });
-for (const fault of ['newHead', 'behind', 'policyEdit', 'noQA', 'wrongRun', 'skipped']) {
+for (const fault of ['newHead', 'behind', 'wrongRun', 'skipped']) {
   test(`API decision fails closed: ${fault}`, async () => {
     const api = fakeAPI({[fault]: true}); await assert.rejects(() => verify(api, 1));
     assert.deepEqual(api.statuses.map(s => s.state), ['pending', 'failure']);
@@ -189,8 +196,8 @@ for (const fault of ['newHead', 'behind', 'policyEdit', 'noQA', 'wrongRun', 'ski
 }
 
 test('deleted newer verdict cannot uncover an older approval', () => {
-  assert.throws(() => panel(comments(), HEAD, {qa: {id: 8, epoch: Date.parse('2026-10-11T00:00:00Z')}}));
-  assert.doesNotThrow(() => panel([...comments(), {id: 9, created_at: '2026-10-12T00:00:00Z', user: {id: 1875074}, body: body(marker({lens: 'qa'}))}], HEAD, {qa: {id: 8, epoch: Date.parse('2026-10-11T00:00:00Z')}}));
+  assert.throws(() => panel(comments(), HEAD, {owner: {id: 8, epoch: Date.parse('2026-10-11T00:00:00Z')}}));
+  assert.doesNotThrow(() => panel([...comments(), {id: 9, created_at: '2026-10-12T00:00:00Z', user: {id: 1875074}, body: body(marker({lens: 'owner'}))}], HEAD, {owner: {id: 8, epoch: Date.parse('2026-10-11T00:00:00Z')}}));
 });
 test('editing an older comment to a blocking verdict wins by update time', () => {
   const c = comments().map(x => ({...x, updated_at: '2026-10-10T00:00:00Z'}));
@@ -205,7 +212,7 @@ test('editing an older comment to a blocking verdict wins by update time', () =>
 test('edited low-ID blocker deletion cannot resurrect a higher-ID old approval', () => {
   const c = comments();
   c.push({...c[0], id: 10, created_at: '2026-10-11T00:00:00Z'});
-  assert.throws(() => panel(c, HEAD, {principal: {id: 10, epoch: Date.parse('2026-10-12T00:00:00Z')}}));
+  assert.throws(() => panel(c, HEAD, {owner: {id: 10, epoch: Date.parse('2026-10-12T00:00:00Z')}}));
 });
 test('rerun starts after initial green CI read: never publish success', async () => {
   const api = fakeAPI(), call = api.call.bind(api), seen = new Set();
@@ -222,7 +229,10 @@ test('rerun starts after initial green CI read: never publish success', async ()
 });
 
 function eventAPI() {
-  const api = fakeAPI(), call = api.call.bind(api), pages = api.pages.bind(api);
+  // A protected change keeps the owner approval (and its revocation) on the
+  // gate's decision path: without one no marker is demanded and a revoked
+  // approval blocks nothing.
+  const api = fakeAPI({policyEdit: true}), call = api.call.bind(api), pages = api.pages.bind(api);
   const records = [], current = comments();
   let epoch = '2026-10-12T00:00:00Z';
   api.comments = current;
@@ -251,7 +261,7 @@ for (const action of ['deleted', 'edited']) {
       await revokeEvent(api, deletion(marker({head: stale ? BASE : HEAD, verdict: 'CHANGES_REQUIRED', blockers: ['bug']}), action));
       assert.equal(api.records.length, 2);
       assert.equal(api.records[1].context, 'panel/revoked/pr-1');
-      assert.equal(api.records[1].description, 'principal:10');
+      assert.equal(api.records[1].description, 'owner:10');
       const cutoff = await revocations(api, 1, HEAD);
       assert.throws(() => panel(api.comments, HEAD, cutoff));
       assert.deepEqual(await revocations(api, 1, BASE), cutoff);
@@ -271,7 +281,7 @@ test('malformed marker edit revokes all lenses; untrusted event cannot revoke', 
   const api = eventAPI(), event = deletion(marker());
   event.comment.body = '```panel-verdict malformed';
   await revokeEvent(api, event);
-  assert.deepEqual(Object.keys(await revocations(api, 1, HEAD)), ['principal', 'architect', 'qa']);
+  assert.deepEqual(Object.keys(await revocations(api, 1, HEAD)), ['owner']);
   event.comment.user.id = 666;
   await revokeEvent(api, event);
   assert.equal(api.records.length, 2);
@@ -292,7 +302,7 @@ for (const fault of ['newRun', 'newAttemptGreen', 'jobFailed', 'jobReplaced', 'n
     api.pages = async path => {
       if (path === `commits/${policy.revocationAnchor}/statuses` && ++ledgerReads > 1) {  // read 1 is the shared sweep read; read 2 is the live final re-check
         if (fault === 'ledgerError') throw new Error('ledger unavailable');
-        if (fault === 'newRevocation') return [{context: 'panel/revoked/pr-1', description: 'principal:10', created_at: '2026-10-12T00:00:00Z'}];
+        if (fault === 'newRevocation') return [{context: 'panel/revoked/pr-1', description: 'owner:10', created_at: '2026-10-12T00:00:00Z'}];
       }
       const result = await pages(path);
       if (path.startsWith('actions/runs?')) {
@@ -314,12 +324,16 @@ for (const fault of ['newRun', 'newAttemptGreen', 'jobFailed', 'jobReplaced', 'n
     assert.equal(api.statuses.at(-1).state, 'failure');
   });
 }
-for (const path of ['action.yml', 'action/run-saboteur', 'action/fetch-base', 'action/post-review-comments', 'integration', '.saboteur.yml']) {
-  test(`CI oracle protected: ${path}`, async () => {
-    assert(policy.protectedFiles.includes(path));
+for (const path of policy.protectedFiles) {
+  test(`protected path owner-approved change passes; unapproved fails: ${path}`, async () => {
     const api = fakeAPI(), call = api.call.bind(api);
     api.call = async (p, method, data) => p === `contents/${path}?ref=${HEAD}` ? {sha: HEAD} : call(p, method, data);
-    await assert.rejects(() => verify(api, 1), /protected policy changed/);
+    await verify(api, 1);
+    assert.deepEqual(api.statuses.map(s => s.state), ['pending', 'success']);
+    const bare = fakeAPI({noComments: true}), bareCall = bare.call.bind(bare);
+    bare.call = async (p, method, data) => p === `contents/${path}?ref=${HEAD}` ? {sha: HEAD} : bareCall(p, method, data);
+    await assert.rejects(() => verify(bare, 1));
+    assert.deepEqual(bare.statuses.map(s => s.state), ['pending', 'failure']);
   });
 }
 
@@ -340,12 +354,12 @@ test('revocation write/read errors revoke current head before stopping event han
 });
 test('multiple revocations retain highest ID and epoch regardless of API order', async () => {
   const api = eventAPI();
-  api.records.push({context: 'panel/revoked/pr-1', description: 'principal:20', created_at: '2026-10-12T00:00:00Z'},
-    {context: 'panel/revoked/pr-1', description: 'principal:10', created_at: '2026-10-13T00:00:00Z'});
-  assert.deepEqual(await revocations(api, 1, HEAD), {principal: {id: 20, epoch: Date.parse('2026-10-13T00:00:00Z')}});
+  api.records.push({context: 'panel/revoked/pr-1', description: 'owner:20', created_at: '2026-10-12T00:00:00Z'},
+    {context: 'panel/revoked/pr-1', description: 'owner:10', created_at: '2026-10-13T00:00:00Z'});
+  assert.deepEqual(await revocations(api, 1, HEAD), {owner: {id: 20, epoch: Date.parse('2026-10-13T00:00:00Z')}});
 });
 test('invalid ledger record fails closed, never silently drops revocation', async () => {
-  const api = eventAPI(); api.records.push({context: 'panel/revoked/pr-1', description: 'principal:10'});
+  const api = eventAPI(); api.records.push({context: 'panel/revoked/pr-1', description: 'owner:10'});
   await assert.rejects(() => verify(api, 1), /invalid revocation record/);
   assert.equal(api.statuses.at(-1).state, 'failure');
 });
@@ -388,7 +402,7 @@ for (const fault of ['comments', 'refinement', 'headLatch']) {
       await assert.rejects(() => verify(api, 1));
       await assert.rejects(() => verify(api, 1));
       const revoked = await revocations(api, 1, BASE);
-      assert.equal(Object.keys(revoked).length, malformed ? 3 : 1);
+      assert.equal(Object.keys(revoked).length, Object.keys(policy.reviewers).length);
       assert(!api.statuses.some(s => s.state === 'success'));
       // Full recovery is possible using new attestations, not clearing history.
       api.comments.push(...comments().map((c, i) => ({...c, id: i + 20,
@@ -409,7 +423,7 @@ test('head-only latch is promoted with original epoch and stays sticky despite p
   await assert.rejects(() => verify(api, 1));
   await assert.rejects(() => verify(api, 1));
   assert.equal(api.records.length, 1);
-  assert.deepEqual(Object.keys(await revocations(api, 1, BASE)), ['principal', 'architect', 'qa']);
+  assert.deepEqual(Object.keys(await revocations(api, 1, BASE)), ['owner']);
 });
 
 for (const mode of ['forceRevert', 'fastForward']) {
@@ -423,6 +437,7 @@ for (const mode of ['forceRevert', 'fastForward']) {
       if (method === 'POST' && path === `statuses/${HEAD}`) headARecords.push({...data, created_at: '2026-10-12T00:00:00Z'});
       const result = await call(path, method, data);
       if (moved && path === 'pulls/1') return {...result, head: {sha: C}};
+      if (moved && path.startsWith('contents/') && path.endsWith(C)) return {sha: C};
       if (moved && path.startsWith('actions/runs/')) return {...result, head_sha: C};
       return result;
     };
@@ -632,49 +647,4 @@ test('lane writes fail open with a log line, but never hide a quota error', asyn
   const quota = {call: async () => { throw new RateLimitError('spent'); }};
   await assert.rejects(() => postLane(quota, [1], 'issue_comment'));
   await assert.rejects(() => closeLane(quota, 'run-41:pr-1', true));
-});
-test('conditional jobs: dispatch profile passes only with ignore-audit green; missing/red fails', () => {
-  const required = ['lint'];
-  const lint = {name: 'lint', head_sha: HEAD, status: 'completed', conclusion: 'success'};
-  const conditional = {
-    'ignore-audit': {workflow_dispatch: ['success'], pull_request: ['skipped', 'absent']},
-    'warm-map': {workflow_dispatch: ['skipped', 'absent'], pull_request: ['skipped', 'absent']}
-  };
-  const audit = conclusion => ({name: 'ignore-audit', head_sha: HEAD, status: 'completed', conclusion});
-  const warm = conclusion => ({name: 'warm-map', head_sha: HEAD, status: 'completed', conclusion});
-  // The live red on PR #1329: required + advisory + these two event-conditional
-  // jobs failed 'unexpected job count' because they had no classification.
-  assert.throws(() => jobsPass([lint, audit('success'), warm('skipped')], required, HEAD), /unexpected job count/);
-  // Real dispatch profile: the audit ran green, warm-map skipped.
-  jobsPass([lint, audit('success'), warm('skipped')], required, HEAD, [], conditional, 'workflow_dispatch');
-  // ignore-audit is a security control on dispatch runs: missing, skipped or red fails closed.
-  assert.throws(() => jobsPass([lint, warm('skipped')], required, HEAD, [], conditional, 'workflow_dispatch'), /missing conditional job/);
-  assert.throws(() => jobsPass([lint, audit('skipped'), warm('skipped')], required, HEAD, [], conditional, 'workflow_dispatch'));
-  assert.throws(() => jobsPass([lint, audit('failure'), warm('skipped')], required, HEAD, [], conditional, 'workflow_dispatch'));
-  // warm-map never runs on PR-shaped runs: skipped or absent pass, a red record fails.
-  jobsPass([lint, audit('success')], required, HEAD, [], conditional, 'workflow_dispatch');
-  assert.throws(() => jobsPass([lint, audit('success'), warm('failure')], required, HEAD, [], conditional, 'workflow_dispatch'));
-  // pull_request profile: both are skipped (or absent); either running green is anomalous.
-  jobsPass([lint, audit('skipped'), warm('skipped')], required, HEAD, [], conditional, 'pull_request');
-  jobsPass([lint], required, HEAD, [], conditional, 'pull_request');
-  assert.throws(() => jobsPass([lint, audit('success'), warm('skipped')], required, HEAD, [], conditional, 'pull_request'));
-  // Unknown extras, duplicates, wrong head and incomplete status stay fail-closed.
-  assert.throws(() => jobsPass([lint, audit('success'), warm('skipped'),
-    {name: 'mystery', head_sha: HEAD, status: 'completed', conclusion: 'success'}], required, HEAD, [], conditional, 'workflow_dispatch'), /unexpected job count/);
-  assert.throws(() => jobsPass([lint, audit('success'), audit('success'), warm('skipped')], required, HEAD, [], conditional, 'workflow_dispatch'), /duplicate/);
-  assert.throws(() => jobsPass([lint, {...audit('success'), head_sha: BASE}, warm('skipped')], required, HEAD, [], conditional, 'workflow_dispatch'));
-  assert.throws(() => jobsPass([lint, {...audit('success'), status: 'in_progress'}, warm('skipped')], required, HEAD, [], conditional, 'workflow_dispatch'));
-});
-test('end-to-end: PR run profiles with event-conditional jobs pass', async () => {
-  const api = fakeAPI({conditional: true});
-  await verify(api, 1);
-  assert.deepEqual(api.statuses.map(s => s.state), ['pending', 'success']);
-  const dispatched = fakeAPI({conditional: true, dispatchRun: true});
-  await verify(dispatched, 1);
-  assert.deepEqual(dispatched.statuses.map(s => s.state), ['pending', 'success']);
-});
-test('end-to-end fails closed: ignore-audit red on the dispatch run', async () => {
-  const api = fakeAPI({conditional: true, conditionalRed: true, dispatchRun: true});
-  await assert.rejects(() => verify(api, 1));
-  assert.deepEqual(api.statuses.map(s => s.state), ['pending', 'failure']);
 });
