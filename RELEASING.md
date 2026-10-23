@@ -11,6 +11,19 @@ workflow builds and pushes the gem, tags the commit `vX.Y.Z` and creates the
 GitHub release from the CHANGELOG section. A push that does not change the
 version publishes nothing.
 
+## Release gate
+
+Before any release:
+
+1. `rake release:check` must pass. It runs the unit suite, `spec/e2e`,
+   `rake acceptance` and `rake claims:check`, and prints a one-page summary.
+2. A reviewer report (see `docs/agents/reviewer.md`, run in a fresh context)
+   must have no open blocker for the release candidate.
+3. Batch work: at most one release per review round.
+
+An acceptance scenario that fails is listed in the release notes as a known
+gap, never edited to pass.
+
 ## One-time setup
 
 The workflow uses RubyGems trusted publishing (OIDC), so no API key is stored.

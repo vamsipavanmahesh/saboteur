@@ -30,6 +30,30 @@ Names follow Uncle Bob's Clean Code conventions:
 - Classes and modules are nouns. Methods are verbs.
 - A name says what the thing does, so no comment is needed to explain it.
 
+## Evidence rules
+
+- Claims: every CHANGELOG/README behavior claim ends with the e2e spec that
+  demonstrates it: `(e2e: spec/e2e/<file>.rb)`. No spec, no claim.
+  `rake claims:check` enforces this for unreleased CHANGELOG entries and the
+  README "Highlights" / "Know the limits" bullets.
+- Claims describe measured behavior. Use "partially", "presentation only" or
+  "opt-in" when true. Overstatements get a "Corrected" CHANGELOG entry.
+- Wiring: any change to how two real objects connect (Engine, Scheduler,
+  Runner, Reporter, CLI) needs an e2e spec through the real CLI. Unit specs
+  with doubles don't count as evidence for wiring.
+- Fixtures: an e2e fixture must reproduce the user's situation, not the
+  easiest passing one. For test-selection features, at least one fixture has
+  a spec with NO same-named source file. Every e2e spec states in a comment
+  which real-world case it models.
+- Negative check: every bug-fix e2e spec must fail on the commit before the
+  fix. Record that in the PR ("fails on <sha>: yes").
+- Sibling sweep: when fixing a bug in one command/operator/reporter, search
+  for the same pattern in all siblings and fix or list them in the PR.
+- Plans: before proposing a feature, search the code, docs, help output and
+  CHANGELOG for it and quote what exists. A plan item may not describe
+  existing behavior as missing.
+- Never edit files under acceptance/ or the expected results in them.
+
 ## Documentation
 
 - A pull request that changes CLI flags, behavior or usage must update the reference docs under [docs/](docs/) in the same pull request; README.md stays short and is not the CLI reference.
