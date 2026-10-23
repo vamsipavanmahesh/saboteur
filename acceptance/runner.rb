@@ -215,11 +215,29 @@ class AcceptanceRunner
     env["GEM_HOME"] = gem_home
     env["GEM_PATH"] = ([gem_home] + Gem.default_path).uniq.join(File::PATH_SEPARATOR)
     env["PATH"] = "#{File.join(gem_home, 'bin')}#{File::PATH_SEPARATOR}#{ENV.fetch('PATH')}"
-    # The project's lib first (remote fixtures such as money need it on the
-    # load path), then the running Ruby's own stdlib dirs: some Ruby builds
-    # (non-default prefix) only resolve stdlib through RUBYLIB.
-    env["RUBYLIB"] = [File.join(dir, "lib"), RbConfig::CONFIG["rubylibdir"], RbConfig::CONFIG["archdir"]].join(File::PATH_SEPARATOR)
+    # Keep the child's RUBYLIB minimal: just the project's lib (remote
+    # fixtures such as money need it on the load path). RUBYLIB entries
+    # shadow gem activation, so adding the running Ruby's stdlib dirs makes
+    # a stock Ruby's bundled prism (3.3 ships 0.19 in rubylibdir) win over
+    # the 1.x the gemspec requires - CI run 39928487173 died 8/8 with a
+    # Prism::ParseResult superclass mismatch (exit 70). Only Ruby builds
+    # that cannot load rubygems without RUBYLIB (relocated, non-default
+    # prefix) keep their stdlib dirs, as the last entries.
+    rubylib = [File.join(dir, "lib")]
+    rubylib += [RbConfig::CONFIG["rubylibdir"], RbConfig::CONFIG["archdir"]] if ruby_needs_stdlib_dirs?
+    env["RUBYLIB"] = rubylib.join(File::PATH_SEPARATOR)
     env
+  end
+
+  # True when this Ruby build cannot even load rubygems without its stdlib
+  # dirs on RUBYLIB. Stock builds resolve stdlib on their own; relocated
+  # builds (non-default prefix) do not. Probed once per runner.
+  def ruby_needs_stdlib_dirs?
+    return @ruby_needs_stdlib_dirs unless @ruby_needs_stdlib_dirs.nil?
+
+    @ruby_needs_stdlib_dirs = !system({ "RUBYLIB" => nil, "RUBYOPT" => nil },
+                                      RbConfig.ruby, "-e", "require 'rubygems'",
+                                      out: File::NULL, err: File::NULL)
   end
 
   def check_expectations(expect, results, dir)
