@@ -106,9 +106,9 @@ module Saboteur
       # Label and rank stay on the header line; the reason moves to its own
       # dim line so the fixed text cannot push the header past 80 columns.
       def label_suffix(group, rank, total)
-        label = @classifier.group_label(group)
+        label = @classifier.group_display(group)
         unit = total == 1 ? "block" : "blocks"
-        parts = [("coarse" if group.first.mutation.coarse), label, "##{rank} of #{total} #{unit}"].compact
+        parts = [label, "##{rank} of #{total} #{unit}"].compact
         "[#{parts.join(' · ')}]"
       end
 

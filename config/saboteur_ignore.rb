@@ -2814,4 +2814,13 @@ i.mutation "fdc4600f4e8e8625",
              reason: "equivalent: the only caller interpolates via format %s, which renders nil " \
                      "as the empty string"
 
+  # survivor_classification.rb missing_check special-class guard - dropping "tool_limit"
+  # is equivalent: the label has one producer (:57, tool_limited? = every covering id is the
+  # pseudo-test), while possible_test_gap? requires real coverage, so a tool_limit-labelled
+  # result can never reach the gap_kind call the guard protects. Independently recomputed on
+  # this tree and cleared for this exact entry only.
+  i.mutation "2f64882481a365c7",
+             subject: "Saboteur::Reporter::SurvivorClassification.missing_check",
+             reason: "equivalent: tool_limit requires all-pseudo coverage, possible_test_gap? " \
+                     "requires real coverage - the removed guard member is unreachable"
 end

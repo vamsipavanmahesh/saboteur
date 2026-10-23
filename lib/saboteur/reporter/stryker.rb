@@ -141,6 +141,8 @@ module Saboteur
           classification: SurvivorClassification.label(result),
           # Additive (#1290): the gap kind an observed label replaced.
           gapKind: SurvivorClassification.kind(result),
+          # Additive (#1314): the missing check, whenever truthful.
+          kind: SurvivorClassification.missing_check(result),
           # Additive (#1286): confirmed, killed_by_confirmation or unconfirmed.
           # An unconfirmed survivor reports Ignored: outside the score.
           confirmation: result.confirmation_state,

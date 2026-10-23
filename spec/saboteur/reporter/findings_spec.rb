@@ -46,6 +46,15 @@ RSpec.describe Saboteur::Reporter::Findings do
     expect(seen_finding.values_at("classification", "gapKind")).to eq(%w[input_gap boundary])
   end
 
+  it "adds the missing check as a separate kind field, classification and gapKind unchanged (#1314)" do
+    seen = result_for(:survived, covered_by: %w[t1], value_differed: false)
+    plain = result_for(:survived, covered_by: %w[t1])
+    plain_finding, seen_finding = build(report_of(seen, plain)).fetch("survivors").sort_by { |f| f["classification"] }
+    expect(plain_finding).not_to have_key("gapKind")
+    expect(plain_finding["kind"]).to eq("boundary")
+    expect(seen_finding.values_at("classification", "gapKind", "kind")).to eq(%w[input_gap boundary boundary])
+  end
+
   it "declares its version, the bound and the published ordering" do
     findings = build(report_of)
     expect(findings.values_at("version", "limit", "ordering")).to eq(
