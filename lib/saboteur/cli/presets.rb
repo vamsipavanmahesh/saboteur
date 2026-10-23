@@ -25,6 +25,14 @@ module Saboteur
 
       private
 
+      # The pr preset's base when the user names none: origin's default
+      # branch, so a repo on master works without an argument (#1191).
+      # A local-only clone has no origin/HEAD, so main stands and the
+      # not-a-commit hint lists the branches it does have.
+      def default_base_ref
+        Selection::GitDiff.default_branch(Dir.pwd) || "main"
+      end
+
       def preset_or_usage_error(command)
         return preset(command) if PRESETS.key?(command)
 
@@ -37,7 +45,7 @@ module Saboteur
       def preset(name)
         flags = PRESETS.fetch(name).dup
         if name == "pr"
-          ref = @argv.first.nil? || @argv.first.start_with?("-") ? "main" : @argv.shift
+          ref = @argv.first.nil? || @argv.first.start_with?("-") ? default_base_ref : @argv.shift
           flags += ["--since", ref]
         end
         # An explicit scope beats the injected whole-suite --all, which

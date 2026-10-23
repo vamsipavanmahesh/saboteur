@@ -98,8 +98,9 @@ Once the first scope is clean, widen it to the changes on each branch:
 bundle exec saboteur pr
 ```
 
-The `pr` preset runs the lines changed since `main` with one baseline check
-and a ten-minute budget that does not fail the build on its own
+The `pr` preset runs the lines changed since the default branch (`main`, or
+whichever branch origin/HEAD points at; pass a ref to override) with one
+baseline check and a ten-minute budget that does not fail the build on its own
 (`saboteur audit` is the whole-project counterpart with JSON and HTML
 reports). For CI, the [GitHub Action](../github-action.md) runs diff mode on
 pull requests, advisory by default.

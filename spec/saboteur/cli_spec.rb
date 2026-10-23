@@ -237,6 +237,23 @@ RSpec.describe Saboteur::CLI do
     expect(err.string).to include("preset 'pr':")
   end
 
+  it "defaults the pr ref to origin's default branch when it resolves (#1191)" do
+    allow(Saboteur::Selection::GitDiff).to receive(:default_branch).and_return("master")
+    command = cli("pr")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(command.options).to include(since: "master")
+    expect(err.string).to include("--since master")
+  end
+
+  it "keeps main as the pr default ref when origin/HEAD does not resolve (#1191)" do
+    allow(Saboteur::Selection::GitDiff).to receive(:default_branch).and_return(nil)
+    command = cli("pr")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(command.options).to include(since: "main")
+  end
+
   it "announces the pr preset expansion in full (#296)" do
     command = cli("pr")
     allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
