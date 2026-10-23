@@ -69,6 +69,11 @@ RSpec.describe "scoped runs confirm survivors against the whole-suite map", :e2e
     names = run.json.fetch("testFiles").values.flat_map { |file| file.fetch("tests") }.to_h { |t| [t["id"], t["name"]] }
     credited = killed.map { |mutant| names.fetch(mutant["creditedTest"]) }
     expect(credited).to all(include("flow_spec.rb"))
+    # A kill credited to an assertion reports true when the probed value
+    # differed before the assertion fired, and never reports false (#1311).
+    observations = killed.map { |mutant| mutant["valueDiffered"] }
+    expect(observations.compact).to all(be(true))
+    expect(observations).to include(true)
     expect(mutants(run).count { |mutant| mutant["status"] == "Survived" }).to eq(2)
   end
 
