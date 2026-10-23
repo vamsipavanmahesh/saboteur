@@ -37,6 +37,16 @@ RSpec.describe "ci.yml ci-passed aggregator" do
     expect(matrix).to include('{"ruby":["3.3","3.4","4.0","ruby"],"shard":[1,2,3,4],"total":[4]}')
   end
 
+  it "ignore-audit proves the dispatch binding before it audits" do
+    jobs = YAML.unsafe_load_file(File.join(workflow_dir, "ci.yml")).fetch("jobs")
+    steps = jobs.fetch("ignore-audit").fetch("steps")
+    binding = steps.index { |step| step["run"] == "script/ci-prove-pr-binding" }
+    audit = steps.index { |step| step["name"] == "Audit ignore-file digest churn" }
+    expect(binding).not_to be_nil
+    expect(audit).not_to be_nil
+    expect(binding).to be < audit
+  end
+
   it "keeps the heavy legs off pull request dispatches and the PR-only audits on them" do
     jobs = YAML.unsafe_load_file(File.join(workflow_dir, "ci.yml")).fetch("jobs")
     %w[test-macos locale integration-gems dogfood].each do |job|

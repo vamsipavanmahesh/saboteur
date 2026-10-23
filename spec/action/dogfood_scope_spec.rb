@@ -3,26 +3,33 @@
 
 require "yaml"
 
-# The dogfood job no-ops green on pull requests with nothing to mutate
+# The dogfood job runs on pushes to main and on the nightly schedule. It
+# resolves its diff base first (the pushed range, or the last 24 hours of
+# main commits), then no-ops green on diffs with nothing to mutate
 # instead of dying on the out-of-scope stop (#483, exit 2): config-only
-# diffs (#1084) and version-only diffs (release pull requests), because
-# config/saboteur.rb excludes lib/saboteur/version.rb from mutation.
+# diffs and version-only diffs, because config/saboteur.rb excludes
+# lib/saboteur/version.rb from mutation (#1084). The pull-request
+# binding proof moved to the ignore-audit job; spec/ci_workflow_spec.rb
+# pins that it runs there before the audit.
 RSpec.describe "dogfood scope detection" do
   let(:root) { File.join(__dir__, "..", "..") }
   let(:ci) { YAML.safe_load_file(File.join(root, ".github", "workflows", "ci.yml")) }
   let(:dogfood_steps) { ci.fetch("jobs").fetch("dogfood").fetch("steps") }
+  let(:base_step) { dogfood_steps.find { |step| step["id"] == "base" } }
   let(:scope_step) { dogfood_steps.find { |step| step["id"] == "scope" } }
-  let(:mutate_step) { dogfood_steps.find { |step| step["name"] == "Mutate methods changed in this pull request" } }
+  let(:mutate_step) { dogfood_steps.find { |step| step["name"] == "Mutate the changed methods" } }
+  let(:artifact_step) { dogfood_steps.find { |step| step["uses"].to_s.start_with?("actions/upload-artifact@") } }
   let(:script) { scope_step.fetch("run") }
 
-  it "detects the scope before mutating, after the pull-request binding is proven" do
-    binding = dogfood_steps.index { |step| step["run"] == "script/ci-prove-pr-binding" }
-    expect(binding).to be < dogfood_steps.index(scope_step)
+  it "resolves the diff base, then detects the scope, then mutates" do
+    expect(dogfood_steps.index(base_step)).to be < dogfood_steps.index(scope_step)
     expect(dogfood_steps.index(scope_step)).to be < dogfood_steps.index(mutate_step)
   end
 
-  it "no-ops green on a config-only diff" do
-    expect(script).to include('git diff --quiet "${{ inputs.base_sha }}" HEAD -- "lib/*.rb"')
+  it "takes the base from the resolved step output, never straight from an input" do
+    expect(scope_step.dig("env", "BASE_SHA")).to eq("${{ steps.base.outputs.sha }}")
+    expect(mutate_step.dig("env", "BASE_SHA")).to eq("${{ steps.base.outputs.sha }}")
+    expect(script).to include('git diff --quiet "$BASE_SHA" HEAD -- "lib/*.rb"')
     expect(script).to include("config-only diff")
   end
 
@@ -34,6 +41,7 @@ RSpec.describe "dogfood scope detection" do
   it "marks the diff empty so the mutate and artifact steps skip it" do
     expect(script.scan('echo "empty=true" >> "$GITHUB_OUTPUT"').size).to eq(2)
     expect(mutate_step.fetch("if")).to eq("steps.scope.outputs.empty != 'true'")
+    expect(artifact_step.fetch("if")).to include("steps.scope.outputs.empty != 'true'")
   end
 
   it "keeps the version.rb exclusion in config/saboteur.rb that the guard mirrors" do
