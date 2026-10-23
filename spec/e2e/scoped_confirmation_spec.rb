@@ -86,6 +86,27 @@ RSpec.describe "scoped runs confirm survivors against the whole-suite map", :e2e
     expect(run.out).not_to include("likely covered elsewhere")
   end
 
+  it "prints one plain-words confirmation line and no per-mutant lines by default (#1313)" do
+    run = saboteur(dir, "--since", "HEAD")
+
+    expect(run.err.lines.grep(/confirmation/)).to eq(
+      ["saboteur: confirmation: 9 survivors killed by specs this run didn't load, 2 confirmed\n"]
+    )
+  end
+
+  it "prints the per-mutant kill lines only with --verbose (#1313)" do
+    run = saboteur(dir, "--since", "HEAD", "--verbose")
+
+    expect(run.err.lines.grep(/killed on confirmation by/).size).to eq(9)
+    expect(run.err).to include("confirmation: 9 survivors killed by specs this run didn't load, 2 confirmed")
+  end
+
+  it "prints no confirmation line under --quiet when nothing remains unconfirmed (#1313)" do
+    run = saboteur(dir, "--since", "HEAD", "--quiet")
+
+    expect(run.err.lines.grep(/confirmation/)).to be_empty
+  end
+
   context "with the confirmation budget spent" do
     let(:budget) { 0 }
 
@@ -98,6 +119,12 @@ RSpec.describe "scoped runs confirm survivors against the whole-suite map", :e2e
       expect(unconfirmed).to all(include("status" => "Ignored"))
       expect(run.out).to include("score 100.0%")
       expect(run.status).to eq(0), run.out + run.err
+    end
+
+    it "still prints the summary under --quiet because survivors remain unconfirmed (#1313)" do
+      run = saboteur(dir, "--since", "HEAD", "--quiet")
+
+      expect(run.err.lines.grep(/confirmation/)).to eq(["saboteur: confirmation: 11 unconfirmed\n"])
     end
   end
 

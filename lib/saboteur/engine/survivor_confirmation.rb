@@ -165,8 +165,12 @@ module Saboteur
                                    baseline_timeout: @config["baseline_timeout"]).call([kill]).first
         return checked unless checked.status == :killed
 
-        @diagnostics.inform("#{result.subject.id} #{result.mutation.operator} #{result.digest}: " \
-                            "killed on confirmation by #{outcome.failed_ids.first}")
+        # One line per kill is fine at eight mutants and noise at eight
+        # hundred: the detail stays with --verbose (#1313).
+        if @diagnostics.verbose
+          @diagnostics.inform("#{result.subject.id} #{result.mutation.operator} #{result.digest}: " \
+                              "killed on confirmation by #{outcome.failed_ids.first}")
+        end
         record_kill(result, kill)
         checked
       end
@@ -233,11 +237,25 @@ module Saboteur
                           "run `saboteur run --all` to rebuild it")
       end
 
+      # One summary line in plain words replaces the per-mutant tally
+      # (#1313). --quiet prints it only when something is left unconfirmed:
+      # with every survivor settled there is nothing left to say.
       def summarize(results)
-        counts = results.filter_map(&:confirmation).tally
-        return if counts.empty?
+        marks = results.filter_map(&:confirmation)
+        return if marks.empty?
 
-        @diagnostics.inform("survivor confirmation: #{counts.map { |mark, n| "#{n} #{mark}" }.join(', ')}")
+        killed = marks.count("killed_by_confirmation")
+        confirmed = marks.count("confirmed")
+        unconfirmed = marks.count { |mark| mark.start_with?("unconfirmed") }
+        return if @diagnostics.quiet && unconfirmed.zero?
+
+        parts = []
+        if killed.positive?
+          parts << "#{killed} survivor#{'s' unless killed == 1} killed by specs this run didn't load"
+        end
+        parts << "#{confirmed} confirmed" if confirmed.positive?
+        parts << "#{unconfirmed} unconfirmed" if unconfirmed.positive?
+        @diagnostics.inform("confirmation: #{parts.join(', ')}")
       end
     end
   end
