@@ -51,15 +51,33 @@ function panel(comments, head, revoked = {}) {
   }
   return Object.fromEntries(latest);
 }
-function jobsPass(jobs, names, head, advisory = []) {
+function jobsPass(jobs, names, head, advisory = [], conditional = {}, event = null) {
   // Advisory legs (a proving Ruby line) may be present or absent and never
-  // change the verdict. Any other unexpected job still fails closed.
-  const counted = jobs.filter(j => !advisory.includes(j.name));
+  // change the verdict. Conditional jobs run only when their workflow `if`
+  // matches the run's event (the workflow file is protected, so the condition
+  // cannot change inside a PR): the policy lists per event which conclusions
+  // a present record may have, plus 'absent' when the record may be missing.
+  // A security control like ignore-audit must be green on the dispatch runs
+  // it guards, so 'absent' is not allowed there and a missing record fails
+  // closed. Any other unexpected job still fails closed.
+  const conditionalNames = Object.keys(conditional);
+  const counted = jobs.filter(j => !advisory.includes(j.name) && !conditionalNames.includes(j.name));
   demand(counted.length === names.length, 'unexpected job count');
   demand(new Set(counted.map(j => j.name)).size === names.length, 'duplicate jobs');
   for (const name of names) {
     const job = counted.find(j => j.name === name);
     demand(job && job.head_sha === head && job.status === 'completed' && job.conclusion === 'success', `job not green: ${name}`);
+  }
+  for (const name of conditionalNames) {
+    const present = jobs.filter(j => j.name === name);
+    demand(present.length <= 1, `duplicate conditional job: ${name}`);
+    const allowed = conditional[name]?.[event] ?? [];
+    if (present.length === 0) {
+      demand(allowed.includes('absent'), `missing conditional job: ${name}`);
+      continue;
+    }
+    demand(present[0].head_sha === head && present[0].status === 'completed' &&
+      allowed.includes(present[0].conclusion), `conditional job not in an allowed state: ${name}`);
   }
 }
 // The trailing block of "Token: value" lines, matching git interpret-trailers:
@@ -262,7 +280,14 @@ async function workflows(api, number, head) {
     const jobs = await api.pages(`actions/runs/${run.id}/attempts/${fresh.run_attempt}/jobs`, 'jobs');
     const advisory = policy.advisoryJobs?.[path] ?? [];
     demand(advisory.every(n => !names.includes(n)), `advisory job also required: ${path}`);
-    jobsPass(jobs, names, head, advisory);
+    const conditional = policy.conditionalJobs?.[path] ?? {};
+    for (const [jobName, byEvent] of Object.entries(conditional)) {
+      demand(!names.includes(jobName) && !advisory.includes(jobName), `conditional job also required/advisory: ${path}`);
+      demand(byEvent && typeof byEvent === 'object' && !Array.isArray(byEvent) &&
+        Object.values(byEvent).every(v => Array.isArray(v) && v.length > 0 && v.every(c => typeof c === 'string')),
+        `invalid conditional job policy: ${jobName}`);
+    }
+    jobsPass(jobs, names, head, advisory, conditional, fresh.event);
     checked.push({path, id: fresh.id, attempt: fresh.run_attempt, status: fresh.status, conclusion: fresh.conclusion,
       jobs: jobs.map(j => [j.id, j.name, j.head_sha, j.status, j.conclusion]).sort((a, b) => a[1].localeCompare(b[1]))});
   }

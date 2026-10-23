@@ -121,6 +121,12 @@ function fakeAPI(change = {}) {
       if (change.advisory && runs[id - 1].path === '.github/workflows/ci.yml') {
         list.push({name: 'Ruby 4.0 / linux / shard 1', head_sha: HEAD, status: 'completed', conclusion: 'failure'});
       }
+      if (change.conditional && runs[id - 1].path === '.github/workflows/ci.yml') {
+        const dispatched = runs[id - 1].event === 'workflow_dispatch';
+        list.push({name: 'ignore-audit', head_sha: HEAD, status: 'completed',
+          conclusion: dispatched ? (change.conditionalRed ? 'failure' : 'success') : 'skipped'});
+        list.push({name: 'warm-map', head_sha: HEAD, status: 'completed', conclusion: 'skipped'});
+      }
       return list;
     }
   };
@@ -168,7 +174,7 @@ test('a red advisory leg never blocks the verdict', async () => {
 // Manual PR CI: a workflow_dispatch run of ci.yml on the exact head is as good a
 // current-head workflow as a pull_request run.
 test('end-to-end decision accepts a manually dispatched CI run on the head', async () => {
-  const api = fakeAPI({dispatchRun: true}); await verify(api, 1);
+  const api = fakeAPI({dispatchRun: true, conditional: true}); await verify(api, 1);
   assert.deepEqual(api.statuses.map(s => s.state), ['pending', 'success']);
 });
 test('a head that trails a moved main still passes when its checks are green', async () => {
@@ -626,4 +632,49 @@ test('lane writes fail open with a log line, but never hide a quota error', asyn
   const quota = {call: async () => { throw new RateLimitError('spent'); }};
   await assert.rejects(() => postLane(quota, [1], 'issue_comment'));
   await assert.rejects(() => closeLane(quota, 'run-41:pr-1', true));
+});
+test('conditional jobs: dispatch profile passes only with ignore-audit green; missing/red fails', () => {
+  const required = ['lint'];
+  const lint = {name: 'lint', head_sha: HEAD, status: 'completed', conclusion: 'success'};
+  const conditional = {
+    'ignore-audit': {workflow_dispatch: ['success'], pull_request: ['skipped', 'absent']},
+    'warm-map': {workflow_dispatch: ['skipped', 'absent'], pull_request: ['skipped', 'absent']}
+  };
+  const audit = conclusion => ({name: 'ignore-audit', head_sha: HEAD, status: 'completed', conclusion});
+  const warm = conclusion => ({name: 'warm-map', head_sha: HEAD, status: 'completed', conclusion});
+  // The live red on PR #1329: required + advisory + these two event-conditional
+  // jobs failed 'unexpected job count' because they had no classification.
+  assert.throws(() => jobsPass([lint, audit('success'), warm('skipped')], required, HEAD), /unexpected job count/);
+  // Real dispatch profile: the audit ran green, warm-map skipped.
+  jobsPass([lint, audit('success'), warm('skipped')], required, HEAD, [], conditional, 'workflow_dispatch');
+  // ignore-audit is a security control on dispatch runs: missing, skipped or red fails closed.
+  assert.throws(() => jobsPass([lint, warm('skipped')], required, HEAD, [], conditional, 'workflow_dispatch'), /missing conditional job/);
+  assert.throws(() => jobsPass([lint, audit('skipped'), warm('skipped')], required, HEAD, [], conditional, 'workflow_dispatch'));
+  assert.throws(() => jobsPass([lint, audit('failure'), warm('skipped')], required, HEAD, [], conditional, 'workflow_dispatch'));
+  // warm-map never runs on PR-shaped runs: skipped or absent pass, a red record fails.
+  jobsPass([lint, audit('success')], required, HEAD, [], conditional, 'workflow_dispatch');
+  assert.throws(() => jobsPass([lint, audit('success'), warm('failure')], required, HEAD, [], conditional, 'workflow_dispatch'));
+  // pull_request profile: both are skipped (or absent); either running green is anomalous.
+  jobsPass([lint, audit('skipped'), warm('skipped')], required, HEAD, [], conditional, 'pull_request');
+  jobsPass([lint], required, HEAD, [], conditional, 'pull_request');
+  assert.throws(() => jobsPass([lint, audit('success'), warm('skipped')], required, HEAD, [], conditional, 'pull_request'));
+  // Unknown extras, duplicates, wrong head and incomplete status stay fail-closed.
+  assert.throws(() => jobsPass([lint, audit('success'), warm('skipped'),
+    {name: 'mystery', head_sha: HEAD, status: 'completed', conclusion: 'success'}], required, HEAD, [], conditional, 'workflow_dispatch'), /unexpected job count/);
+  assert.throws(() => jobsPass([lint, audit('success'), audit('success'), warm('skipped')], required, HEAD, [], conditional, 'workflow_dispatch'), /duplicate/);
+  assert.throws(() => jobsPass([lint, {...audit('success'), head_sha: BASE}, warm('skipped')], required, HEAD, [], conditional, 'workflow_dispatch'));
+  assert.throws(() => jobsPass([lint, {...audit('success'), status: 'in_progress'}, warm('skipped')], required, HEAD, [], conditional, 'workflow_dispatch'));
+});
+test('end-to-end: PR run profiles with event-conditional jobs pass', async () => {
+  const api = fakeAPI({conditional: true});
+  await verify(api, 1);
+  assert.deepEqual(api.statuses.map(s => s.state), ['pending', 'success']);
+  const dispatched = fakeAPI({conditional: true, dispatchRun: true});
+  await verify(dispatched, 1);
+  assert.deepEqual(dispatched.statuses.map(s => s.state), ['pending', 'success']);
+});
+test('end-to-end fails closed: ignore-audit red on the dispatch run', async () => {
+  const api = fakeAPI({conditional: true, conditionalRed: true, dispatchRun: true});
+  await assert.rejects(() => verify(api, 1));
+  assert.deepEqual(api.statuses.map(s => s.state), ['pending', 'failure']);
 });
