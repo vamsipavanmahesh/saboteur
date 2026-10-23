@@ -3,6 +3,27 @@
 
 # Survivors accepted with a reason. Each digest is printed next to its survivor.
 Saboteur.ignore do |i|
+  # survivor_list.rb:249/260 - dropping `== "confirmed"` from the confirmation_state
+  # checks is equivalent: the survivor block only ever renders results whose
+  # confirmation state is "confirmed" or nil. unconfirmed(...) survivors are
+  # partitioned into the Accepted bucket before grouping (pinned by "keeps an
+  # unconfirmed survivor in the accepted bucket" in survivor_list_pins_spec and by
+  # e2e scoped_confirmation "keeps the survivors, lists them as unconfirmed");
+  # killed_by_confirmation flips status off the survivor list. Over that domain
+  # `state` and `state == "confirmed"` are the same predicate. Hand-applied BOTH
+  # drops together: 3133 reporter+engine unit examples green, scoped_confirmation +
+  # inferred_map_not_whole_suite e2e green (12 examples), Ruby 3.3.6.
+  i.mutation "0b8a29650cd0ee8b",
+             subject: "Saboteur::Reporter::SurvivorList#confirmation_specs_run",
+             reason: "equivalent: covered() only sees confirmed/nil confirmation states " \
+                     "(unconfirmed renders in the Accepted bucket, kills flip status), so a " \
+                     "bare truthiness check is the same predicate - both drops hand-applied " \
+                     "together, 3133 unit + 12 e2e examples green"
+  i.mutation "390f9156a787273d",
+             subject: "Saboteur::Reporter::SurvivorList#not_run_lines",
+             reason: "equivalent: same confirmed/nil domain at the likely-covered gate as " \
+                     "0b8a29650cd0ee8b - both drops hand-applied together, 3133 unit + 12 " \
+                     "e2e examples green"
   # agent_commands.rb:63 covering_files regex - dropping the \A anchor is equivalent:
   # both optional prefix atoms (\.? and /?) match empty, so the capture group already
   # starts at position 0 whenever any ".rb[" occurs in the id; the leftmost match is

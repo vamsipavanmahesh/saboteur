@@ -77,6 +77,15 @@ RSpec.describe "scoped runs confirm survivors against the whole-suite map", :e2e
     expect(mutants(run).count { |mutant| mutant["status"] == "Survived" }).to eq(2)
   end
 
+  it "lists confirmation specs as having run for confirmed survivors, never not run here (#1312)" do
+    run = saboteur(dir, "--since", "HEAD")
+
+    expect(run.out).to include("confirmed: ./spec/integration/flow_spec.rb[1:")
+    expect(run.out).to include("ran on confirmation and still passed")
+    expect(run.out).not_to include("(not run here)")
+    expect(run.out).not_to include("likely covered elsewhere")
+  end
+
   context "with the confirmation budget spent" do
     let(:budget) { 0 }
 

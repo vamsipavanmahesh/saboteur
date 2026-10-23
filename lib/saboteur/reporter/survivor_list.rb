@@ -231,13 +231,33 @@ module Saboteur
         end
 
         run_known = @run_map ? @run_map.tests_for(group.first.subject) : tests
-        not_run = whole - run_known
-        return legacy_covered(group, tests) if not_run.empty?
+        confirmed_ran = confirmation_specs_run(group.first, whole - run_known)
+        not_run = whole - run_known - confirmed_ran
+        if not_run.empty?
+          legacy_covered(group, tests)
+        else
+          not_run_lines(group, whole, not_run, run_known, group.first)
+        end
+        return if confirmed_ran.empty?
 
+        @out.puts "  confirmed: #{confirmed_ran.first} ran on confirmation and still passed"
+      end
+
+      # Specs the run never loaded that confirmation actually ran against a
+      # confirmed survivor (#1312); empty for unconfirmed results.
+      def confirmation_specs_run(result, not_run)
+        return [] unless result.confirmation_state == "confirmed"
+
+        not_run & result.executed.to_a
+      end
+
+      def not_run_lines(group, whole, not_run, run_known, representative)
         @out.puts "  covered by #{whole.size} #{whole.one? ? 'spec' : 'specs'}, " \
                   "incl. #{not_run.first} (not run here)"
         exact = exact_line_tests(group.first) - run_known
-        return if exact.empty?
+        # A confirmed survivor is never "likely covered elsewhere": its
+        # confirmation specs ran and it still survived (#1312).
+        return if exact.empty? || representative.confirmation_state == "confirmed"
 
         @out.puts @palette.paint(:dim, "  likely covered elsewhere: #{exact.first} pins this line (not run here)")
       end

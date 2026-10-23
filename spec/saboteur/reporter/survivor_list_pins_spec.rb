@@ -469,6 +469,80 @@ RSpec.describe Saboteur::Reporter::SurvivorList, "survivor blocks" do
       expect(text).to include("likely covered elsewhere: ./spec/flow_spec.rb[1:1] pins this line (not run here)")
     end
 
+    it "lists confirmation specs as run for confirmed survivors (#1312)" do
+      confirmed = edited(PINS_CALCULATOR, "1 + rate", "1 - rate", operator: "comparison", dir:,
+                                                                  covered_by: [calculator_id],
+                                                                  confirmation: "confirmed",
+                                                                  executed: [calculator_id, flow_id])
+      whole = map_for(confirmed.subject, [calculator_id, flow_id])
+      run = map_for(confirmed.subject, [calculator_id])
+      text = render_with_maps([confirmed], whole:, run:)
+
+      expect(text).to include("confirmed: ./spec/flow_spec.rb[1:1] ran on confirmation and still passed")
+      expect(text).not_to include("(not run here)")
+      expect(text).not_to include("likely covered elsewhere")
+    end
+
+    it "keeps an unconfirmed survivor in the accepted bucket, no confirmation-run line (#1312)" do
+      state = "unconfirmed(the confirmation budget is spent)"
+      unconfirmed = edited(PINS_CALCULATOR, "1 + rate", "1 - rate", operator: "comparison", dir:,
+                                                                    covered_by: [calculator_id],
+                                                                    confirmation: state,
+                                                                    executed: [calculator_id, flow_id])
+      whole = map_for(unconfirmed.subject, [calculator_id, flow_id])
+      run = map_for(unconfirmed.subject, [calculator_id])
+      text = render_with_maps([unconfirmed], whole:, run:)
+
+      expect(text).to include("Accepted (1, not scored)")
+      expect(text).not_to include("ran on confirmation and still passed")
+      expect(text).not_to include("likely covered elsewhere")
+    end
+
+    it "keeps the not-run lines when confirmation never applied (#1312)" do
+      plain = edited(PINS_CALCULATOR, "1 + rate", "1 - rate", operator: "comparison", dir:,
+                                                              covered_by: [calculator_id],
+                                                              executed: [calculator_id, flow_id])
+      whole = map_for(plain.subject, [calculator_id, flow_id])
+      run = map_for(plain.subject, [calculator_id])
+      text = render_with_maps([plain], whole:, run:)
+
+      expect(text).to include("(not run here)")
+      expect(text).to include("likely covered elsewhere")
+      expect(text).not_to include("ran on confirmation and still passed")
+    end
+
+    it "names the first confirmation spec when confirmation ran several (#1312)" do
+      other_flow_id = "./spec/flow_spec.rb[1:2]"
+      confirmed = edited(PINS_CALCULATOR, "1 + rate", "1 - rate", operator: "comparison", dir:,
+                                                                  covered_by: [calculator_id],
+                                                                  confirmation: "confirmed",
+                                                                  executed: [calculator_id, flow_id, other_flow_id])
+      whole = map_for(confirmed.subject, [calculator_id, flow_id, other_flow_id])
+      run = map_for(confirmed.subject, [calculator_id])
+      text = render_with_maps([confirmed], whole:, run:)
+
+      expect(text).to include("confirmed: ./spec/flow_spec.rb[1:1] ran on confirmation and still passed")
+      expect(text).not_to include("[1:2] ran on confirmation")
+      expect(text).not_to include("(not run here)")
+    end
+
+    it "takes the block's confirmation state from the group's first result (#1312)" do
+      first_confirmed = edited(PINS_CALCULATOR, "1 + rate", "1 - rate", operator: "comparison", dir:,
+                                                                        covered_by: [calculator_id],
+                                                                        confirmation: "confirmed",
+                                                                        executed: [calculator_id, flow_id])
+      sibling_plain = edited(PINS_CALCULATOR, "* (1 + rate)", "/ (1 + rate)", operator: "arithmetic", dir:,
+                                                                              covered_by: [calculator_id])
+      other_flow_id = "./spec/flow_spec.rb[1:2]"
+      whole = map_for(first_confirmed.subject, [calculator_id, flow_id, other_flow_id])
+      run = map_for(first_confirmed.subject, [calculator_id])
+      text = render_with_maps([first_confirmed, sibling_plain], whole:, run:)
+
+      expect(text).to include("confirmed: ./spec/flow_spec.rb[1:1] ran on confirmation and still passed")
+      expect(text).to include("(not run here)")
+      expect(text).not_to include("likely covered elsewhere")
+    end
+
     it "counts only the run map's tests as run, not the covered-by union" do
       outside = edited(PINS_CALCULATOR, "1 + rate", "1 - rate", operator: "comparison", dir:,
                                                                 covered_by: ["./spec/outside_spec.rb[1:1]"])
