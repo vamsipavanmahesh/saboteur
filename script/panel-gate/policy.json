@@ -3,89 +3,20 @@
   "context": "panel/head-gate",
   "baseBranch": "main",
   "reviewers": {
-    "principal": [
-      1875074
-    ],
-    "architect": [
-      1875074
-    ],
-    "qa": [
+    "owner": [
       1875074
     ]
   },
   "workflows": {
     ".github/workflows/ci.yml": [
-      "Ruby 3.3 / linux / shard 1",
-      "Ruby 3.3 / linux / shard 2",
-      "Ruby 3.3 / linux / shard 3",
-      "Ruby 3.3 / linux / shard 4",
-      "Ruby 3.4 / linux / shard 1",
-      "Ruby 3.4 / linux / shard 2",
-      "Ruby 3.4 / linux / shard 3",
-      "Ruby 3.4 / linux / shard 4",
-      "Ruby ruby / linux / shard 1",
-      "Ruby ruby / linux / shard 2",
-      "Ruby ruby / linux / shard 3",
-      "Ruby ruby / linux / shard 4",
-      "Ruby ruby / macos / shard 1",
-      "Ruby ruby / macos / shard 2",
-      "Ruby ruby / macos / shard 3",
-      "Ruby ruby / macos / shard 4",
-      "Ruby ruby / macos / shard 5",
-      "Ruby 3.4 / LANG=C / shard 1",
-      "Ruby 3.4 / LANG=C / shard 2",
-      "Ruby 3.4 / LANG=C / shard 3",
-      "Ruby 3.4 / LANG=C / shard 4",
-      "lint",
-      "dry-inflector (class_eval)",
-      "dry-inflector (nesting)",
-      "tty-color (class_eval)",
-      "tty-color (nesting)",
-      "dogfood"
-    ],
-    ".github/workflows/dco.yml": [
-      "signoff"
+      "ci-passed"
     ]
   },
   "protectedFiles": [
+    "acceptance",
     ".github/workflows",
-    ".github/workflows/ci.yml",
-    ".github/workflows/dco.yml",
-    ".github/workflows/panel-gate.yml",
-    "script/check-dco",
-    "script/integration-target",
-    "script/panel-gate/policy.json",
-    "script/panel-gate/verify.cjs",
-    "script/panel-gate/verify.test.cjs",
-    ".saboteur-ignore.yml",
-    "action.yml",
-    "action/run-saboteur",
-    "action/fetch-base",
-    "action/post-review-comments",
-    "integration",
-    ".saboteur.yml"
+    "script/panel-gate",
+    "bin/check-env"
   ],
-  "revocationAnchor": "91f4017ef7398eb761ddc1efd26c1239c3dbfa6a",
-  "advisoryJobs": {
-    ".github/workflows/ci.yml": [
-      "Ruby 4.0 / linux / shard 1",
-      "Ruby 4.0 / linux / shard 2",
-      "Ruby 4.0 / linux / shard 3",
-      "Ruby 4.0 / linux / shard 4"
-    ]
-  },
-  "conditionalJobs": {
-    ".github/workflows/ci.yml": {
-      "ignore-audit": {
-        "pull_request": ["skipped", "absent"],
-        "workflow_dispatch": ["success"],
-        "push": ["skipped", "absent"]
-      },
-      "warm-map": {
-        "pull_request": ["skipped", "absent"],
-        "workflow_dispatch": ["skipped", "absent"],
-        "push": ["success", "absent"]
-      }
-    }
-  }
+  "revocationAnchor": "91f4017ef7398eb761ddc1efd26c1239c3dbfa6a"
 }
