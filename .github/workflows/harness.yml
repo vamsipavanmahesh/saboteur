@@ -5,6 +5,14 @@ on:
     branches: [main]
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      tier:
+        description: "Acceptance tier: fast (default) or full (release gate: every scenario, money_ranking included)"
+        required: true
+        default: "fast"
+        type: choice
+        options: [fast, full]
 
 permissions:
   contents: read
@@ -29,12 +37,13 @@ jobs:
       - run: bundle exec rake claims:check
 
   acceptance:
-    # Fast tier of the black-box acceptance suite: the maintainer's expected
-    # results in acceptance/expected.yml, checked against the real CLI.
-    # money_ranking is full-tier (release gate) and does not run here.
+    # Black-box acceptance suite: the maintainer's expected results in
+    # acceptance/expected.yml, checked against the real CLI. Push/PR and a
+    # plain dispatch run the fast tier; money_ranking is full-tier (release
+    # gate) and runs only on an explicit tier=full dispatch.
     name: acceptance
     runs-on: nscloud-ubuntu-24.04-amd64-1x2
-    timeout-minutes: 20
+    timeout-minutes: 70
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -45,4 +54,14 @@ jobs:
         with:
           ruby-version: "3.3"
           bundler-cache: true
-      - run: bundle exec rake acceptance:fast
+      - name: acceptance (fast tier)
+        if: github.event.inputs.tier != 'full'
+        timeout-minutes: 20
+        run: bundle exec rake acceptance:fast
+      # Full tier, release gate: every scenario, money_ranking included.
+      # Runs only on an explicit tier=full dispatch - never silently
+      # skipped, and the fast tier can never stand in for it.
+      - name: acceptance (full tier - release gate)
+        if: github.event.inputs.tier == 'full'
+        timeout-minutes: 60
+        run: bundle exec rake acceptance
