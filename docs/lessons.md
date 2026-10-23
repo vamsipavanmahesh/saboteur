@@ -231,10 +231,20 @@ review-to-checks loop in [agents/review-to-checks.md](agents/review-to-checks.md
   slice landed.
 - Root cause: process. The direct-to-main route had no local lint gate; a
   maintainer waiver of PR review was treated as covering correctness too.
-- Prevented by: a direct push that adds or changes any Ruby file, script or
-  workflow requires `bundle exec rubocop` green on the exact post-apply
-  tree, pasted as raw output in the push report, re-executed independently
-  where a toolchain is available. The review waiver never waives checks.
+- Recurrence, same day: a later direct slice landed five new e2e specs
+  after linting only three of the changed files; an independent whole-head
+  run (787 files) caught a `Style/StringConcatenation` offense in the
+  unlinted fourth file. Partial file-list lint is not the gate.
+- Root cause: process. The direct-to-main route had no local lint gate; a
+  maintainer waiver of PR review was treated as covering correctness too.
+- Prevented by: a direct push that adds or changes any Ruby file, script,
+  spec or workflow requires the fast preflight
+  (`ruby script/preflight --base <main sha> --head <head sha> --base-ref
+  main --mode fast`, about 45 seconds) green on the exact post-apply head,
+  which includes whole-repo rubocop with no file subsetting, pasted as raw
+  output in the push report and re-executed independently where a
+  toolchain is available. The review waiver never waives checks. A fast
+  preflight is partial: never report it as the full suite.
 
 ## 20. A capacity root cause was claimed, then withdrawn as unproven
 
