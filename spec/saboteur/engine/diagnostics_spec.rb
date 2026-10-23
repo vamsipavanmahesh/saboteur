@@ -51,6 +51,26 @@ RSpec.describe Saboteur::Engine::Diagnostics do
     diagnostics.finish_progress
   end
 
+  describe "announce_unless_quiet" do
+    it "prints and live-announces the warning when not quiet" do
+      diagnostics.announce_unless_quiet("heads up")
+      expect(err.string).to eq("saboteur: heads up\n")
+      expect(diagnostics.warnings).to eq(["heads up"])
+      expect(diagnostics.live_announced).to eq(["heads up"])
+    end
+
+    # P5 (#1316): the --quiet contract is findings, score and verdict, so
+    # the notice stays off stderr; machine consumers keep it in
+    # report.warnings, and live_announced stops a reprint at the end.
+    it "keeps the warning off stderr under --quiet, still live-announced" do
+      quiet = described_class.new(err, quiet: true)
+      quiet.announce_unless_quiet("heads up")
+      expect(err.string).to eq("")
+      expect(quiet.warnings).to eq(["heads up"])
+      expect(quiet.live_announced).to eq(["heads up"])
+    end
+  end
+
   describe "progress summary with a known total" do
     before do
       allow(Process).to receive(:clock_gettime).and_call_original
