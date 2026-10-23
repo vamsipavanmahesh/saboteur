@@ -121,6 +121,21 @@ RSpec.describe Saboteur::Reporter::SurvivorList, "survivor blocks" do
     expect(render([coarse, operand])).not_to include("coarse")
   end
 
+  it "shows the diff and hint of the mutant carrying the group's label (0.12.4 review, finding 1)" do
+    no_change = edited(PINS_CALCULATOR, "1 + rate", "1 - rate", operator: "comparison", dir:,
+                                                                value_differed: false,
+                                                                covered_by: ["./spec/calculator_spec.rb[2:1]"])
+    changed = edited(PINS_CALCULATOR, "1 + rate", "1 * rate", operator: "arithmetic", dir:,
+                                                              value_differed: true,
+                                                              covered_by: ["./spec/calculator_spec.rb[2:1]"])
+    text = render([no_change, changed])
+    expect(text).to include("[boundary · assertion gap · #1 of 1 block]")
+    expect(text).to include("principal * (1 * rate)**years")
+    expect(text).not_to include("principal * (1 - rate)**years")
+    expect(text).to include("the computed value can drift without a test noticing")
+    expect(text).to include("1 more mutant here: #{no_change.digest} (comparison)")
+  end
+
   it "renders the golden block with colour tokens" do
     text = render([operand], palette: coloured)
     expect(text).to start_with("\e[1mSurvivors (1) - changes your tests did not catch\e[0m")

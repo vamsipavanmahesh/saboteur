@@ -73,7 +73,10 @@ module Saboteur
       end
 
       def block(report, group, rank, total)
-        first = group.first
+        # The block speaks for the mutant carrying the group's label, so the
+        # header, reason, hint and diff match that mutant's JSON record; its
+        # siblings list the rest (0.12.4 release review, finding 1).
+        first = @classifier.representative(group)
         line = MutationText.line(first)
         path = relative(first.subject.file, report.root)
         @out.puts "\n#{@palette.paint(:head, "#{rank}. #{path}:#{line}")} #{first.subject.id} " \
@@ -85,7 +88,7 @@ module Saboteur
         changed_lines(report, path, first)
         covered(group)
         hint_line(first)
-        siblings(report, group)
+        siblings(report, group, first)
       end
 
       # Fixed furniture fits an 80-column log: word-wrap the caveat. The
@@ -319,8 +322,8 @@ module Saboteur
                                                           coarse: result.mutation.coarse)
       end
 
-      def siblings(report, group)
-        rest = group.drop(1)
+      def siblings(report, group, representative)
+        rest = group - [representative]
         return if rest.empty?
 
         list = rest.first(SIBLING_DIGEST_CAP)

@@ -70,6 +70,45 @@ RSpec.describe Saboteur::Reporter::SurvivorClassification do
       expect(described_class.group_label([a, b])).to eq("assertion_gap")
     end
 
+    it "names the mutant carrying the group's label as its representative (0.12.4 review, finding 1)" do
+      no_change = survivor_for(source, from: ">=", to: ">", operator: "comparison", value_differed: false)
+      changed = survivor_for(source, from: ">=", to: ">", operator: "comparison", value_differed: true)
+      expect(described_class.representative([no_change, changed])).to equal(changed)
+      expect(described_class.representative([changed, no_change])).to equal(changed)
+      expect(described_class.label(described_class.representative([no_change, changed])))
+        .to eq(described_class.group_label([no_change, changed]))
+    end
+
+    it "falls back to the first special class when no gap kind decides, nils never hiding it" do
+      unlabeled = survivor_for("class A\n  def m(x, y)\n    x + y\n  end\nend\n", from: "x + y", to: "nil",
+                                                                                  coarse: true,
+                                                                                  operator: "body_nil")
+      arid = survivor_for("class A\n  def tell(msg)\n    puts msg\n  end\nend\n", from: "puts msg",
+                                                                                  to: "nil")
+      expect(described_class.label(unlabeled)).to be_nil
+      expect(described_class.representative([unlabeled, arid])).to equal(arid)
+      expect(described_class.representative([arid, unlabeled])).to equal(arid)
+    end
+
+    it "keeps the first special class when several carry one" do
+      arid = survivor_for("class A\n  def tell(msg)\n    puts msg\n  end\nend\n", from: "puts msg",
+                                                                                  to: "nil")
+      limited = survivor_for("class A\n  def adult?(age)\n    age >= 18\n  end\nend\n", from: ">=",
+                                                                                        to: ">",
+                                                                                        covered_by: [Saboteur::Execution::ExternalRunner::PSEUDO_TEST],
+                                                                                        operator: "comparison")
+      expect(described_class.label(limited)).to eq("tool_limit")
+      expect(described_class.representative([arid, limited])).to equal(arid)
+      expect(described_class.representative([limited, arid])).to equal(limited)
+    end
+
+    it "keeps the ranked first survivor as representative when the group has no label" do
+      a = survivor_for(source, from: ">=", to: ">")
+      b = survivor_for(source, from: ">=", to: ">")
+      allow(described_class).to receive(:label).and_return(nil)
+      expect(described_class.representative([a, b])).to equal(a)
+    end
+
     it "keeps the replaced gap kind: only for an observed label on a real, covered survivor" do
       seen = survivor_for(source, from: ">=", to: ">", operator: "comparison", value_differed: false)
       plain = survivor_for(source, from: ">=", to: ">", operator: "comparison")

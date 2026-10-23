@@ -97,8 +97,8 @@ tree refuses with exit 2 and points at the generator. Engine gem with
   `partial_coverage = "use"`, open
   survivors get one budgeted confirmation run against the covering specs
   that never ran them when the map is built from every spec (`--all`, no
-  `--test`, one coverage part, cache on). Default inferred-spec runs, `pr`
-  included, skip it. (e2e: spec/e2e/flaky_check_spec.rb) (e2e: spec/e2e/scoped_confirmation_spec.rb)
+  `--test`, one coverage part, cache on). Without a whole-suite map,
+  default inferred-spec runs, `pr` included, skip it. (e2e: spec/e2e/flaky_check_spec.rb) (e2e: spec/e2e/scoped_confirmation_spec.rb)
 - 📊 **Reports for people and tools.** Terminal, HTML, a Stryker-compatible
   JSON report, and a stable agent JSON API with a deprecation policy. The
   GitHub Action posts survivors as review comments on your PR diff lines.

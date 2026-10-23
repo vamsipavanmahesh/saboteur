@@ -86,19 +86,12 @@ module Saboteur
         groups = SurvivorRanking.ordered(report, report.unignored_survivors).group_by do |result|
           [relative(result.subject.file, report.root), MutationText.line(result), result.subject.id]
         end
-        @out.puts(groups.map { |(path, line, id), rs| quiet_survivor_line(path, line, id, rs) }) if groups.any?
+        @out.puts(groups.map { |(path, line, id), rs| SurvivorLine.collapsed(path, line, id, rs) }) if groups.any?
         untested_subjects(report).each do |subject|
           @out.puts "#{relative(subject.file, report.root)}:#{subject.start_line} #{subject.id} [untested]"
         end
         @baseline_gate ? BaselineTail.new(@out, @palette).call(@baseline_gate, @exit_code) : canonical_line(report)
         verdict_line(report)
-      end
-
-      def quiet_survivor_line(path, line, subject_id, results)
-        first, *rest = results
-        label = SurvivorClassification.group_label(results)
-        text = "#{path}:#{line} #{subject_id}#{" [#{label}]" if label} - #{first.digest}"
-        rest.any? ? "#{text} (+#{rest.size} more)" : text
       end
 
       def operator_policy(report)

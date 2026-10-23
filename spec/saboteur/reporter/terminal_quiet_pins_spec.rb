@@ -48,14 +48,15 @@ RSpec.describe Saboteur::Reporter::Terminal, "quiet pins" do
   def calculator = subjects.find { |subject| subject.id == "Calculator#compound" }
   def cart = subjects.find { |subject| subject.id == "Cart#total" }
 
-  def result(status, original, replacement, covered_by: ["spec/calculator_spec.rb:7"], coarse: false)
+  def result(status, original, replacement, covered_by: ["spec/calculator_spec.rb:7"], coarse: false,
+             value_differed: nil)
     at = calculator.file_source.index(original)
     edit = Saboteur::MutationSource::Edit.new(file: calculator.file, start_byte: at,
                                               end_byte: at + original.bytesize, replacement:)
     mutation = Saboteur::MutationSource::Mutation.new(subject_id: calculator.id, operator: "comparison",
                                                       edits: [edit], coarse: coarse)
     Saboteur::MutantResult.new(subject: calculator, mutation:, status:,
-                               mutated_source: calculator.apply(mutation.edits), covered_by:)
+                               mutated_source: calculator.apply(mutation.edits), covered_by:, value_differed:)
   end
 
   # Three survivors on one statement (line 3): the quiet line names the
@@ -69,6 +70,19 @@ RSpec.describe Saboteur::Reporter::Terminal, "quiet pins" do
   end
   let(:first_digest) do
     Saboteur::Reporter::SurvivorRanking.ordered(report, report.unignored_survivors).first.digest
+  end
+
+  it "names the digest of the mutant carrying the statement's label (0.12.4 review, finding 1)" do
+    no_change = result(:survived, "1 + rate", "1 - rate", covered_by: ["spec/calculator_spec.rb:7"],
+                                                          value_differed: false)
+    changed = result(:survived, "1 + rate", "1 * rate",
+                     covered_by: ["spec/calculator_spec.rb:7", "spec/calculator_spec.rb:9"],
+                     value_differed: true)
+    report = Saboteur::Report.new(results: [no_change, changed], subjects:, wall_time: 1,
+                                  root: File.dirname(calculator.file), seed: 1)
+    text = render(report, exit_code: 1, threshold: 80, quiet: true)
+    expect(text).to include("calculator.rb:3 Calculator#compound [assertion_gap] - #{changed.digest} (+1 more)")
+    expect(text).not_to include(no_change.digest)
   end
 
   it "prints the golden four lines in monochrome: findings, summary, verdict, nothing else" do
