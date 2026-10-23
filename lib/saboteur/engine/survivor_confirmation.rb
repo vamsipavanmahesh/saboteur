@@ -93,6 +93,7 @@ module Saboteur
         case outcome.status
         when :killed then checked_kill(result, tests, outcome)
         when :survived then result.with_confirmation("confirmed",
+                                                     executed: (result.executed || []) + outcome.executed_ids,
                                                      value_differed: merged_observation([result, outcome]))
         else unconfirmed(result, "the confirmation run #{outcome.status}: #{outcome.message}")
         end

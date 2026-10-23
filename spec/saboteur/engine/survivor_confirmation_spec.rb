@@ -144,6 +144,25 @@ RSpec.describe Saboteur::Engine::SurvivorConfirmation, "#1063" do
     end
   end
 
+  it "carries the specs confirmation ran onto the confirmed result (#1312)" do
+    result = survivor
+    allow(runner).to receive(:run).and_return(outcome(status: :survived, executed: ["./spec/thing_3_spec.rb[1:3]"]))
+
+    confirmed = confirmation.call([result], ignore_list: ignore_list).first
+
+    expect(confirmed.confirmation).to eq("confirmed")
+    expect(confirmed.executed).to eq(["./spec/thing_1_spec.rb[1:1]", "./spec/thing_3_spec.rb[1:3]"])
+  end
+
+  it "merges confirmation specs onto a survivor with no recorded executed list (#1312)" do
+    result = survivor(executed: nil, covered_by: ["./spec/thing_1_spec.rb[1:1]"])
+    allow(runner).to receive(:run).and_return(outcome(status: :survived, executed: ["./spec/thing_3_spec.rb[1:3]"]))
+
+    confirmed = confirmation.call([result], ignore_list: ignore_list).first
+
+    expect(confirmed.executed).to eq(["./spec/thing_3_spec.rb[1:3]"])
+  end
+
   it "keeps a true observation from the first run on a confirmation kill (#1311)" do
     result = survivor(value_differed: true)
     stub_mutant_and_unchanged(outcome(status: :killed, failed: ["./spec/thing_3_spec.rb[1:1]"],

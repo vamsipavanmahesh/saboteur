@@ -78,8 +78,10 @@ RSpec.describe "an inferred-spec map is not the whole-suite map", :e2e do
 
     expect(run.err).not_to include("survivors unconfirmed")
     expect(run.out).to include("flow_spec.rb")
-    expect(run.out).to include("(not run here)")
-    expect(run.out).not_to include("ran, still passed")
+    expect(run.out).to include("confirmed: ./spec/integration/flow_spec.rb[1:")
+    expect(run.out).to include("ran on confirmation and still passed")
+    expect(run.out).not_to include("(not run here)")
+    expect(run.out).not_to include("likely covered elsewhere")
   end
 
   it "prints the unconfirmed notice once under --quiet" do
