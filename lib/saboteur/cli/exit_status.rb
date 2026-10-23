@@ -41,7 +41,7 @@ module Saboteur
         return false unless report.omissions.empty? && report.inline_suppressions.empty? &&
                             report.discovery_failures.empty? && report.invalid_mutations.zero?
 
-        @err.puts("saboteur: no mutants in the diff - nothing to gate")
+        @err.puts("saboteur: no mutants in the diff - nothing blocking")
         true
       end
 
