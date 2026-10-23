@@ -28,7 +28,7 @@ module ClaimsCheck
   # [Unreleased] plus any versioned section with no matching git tag.
   def unreleased_sections(changelog, tagged_versions)
     sections = []
-    changelog.each_line do |line|
+    File.foreach(changelog, encoding: "UTF-8") do |line|
       match = VERSION_HEADING.match(line)
       next unless match
 
@@ -66,7 +66,7 @@ module ClaimsCheck
   end
 
   def tagged_versions(root)
-    out, = Open3.capture2("git", "-C", root, "tag", "--list", "v*")
+    out, = Open3.capture2("git", "-C", root, "tag", "--list", "v*", err: File::NULL)
     out.lines.map { |tag| tag.strip.sub(/\Av/, "") }
   rescue SystemCallError
     [] # no git: only [Unreleased] is checked
