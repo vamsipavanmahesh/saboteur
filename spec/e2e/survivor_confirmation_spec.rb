@@ -57,14 +57,14 @@ RSpec.describe "survivor confirmation (#1063)", :e2e do
 
     expect(run.status).to eq(1)
     expect(run.err).not_to include("private method")
-    expect(run.err).to include("survivor confirmation: 1 confirmed")
+    expect(run.err).to include("confirmation: 1 confirmed")
   end
 
   it "has no whole-suite map to confirm against after an inferred run, and says so once" do
     run = saboteur(dir, "--no-color")
 
     expect(run.status).to eq(1)
-    expect(run.err).not_to include("survivor confirmation:")
+    expect(run.err).not_to include("saboteur: confirmation:")
     expect(run.err.scan("survivors unconfirmed: no whole-suite coverage map").size).to eq(1)
   end
 

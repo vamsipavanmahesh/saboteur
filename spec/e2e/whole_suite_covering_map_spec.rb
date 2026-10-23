@@ -73,14 +73,16 @@ RSpec.describe "survivor blocks consult the whole-suite coverage map", :e2e do
         end
       end
     RUBY
-    run = saboteur(dir, "--since", "HEAD")
+    run = saboteur(dir, "--since", "HEAD", "--verbose")
 
     # flow_spec kills the mutant on the line the map knows; the other survivor
     # sits on a line the older whole-suite map has no coverage for. The map
-    # cannot say, so it stays a counted survivor (#1286).
+    # cannot say, so it stays a counted survivor (#1286). The per-mutant kill
+    # line is a --verbose detail (#1313); the default view gets the summary.
     expect(run.status).to eq(1), run.out + run.err
     expect(run.out).not_to include("not in the score")
     expect(run.out).to include("covers none of the edited lines of 1 survivor")
     expect(run.err).to include("killed on confirmation by ./spec/flow_spec.rb[1:1]")
+    expect(run.err).to include("confirmation: 1 survivor killed by specs this run didn't load, 1 unconfirmed")
   end
 end

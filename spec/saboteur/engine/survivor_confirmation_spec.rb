@@ -24,7 +24,7 @@ RSpec.describe Saboteur::Engine::SurvivorConfirmation, "#1063" do
   # itself - the pass driving the real objects without a crash - is pinned
   # end-to-end in spec/e2e/survivor_confirmation_spec.rb.
   let(:scheduler) { double("scheduler", runner: runner, confirmation_prefix: nil) }
-  let(:diagnostics) { double("diagnostics", inform: nil, warn: nil) }
+  let(:diagnostics) { double("diagnostics", inform: nil, warn: nil, verbose: false, quiet: false) }
   let(:ignore_list) { double("ignore_list", accepts?: false) }
   let(:budget_exceeded) { -> { false } }
   before do
@@ -68,7 +68,7 @@ RSpec.describe Saboteur::Engine::SurvivorConfirmation, "#1063" do
     expect(confirmed.confirmation).to eq("killed_by_confirmation")
     expect(confirmed.killed_by).to eq(["./spec/thing_3_spec.rb[1:1]"])
     expect(confirmed.executed).to include("./spec/thing_1_spec.rb[1:1]", "./spec/thing_3_spec.rb[1:1]")
-    expect(diagnostics).to have_received(:inform).with(%r{killed on confirmation by \./spec/thing_3_spec})
+    expect(diagnostics).not_to have_received(:inform).with(/killed on confirmation by/)
   end
 
   it "records a standing confirmation kill with the full covering test set, evicting the cached survivor" do
@@ -111,6 +111,9 @@ RSpec.describe Saboteur::Engine::SurvivorConfirmation, "#1063" do
     expect(confirmed.status).to eq(:error)
     expect(confirmed.rejected_kill?).to be(true)
     expect(confirmed.reason).to include("also fails with the method unchanged")
+    # A rejected kill carries no confirmation, so with no other survivor
+    # there is nothing to summarize (#1313).
+    expect(diagnostics).not_to have_received(:inform).with(/confirmation:/)
   end
 
   it "leaves the kill unverified and uncredited when the budgets stop the unchanged check" do
@@ -367,7 +370,7 @@ RSpec.describe Saboteur::Engine::SurvivorConfirmation, "#1063" do
 
     confirmation.call([survivor], ignore_list: ignore_list)
 
-    expect(diagnostics).to have_received(:inform).with(/survivor confirmation: 1 confirmed/)
+    expect(diagnostics).to have_received(:inform).with("confirmation: 1 confirmed")
   end
 
   it "passes non-survivors through without confirming them, asking the ignore list about each" do
@@ -534,9 +537,6 @@ RSpec.describe Saboteur::Engine::SurvivorConfirmation, "#1063" do
     expect(confirmed.kill_cause).to eq("assertion")
     expect(confirmed.runtime).to eq(1.5)
     expect(confirmed.covered_by).to eq(tids[1..8])
-    expect(diagnostics).to have_received(:inform).with(
-      "Thing#call literal_string abc123: killed on confirmation by ./spec/thing_3_spec.rb[1:1]"
-    )
   end
 
   it "treats missing runtimes and executions as empty in the kill" do
@@ -673,19 +673,75 @@ RSpec.describe Saboteur::Engine::SurvivorConfirmation, "#1063" do
 
     confirmation.call([survivor(executed: tids)], ignore_list: ignore_list)
 
-    expect(diagnostics).to have_received(:inform).with("survivor confirmation: 1 confirmed")
+    expect(diagnostics).to have_received(:inform).with("confirmation: 1 confirmed")
   end
 
-  it "joins the summary marks with commas" do
+  it "joins the summary parts with commas" do
     allow(runner).to receive(:run).and_return(outcome(status: :survived, runtime: 250.0))
     tight = described_class.new(config: config.merge("confirmation_budget" => 250.0), map: map,
                                 scheduler: scheduler, diagnostics: diagnostics, budget_exceeded: budget_exceeded)
 
     tight.call([survivor, survivor], ignore_list: ignore_list)
 
+    expect(diagnostics).to have_received(:inform).with("confirmation: 1 confirmed, 1 unconfirmed")
+  end
+
+  it "summarizes confirmation kills in plain words, singular and plural (#1313)" do
+    stub_mutant_and_unchanged(outcome(status: :killed, failed: ["./spec/thing_3_spec.rb[1:1]"],
+                                      executed: ["./spec/thing_3_spec.rb[1:1]"], message: "1 failed"),
+                              outcome(status: :survived))
+
+    confirmation.call([survivor], ignore_list: ignore_list)
+
     expect(diagnostics).to have_received(:inform).with(
-      "survivor confirmation: 1 confirmed, 1 unconfirmed(the confirmation budget is spent)"
+      "confirmation: 1 survivor killed by specs this run didn't load"
     )
+
+    confirmation.call([survivor, survivor], ignore_list: ignore_list)
+
+    expect(diagnostics).to have_received(:inform).with(
+      "confirmation: 2 survivors killed by specs this run didn't load"
+    )
+  end
+
+  it "prints the per-mutant kill line only with --verbose (#1313)" do
+    verbose_diagnostics = double("diagnostics", inform: nil, warn: nil, verbose: true, quiet: false)
+    verbose_confirmation = described_class.new(config: config, map: map, scheduler: scheduler,
+                                               diagnostics: verbose_diagnostics, budget_exceeded: budget_exceeded)
+    stub_mutant_and_unchanged(outcome(status: :killed, failed: ["./spec/thing_3_spec.rb[1:1]"],
+                                      executed: ["./spec/thing_3_spec.rb[1:1]"], message: "1 failed"),
+                              outcome(status: :survived))
+
+    verbose_confirmation.call([survivor], ignore_list: ignore_list)
+
+    expect(verbose_diagnostics).to have_received(:inform).with(%r{killed on confirmation by ./spec/thing_3_spec})
+    expect(verbose_diagnostics).to have_received(:inform).with(
+      "confirmation: 1 survivor killed by specs this run didn't load"
+    )
+  end
+
+  it "stays silent under --quiet when nothing remains unconfirmed (#1313)" do
+    quiet_diagnostics = double("diagnostics", inform: nil, warn: nil, verbose: false, quiet: true)
+    quiet_confirmation = described_class.new(config: config, map: map, scheduler: scheduler,
+                                             diagnostics: quiet_diagnostics, budget_exceeded: budget_exceeded)
+    allow(runner).to receive(:run).and_return(outcome(status: :survived))
+
+    quiet_confirmation.call([survivor], ignore_list: ignore_list)
+
+    expect(quiet_diagnostics).not_to have_received(:inform)
+  end
+
+  it "prints the summary under --quiet only because survivors remain unconfirmed (#1313)" do
+    quiet_diagnostics = double("diagnostics", inform: nil, warn: nil, verbose: false, quiet: true)
+    tight = described_class.new(config: config.merge("confirmation_budget" => 0.0), map: map,
+                                scheduler: scheduler, diagnostics: quiet_diagnostics,
+                                budget_exceeded: budget_exceeded)
+
+    confirmed = tight.call([survivor, survivor], ignore_list: ignore_list)
+
+    expect(confirmed.map(&:confirmation)).to eq(["unconfirmed(the confirmation budget is spent)",
+                                                 "unconfirmed(the confirmation budget is spent)"])
+    expect(quiet_diagnostics).to have_received(:inform).with("confirmation: 2 unconfirmed")
   end
 
   describe Saboteur::MutantResult, "#with_confirmation" do
