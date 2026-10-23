@@ -12,22 +12,27 @@ on:
       - '*.md'
       - 'docs/**'
       - 'assets/**'
-  # PR CI is manual: the matrix does not run on pull_request events. A
-  # maintainer runs it against the exact
-  # PR head with
+  # The full matrix also runs nightly at 03:30 IST, staggered 30 minutes
+  # from nightly.yml's integration recorders; a fresher main push in the
+  # shared concurrency group supersedes it.
+  schedule:
+    - cron: "0 22 * * *"
+  # PR CI is manual and trimmed: one Linux Ruby (3.4) over 4 shards, plus
+  # lint, dco and the ignore audit; the full matrix - every Ruby, macOS, the
+  # locale shards, the integration gems and dogfood - runs on pushes to main
+  # and the nightly schedule only. A maintainer runs the PR profile against
+  # the exact PR head with
   #   gh workflow run ci.yml --ref <head-branch> -f pr_number=<n> -f base_sha=<base-sha>
   # --ref must be a branch or tag name (the dispatch API rejects a raw SHA),
   # so exact-head binding comes from the API proof inside the run, not from
-  # the ref: the macOS and dogfood jobs prove from the pull request that its
-  # head is the checked-out SHA and its base is the base_sha input, and fail
-  # closed otherwise. For a fork pull request the maintainer first pushes the
+  # the ref: the ignore audit proves from the pull request that its head is
+  # the checked-out SHA and its base is the base_sha input, and fails closed
+  # otherwise. For a fork pull request the maintainer first pushes the
   # reviewed head into this repository, then dispatches on that branch:
   #   git push origin <reviewed-head-sha>:refs/heads/ci-pr-<n>
   #   gh workflow run ci.yml --ref ci-pr-<n> -f pr_number=<n> -f base_sha=<base-sha>
   # The proof still binds headRefOid to the fork's commit, so the branch can
-  # only ever name the reviewed change. head_repo (the PR's
-  # head.repository.full_name) only skips the macOS legs early - the legs
-  # prove the head repo from the API themselves.
+  # only ever name the reviewed change.
   workflow_dispatch:
     inputs:
       pr_number:
@@ -35,11 +40,13 @@ on:
         required: true
         type: string
       head_repo:
-        description: The PR head's owner/repo, for the macOS fork guard
+        # Unused since the macOS legs moved off pull request dispatches;
+        # retained so existing dispatch commands that pass it keep working.
+        description: Unused; kept for dispatch-command compatibility
         required: false
         type: string
       base_sha:
-        description: The PR's exact base commit (dogfood diff mode needs it)
+        description: The PR's exact base commit (the ignore audit and DCO check need it)
         required: true
         type: string
 
@@ -47,8 +54,9 @@ permissions:
   contents: read
 
 # A newer dispatch for a pull request cancels that PR's superseded run, and a
-# new push to main cancels the previous main run. PRs stay grouped per pull
-# request (dispatches carry no pull_request payload, so the input names it).
+# new push to main cancels the previous main run or an in-progress nightly
+# (the push is the fresher full proof). PRs stay grouped per pull request
+# (dispatches carry no pull_request payload, so the input names it).
 concurrency:
   group: ci-${{ github.event.pull_request.number || inputs.pr_number || github.ref_name }}
   cancel-in-progress: true
@@ -63,17 +71,15 @@ jobs:
     timeout-minutes: 15
     strategy:
       fail-fast: false
-      matrix:
-        # "4.0" pins the proving 4.0 line (today 4.0.7) so coverage does not
-        # end when "ruby" floats to 4.1. The leg is blocking: ci-passed fails
-        # when any needed job fails, so a red 4.0 blocks a merge.
-        ruby: ["3.3", "3.4", "4.0", "ruby"] # "ruby" = latest stable
-        # The full suite runs as 4 round-robin file shards per Ruby leg so
-        # each parallel job stays short instead of one long leg per version.
-        # The shard total lives in the matrix so the script argument cannot
-        # drift from the shard list.
-        shard: [1, 2, 3, 4]
-        total: [4]
+      # Pull request dispatches run one Linux Ruby (3.4) over the same 4
+      # shards; pushes to main and the nightly schedule run the full matrix.
+      # "4.0" pins the proving 4.0 line (today 4.0.7) so coverage does not
+      # end when "ruby" floats to 4.1. Every leg is blocking: ci-passed
+      # fails when any needed job fails, so a red 4.0 blocks a merge. The
+      # shard total lives in the matrix so the script argument cannot drift
+      # from the shard list. (No spaces after the JSON colons: a colon+space
+      # would break the YAML plain scalar. The matrix itself is normal JSON.)
+      matrix: ${{ github.event_name == 'workflow_dispatch' && fromJSON('{"ruby":["3.4"],"shard":[1,2,3,4],"total":[4]}') || fromJSON('{"ruby":["3.3","3.4","4.0","ruby"],"shard":[1,2,3,4],"total":[4]}') }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1
@@ -97,54 +103,21 @@ jobs:
           if-no-files-found: ignore
 
   # macOS legs run on GitHub-hosted macos-latest (arm64, free for public
-  # repositories). The legs still run only for main pushes and for
-  # dispatches whose head_repo input names this repository,
-  # and the first step proves that input from the API - the pull request's
-  # head repository must be this one and the dispatched SHA must be its
-  # current head - so a wrong or forged head_repo fails closed before any
-  # code is checked out. A fork pull request gets no macOS legs (the Linux
-  # legs still cover it). Pull requests run the smallest useful matrix -
-  # the latest stable Ruby only - while pushes to main still cover every
-  # supported Ruby.
+  # repositories) on pushes to main and the nightly schedule only. Pull
+  # request dispatches are the trimmed Linux profile, so no fork guard is
+  # needed here anymore: the job never runs for a dispatch.
   test-macos:
     name: Ruby ${{ matrix.ruby }} / macos / shard ${{ matrix.shard }}
     runs-on: macos-latest
     timeout-minutes: 20
-    permissions:
-      contents: read
-      # The fork guard reads the pull request's head repo and head SHA.
-      pull-requests: read
-    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.head_repo == github.repository)
+    if: github.event_name != 'workflow_dispatch'
     strategy:
       fail-fast: false
-      # (No spaces after the JSON colons: a colon+space would break the YAML
-      # plain scalar. The matrix itself is normal JSON.)
-      matrix: ${{ github.event_name == 'workflow_dispatch' && fromJSON('{"ruby":["ruby"],"shard":[1,2,3,4,5],"total":[5]}') || fromJSON('{"ruby":["3.3","3.4","ruby"],"shard":[1,2,3],"total":[3]}') }}
+      matrix:
+        ruby: ["3.3", "3.4", "ruby"] # "ruby" = latest stable
+        shard: [1, 2, 3]
+        total: [3]
     steps:
-      # The head_repo input is only a skip-early hint. Before anything is
-      # checked out, prove from the API that this dispatch covers one of
-      # this repository's own pull requests and that the dispatched SHA is
-      # that pull request's current head; anything else fails closed.
-      # GraphQL answers with one compact object, so exact greps are safe.
-      - name: Fail closed unless the dispatch is the pull request's own head
-        if: github.event_name == 'workflow_dispatch'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ inputs.pr_number }}
-          BASE_SHA: ${{ inputs.base_sha }}
-        # Inline on purpose: this proof must pass before any checkout, and the
-        # repo it would come from is what is being proven. It is the
-        # REQUIRE_OWN_REPO=1 mode of script/ci-prove-pr-binding - keep in sync.
-        run: |
-          set -euo pipefail
-          case "$PR_NUMBER" in *[!0-9]*|'') echo "pr_number must be digits"; exit 1;; esac
-          owner="${GITHUB_REPOSITORY%/*}"; name="${GITHUB_REPOSITORY#*/}"
-          # Concatenation, not a printf format: printf eats the \" escapes (#551).
-          payload='{"query":"{repository(owner:\"'"$owner"'\",name:\"'"$name"'\"){pullRequest(number:'"$PR_NUMBER"'){headRepository{nameWithOwner} headRefOid baseRefOid}}}"}'
-          resp=$(curl -sfS -H "Authorization: Bearer $GH_TOKEN" -H "Content-Type: application/json" -d "$payload" https://api.github.com/graphql)
-          echo "$resp" | grep -Fq "\"nameWithOwner\":\"$GITHUB_REPOSITORY\"" || { echo "PR #$PR_NUMBER is a fork or unknown head repo: no macOS legs"; exit 1; }
-          echo "$resp" | grep -Fq "\"headRefOid\":\"$GITHUB_SHA\"" || { echo "dispatched SHA $GITHUB_SHA is not the current head of PR #$PR_NUMBER"; exit 1; }
-          echo "$resp" | grep -Fq "\"baseRefOid\":\"$BASE_SHA\"" || { echo "base_sha $BASE_SHA is not the base of PR #$PR_NUMBER"; exit 1; }
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1
         with:
@@ -179,6 +152,7 @@ jobs:
     name: Ruby 3.4 / LANG=C / shard ${{ matrix.shard }}
     runs-on: nscloud-ubuntu-24.04-amd64-1x2
     timeout-minutes: 15
+    if: github.event_name != 'workflow_dispatch'
     env:
       LANG: C
       LC_ALL: C
@@ -220,6 +194,7 @@ jobs:
     # Namespace trial: slowest Linux job, moved to an nscloud AMD64 runner.
     runs-on: nscloud-ubuntu-24.04-amd64-4x8
     timeout-minutes: 15
+    if: github.event_name != 'workflow_dispatch'
     strategy:
       fail-fast: false
       matrix:
@@ -242,23 +217,22 @@ jobs:
         run: script/integration-target "${{ matrix.target }}" "$RUNNER_TEMP/targets" --reeval "${{ matrix.reeval }}" --check -- --jobs 4
 
   # saboteur on its own changed methods. Survivors fail the check unless they
-  # are on config/saboteur_ignore.rb with a reason.
+  # are on config/saboteur_ignore.rb with a reason. Runs on pushes to main
+  # (diff = the pushed range) and on the nightly schedule (diff = the last
+  # 24 hours of main commits); pull request dispatches run the trimmed
+  # profile, so the dogfood gate moved here from the manual dispatch. The
+  # map cache it maintains on main is what later dogfood runs restore.
   dogfood:
-    # Mutates the methods a pull request changed, so it runs on the manual
-    # dispatch (the pull_request trigger is gone) but not on main pushes.
-    if: github.event_name == 'workflow_dispatch'
-    # The long pole of a pull request run at ~6 minutes: 4x8 halves it, and
+    if: github.event_name != 'workflow_dispatch'
+    # The long pole of a main run at ~6 minutes: 4x8 halves it, and
     # --jobs 4 and --coverage-parts 4 match the 4 vCPUs (#741).
     runs-on: nscloud-ubuntu-24.04-amd64-4x8
     timeout-minutes: 30
-    permissions:
-      contents: read
-      # The binding proof reads the pull request's head, base and head repo.
-      pull-requests: read
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
+          persist-credentials: false
       - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1
         with:
           ruby-version: "3.3"
@@ -266,42 +240,80 @@ jobs:
       # Fail fast on an unfaithful toolchain before the run spends minutes
       # (AGENTS.md, "Run discipline").
       - run: ruby bin/check-env
-      # Bind the dispatch to the pull request it names before mutating: the
-      # checked-out SHA must be the pull request's current head and the
-      # base_sha input its current base, proven from the API - the inputs are
-      # never trusted. Fork pull requests are covered too (hosted runners
-      # only), so unlike the macOS legs this does not demand an own-repo head.
-      - name: Fail closed unless the dispatch is the pull request's head and base
+      - name: Restore the coverage map
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            .saboteur/coverage-*.json
+            .saboteur/inputs-*.json
+            .saboteur/whole-suite-map-v2
+          key: saboteur-${{ runner.os }}-${{ hashFiles('Gemfile.lock', 'config/saboteur.rb', 'config/saboteur_custom_map.rb', 'config/saboteur_ignore.rb') }}-${{ github.sha }}
+          restore-keys: |
+            saboteur-${{ runner.os }}-${{ hashFiles('Gemfile.lock', 'config/saboteur.rb', 'config/saboteur_custom_map.rb', 'config/saboteur_ignore.rb') }}-
+      # Where the diff starts: a push covers its own range; the nightly
+      # covers the last 24 hours of main commits. The window slides with the
+      # actual run start, so a queued nightly still covers the last day; a
+      # skipped nightly leaves its window uncovered and the log names the
+      # window - it is never silently green. Any other event fails closed.
+      - name: Resolve the diff base
+        id: base
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ inputs.pr_number }}
-          BASE_SHA: ${{ inputs.base_sha }}
-          REQUIRE_OWN_REPO: "0"
-        run: script/ci-prove-pr-binding
-      # A config-only diff has nothing in the include scope to mutate: say so and
-      # no-op green instead of dying on the out-of-scope stop (#483, exit 2). The
-      # pathspec mirrors c.include in config/saboteur.rb - keep them in sync.
-      # A version-only diff (a release pull request: version.rb plus docs like
-      # CHANGELOG.md) hits the same stop, because config/saboteur.rb excludes
-      # lib/saboteur/version.rb from mutation; no-op green for it too (#1084).
-      # Runs after the binding step, so inputs.base_sha is already proven.
-      - name: Detect config-only and version-only pull requests
-        id: scope
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
         run: |
-          if git diff --quiet "${{ inputs.base_sha }}" HEAD -- "lib/*.rb"; then
+          set -euo pipefail
+          case "$EVENT" in
+            push)
+              [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ] || { echo "push event without a usable before sha"; exit 1; }
+              base="$BEFORE"
+              ;;
+            schedule)
+              base=$(git rev-list -1 --before="24 hours ago" HEAD)
+              [ -n "$base" ] || { echo "no main commit older than 24 hours"; exit 1; }
+              ;;
+            *)
+              echo "dogfood has no diff base for event: $EVENT"
+              exit 1
+              ;;
+          esac
+          echo "dogfood diff base for $EVENT: $base"
+          echo "sha=$base" >> "$GITHUB_OUTPUT"
+      # A config-only diff has nothing in the include scope to mutate: say so
+      # and no-op green instead of dying on the out-of-scope stop (#483). A
+      # version-only diff (a release: version.rb plus docs like CHANGELOG.md)
+      # hits the same stop, because config/saboteur.rb excludes
+      # lib/saboteur/version.rb from mutation (#1084). The pathspec mirrors
+      # c.include in config/saboteur.rb - keep them in sync.
+      - name: Detect config-only and version-only diffs
+        id: scope
+        env:
+          BASE_SHA: ${{ steps.base.outputs.sha }}
+        run: |
+          if git diff --quiet "$BASE_SHA" HEAD -- "lib/*.rb"; then
             echo "::notice::dogfood: no changed file lies inside the include scope (config-only diff); nothing to mutate, no-op green"
             echo "empty=true" >> "$GITHUB_OUTPUT"
-          elif [ -z "$(git diff --name-only "${{ inputs.base_sha }}" HEAD -- "lib/*.rb" | grep -vx 'lib/saboteur/version.rb')" ]; then
+          elif [ -z "$(git diff --name-only "$BASE_SHA" HEAD -- "lib/*.rb" | grep -vx 'lib/saboteur/version.rb')" ]; then
             echo "::notice::dogfood: only lib/saboteur/version.rb changed and config/saboteur.rb excludes it from mutation; nothing to mutate, no-op green"
             echo "empty=true" >> "$GITHUB_OUTPUT"
           fi
-      - name: Mutate methods changed in this pull request
+      # Direct CLI run, not the action: the action is pull request shaped.
+      # Survivors exit 1 and fail the job; the report always lands below.
+      - name: Mutate the changed methods
         if: steps.scope.outputs.empty != 'true'
-        uses: ./
+        env:
+          BASE_SHA: ${{ steps.base.outputs.sha }}
+        run: bundle exec exe/saboteur run --since "$BASE_SHA" --json .saboteur/report.json --baseline-passes 1 --jobs 4 --coverage-parts 4
+      # A run that fails on survivors still built a valid map, so the save
+      # runs always, with the same key and paths the action uses.
+      - name: Save the coverage map
+        if: always()
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
-          command: bundle exec exe/saboteur
-          arguments: --baseline-passes 1 --jobs 4 --coverage-parts 4
-          fail-on-survivors: "true"
+          path: |
+            .saboteur/coverage-*.json
+            .saboteur/inputs-*.json
+            .saboteur/whole-suite-map-v2
+          key: saboteur-${{ runner.os }}-${{ hashFiles('Gemfile.lock', 'config/saboteur.rb', 'config/saboteur_custom_map.rb', 'config/saboteur_ignore.rb') }}-${{ github.sha }}
       - name: Keep the report
         if: always() && steps.scope.outputs.empty != 'true'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -315,39 +327,6 @@ jobs:
           # upload-artifact skips hidden paths by default, and .saboteur is one.
           include-hidden-files: true
 
-  # Warms the coverage map for pull request dispatches. GitHub only lets a
-  # run restore caches saved on its own ref or on the default branch, so a
-  # map saved by a dispatch on a feature branch never reaches the next one.
-  # This job saves it on main; a dispatch's restore-keys then finds it and
-  # the map build can reuse part of it. The Gemfile.lock and config hashes
-  # match the action's key, so the two share entries. Free: it uses the same
-  # runner pool as the dogfood job, once per main push.
-  warm-map:
-    if: github.event_name == 'push'
-    runs-on: nscloud-ubuntu-24.04-amd64-4x8
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          fetch-depth: 2
-          persist-credentials: false
-      - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1
-        with:
-          ruby-version: "3.3"
-          bundler-cache: true
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: |
-            .saboteur/coverage-*.json
-            .saboteur/inputs-*.json
-            .saboteur/whole-suite-map-v2
-          key: saboteur-${{ runner.os }}-${{ hashFiles('Gemfile.lock', 'config/saboteur.rb', 'config/saboteur_custom_map.rb', 'config/saboteur_ignore.rb') }}-${{ github.sha }}
-          restore-keys: |
-            saboteur-${{ runner.os }}-${{ hashFiles('Gemfile.lock', 'config/saboteur.rb', 'config/saboteur_custom_map.rb', 'config/saboteur_ignore.rb') }}-
-      # Mutates the methods the last commit changed; the point is the map
-      # this run leaves in .saboteur. Survivors do not fail the warm-up.
-      - name: Build the coverage map
-        run: bundle exec exe/saboteur run --since HEAD~1 --baseline-passes 1 --jobs 4 --coverage-parts 4 || true
 
   # Ignore-hygiene audit (#703): a digest a pull request adds to
   # config/saboteur_ignore.rb must arise live on its head; a dropped
@@ -413,7 +392,7 @@ jobs:
   ci-passed:
     name: ci-passed
     if: always()
-    needs: [test, test-macos, locale, lint, integration-gems, dogfood, warm-map, ignore-audit, dco]
+    needs: [test, test-macos, locale, lint, integration-gems, dogfood, ignore-audit, dco]
     runs-on: nscloud-ubuntu-24.04-amd64-1x2
     timeout-minutes: 5
     steps:
@@ -421,21 +400,22 @@ jobs:
         env:
           NEEDS: ${{ toJSON(needs) }}
           EVENT: ${{ github.event_name }}
-          HEAD_REPO: ${{ inputs.head_repo || '' }}
-          REPO: ${{ github.repository }}
         run: |
           node -e '
             const needs = JSON.parse(process.env.NEEDS);
-            const event = process.env.EVENT, headRepo = process.env.HEAD_REPO, repo = process.env.REPO;
+            const event = process.env.EVENT;
             // A job may skip only when its own `if` legitimately excludes
             // this event; any other skip fails closed, so a typo in a job
-            // condition cannot silently drop a leg from the gate.
+            // condition cannot silently drop a leg from the gate. The
+            // trimmed lanes: heavy legs never run on pull request
+            // dispatches, the PR-only audits never run anywhere else.
             const allowedSkip = {
-              "warm-map": event !== "push",
-              "dogfood": event !== "workflow_dispatch",
+              "test-macos": event === "workflow_dispatch",
+              "locale": event === "workflow_dispatch",
+              "integration-gems": event === "workflow_dispatch",
+              "dogfood": event === "workflow_dispatch",
               "ignore-audit": event !== "workflow_dispatch",
-              "test-macos": !(event === "push" || (event === "workflow_dispatch" && headRepo === repo)),
-              "dco": event === "push"
+              "dco": event !== "workflow_dispatch"
             };
             const bad = [];
             for (const [name, data] of Object.entries(needs)) {
