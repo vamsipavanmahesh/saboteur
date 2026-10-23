@@ -11,11 +11,11 @@ require "open3"
 # least one example. CHANGELOG sections for tagged releases are exempt.
 
 module ClaimsCheck
-  E2E_REF = /\(e2e:\s*(spec\/e2e\/[A-Za-z0-9_\-\.]+\.rb)\)/.freeze
-  VERSION_HEADING = /^## \[(?<name>[^\]]+)\]/.freeze
-  SECTION_HEADING = /^## /.freeze
-  BULLET = /^- /.freeze
-  EXAMPLE = /^\s*(it|specify|example|scenario)\s/.freeze
+  E2E_REF = %r{\(e2e:\s*(spec/e2e/[A-Za-z0-9_\-.]+\.rb)\)}
+  VERSION_HEADING = /^## \[(?<name>[^\]]+)\]/
+  SECTION_HEADING = /^## /
+  BULLET = /^- /
+  EXAMPLE = /^\s*(it|specify|example|scenario)\s/
   README_SECTIONS = ["## Highlights", "## Know the limits"].freeze
   # A claim is a top-level bullet under a checked section, or any of its
   # continuation lines (a wrapped bullet carries its reference anywhere in
@@ -46,7 +46,7 @@ module ClaimsCheck
     current = nil
     checked = false
     lines.each_with_index do |line, index|
-      if (heading = SECTION_HEADING.match(line))
+      if SECTION_HEADING.match(line)
         name = every_section ? VERSION_HEADING.match(line)&.[](:name) : line.chomp
         checked = sections.include?(name)
         current = nil
@@ -72,7 +72,7 @@ module ClaimsCheck
     [] # no git: only [Unreleased] is checked
   end
 
-  def spec_has_example?(root, relative)
+  def spec_has_example(root, relative)
     path = File.join(root, relative)
     return :missing unless File.file?(path)
 
@@ -96,7 +96,7 @@ module ClaimsCheck
         next
       end
       claim.refs.each do |ref|
-        case spec_has_example?(root, ref)
+        case spec_has_example(root, ref)
         when :missing
           failures << "#{claim.file}:#{claim.line}: referenced spec does not exist: #{ref}"
         when :no_example
