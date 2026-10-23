@@ -79,6 +79,14 @@ module Saboteur
           GROUP_ORDER.find { |kind| labels.include?(kind) } || labels.first
         end
 
+        # The mutant a statement group's header speaks for: the first
+        # survivor carrying the group's label, so header, reason, digest and
+        # diff match that mutant's JSON record (0.12.4 review, finding 1).
+        def representative(results)
+          labels = results.map { |result| label(result) }
+          results[labels.index(GROUP_ORDER.find { |kind| labels.include?(kind) } || labels.compact.first) || 0]
+        end
+
         # The gap kind an observed label (input_gap/assertion_gap) replaced:
         # what the edit shape says is unchecked. nil unless the observation
         # decided the label, so a plain kind label stays its own kind.

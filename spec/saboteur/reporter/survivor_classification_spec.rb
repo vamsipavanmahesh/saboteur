@@ -70,6 +70,22 @@ RSpec.describe Saboteur::Reporter::SurvivorClassification do
       expect(described_class.group_label([a, b])).to eq("assertion_gap")
     end
 
+    it "names the mutant carrying the group's label as its representative (0.12.4 review, finding 1)" do
+      no_change = survivor_for(source, from: ">=", to: ">", operator: "comparison", value_differed: false)
+      changed = survivor_for(source, from: ">=", to: ">", operator: "comparison", value_differed: true)
+      expect(described_class.representative([no_change, changed])).to equal(changed)
+      expect(described_class.representative([changed, no_change])).to equal(changed)
+      expect(described_class.label(described_class.representative([no_change, changed])))
+        .to eq(described_class.group_label([no_change, changed]))
+    end
+
+    it "keeps the ranked first survivor as representative when the group has no label" do
+      a = survivor_for(source, from: ">=", to: ">")
+      b = survivor_for(source, from: ">=", to: ">")
+      allow(described_class).to receive(:label).and_return(nil)
+      expect(described_class.representative([a, b])).to equal(a)
+    end
+
     it "keeps the replaced gap kind: only for an observed label on a real, covered survivor" do
       seen = survivor_for(source, from: ">=", to: ">", operator: "comparison", value_differed: false)
       plain = survivor_for(source, from: ">=", to: ">", operator: "comparison")

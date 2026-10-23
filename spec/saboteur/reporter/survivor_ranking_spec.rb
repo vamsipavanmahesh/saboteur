@@ -67,7 +67,12 @@ RSpec.describe Saboteur::Reporter::SurvivorRanking do
     report = report_for([low, accepted, high])
     out = StringIO.new
     Saboteur::Reporter::Terminal.new(out, all_mutants: true).call(report)
-    expect(out.string.index(low.digest)).to be < out.string.index(high.digest)
+    # The collapsed list line names the mutant carrying the statement's
+    # label (0.12.4 review, finding 1): high's "result unchecked" decides
+    # over low's input_gap. Block order below stays the ranked order.
+    expect(out.string).to include("[result unchecked] - #{high.digest} (+1 more)")
+    blocks = out.string.split("Survivors (").last
+    expect(blocks.index(low.digest)).to be < blocks.index(high.digest)
     expect(out.string).to include("Accepted (1, not scored)")
     expect(out.string.index("Accepted (")).to be > out.string.index(low.digest)
     findings = Saboteur::Reporter::Stryker.build(report).dig(:saboteur, :findings)
@@ -75,7 +80,8 @@ RSpec.describe Saboteur::Reporter::SurvivorRanking do
     expect(findings[:accepted].first[:digest]).to eq(accepted.digest)
     review = StringIO.new
     Saboteur::Reporter::Terminal.new(review, all_mutants: true).call(report_for([low, high], review: true))
-    expect(review.string.index(low.digest)).to be < review.string.index(high.digest)
+    review_blocks = review.string.split("Survivors (").last
+    expect(review_blocks.index(low.digest)).to be < review_blocks.index(high.digest)
   end
 
   it "collapses same-statement mutants into one ranked block while JSON keeps the full ranked list" do
@@ -90,10 +96,15 @@ RSpec.describe Saboteur::Reporter::SurvivorRanking do
     ordered = described_class.ordered(report, [first, middle, last])
     listed = out.string.split("Next steps:").first
     expect(listed.scan(/^\d+\. \S+:\d+ \S+#/).size).to eq(1)
-    expect(listed).to include(ordered.first.digest)
+    # The block speaks for the first mutant carrying the group's label
+    # (0.12.4 review, finding 1): the coarse, unlabeled mutant ranks first
+    # but the labeled middle one heads the block; the rest list as siblings
+    # in ranked order.
+    block_change = listed.lines.find { |line| line.include?("ranking_probe ·") }
+    expect(block_change).to include(ordered[1].digest)
     sibling = listed.lines.find { |line| line.include?("more mutants here") }
-    expect(sibling).to include(ordered[1].digest, ordered[2].digest)
-    expect(sibling.index(ordered[1].digest)).to be < sibling.index(ordered[2].digest)
+    expect(sibling).to include(ordered[0].digest, ordered[2].digest)
+    expect(sibling.index(ordered[0].digest)).to be < sibling.index(ordered[2].digest)
     expect(listed.scan("./spec/a_spec.rb[1:1]").size).to eq(1)
     findings = Saboteur::Reporter::Stryker.build(report).dig(:saboteur, :findings, :survivors)
     expect(findings.map { |finding| finding[:digest] }).to eq(ordered.map(&:digest))

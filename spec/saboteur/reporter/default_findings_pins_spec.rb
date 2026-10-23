@@ -59,7 +59,8 @@ RSpec.describe Saboteur::Reporter::DefaultFindings, "default findings pins" do
   end
 
   # Alpha's thick coverage puts it last in the C2 ranking, not first.
-  def survivor(id, covering: ["./spec/widget_spec.rb[2:1]"], replacement: "-", operator: "arithmetic")
+  def survivor(id, covering: ["./spec/widget_spec.rb[2:1]"], replacement: "-", operator: "arithmetic",
+               value_differed: nil)
     subject = subjects.find { |candidate| candidate.id == id } or raise "no subject #{id}"
     at = subject.file_source.index("+", subject.start_byte)
     edit = Saboteur::MutationSource::Edit.new(file: subject.file, start_byte: at, end_byte: at + 1,
@@ -67,7 +68,8 @@ RSpec.describe Saboteur::Reporter::DefaultFindings, "default findings pins" do
     mutation = Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator:,
                                                       edits: [edit], coarse: false)
     Saboteur::MutantResult.new(subject:, mutation:, status: :survived,
-                               mutated_source: subject.apply(mutation.edits), covered_by: covering)
+                               mutated_source: subject.apply(mutation.edits), covered_by: covering,
+                               value_differed:)
   end
 
   def four_survivors
@@ -83,6 +85,15 @@ RSpec.describe Saboteur::Reporter::DefaultFindings, "default findings pins" do
     ranked = Saboteur::Reporter::SurvivorRanking.ordered(report, results)
     described_class.new(out, palette, **options).call(report, ranked)
     out.string
+  end
+
+  it "names the digest of the mutant carrying the statement's label in the list (0.12.4 review, finding 1)" do
+    no_change = survivor("Alpha#one", value_differed: false)
+    changed = survivor("Alpha#one", replacement: "*", value_differed: true,
+                                    covering: D1_THICK_COVERAGE)
+    text = render([no_change, changed])
+    expect(text).to include("widget.rb:2 Alpha#one [assertion_gap] - #{changed.digest} (+1 more)")
+    expect(text).not_to include("widget.rb:2 Alpha#one [assertion_gap] - #{no_change.digest}")
   end
 
   it "prints the list, the C2 top three blocks and the closer, monochrome" do

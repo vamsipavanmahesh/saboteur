@@ -56,10 +56,13 @@ module Saboteur
       # sibling mutants on the statement collapsed to a count (#1126/#1133).
       def list_lines(report, live)
         groups(report, live).map do |(path, line, subject_id), results|
-          first, *rest = results
+          # The digest names the mutant carrying the label, so the line
+          # matches that mutant's JSON record (0.12.4 release review,
+          # finding 1).
+          first = SurvivorClassification.representative(results)
           label = SurvivorClassification.group_label(results)
           text = "#{path}:#{line} #{subject_id}#{" [#{label}]" if label} - #{first.digest}"
-          rest.any? ? "#{text} (+#{rest.size} more)" : text
+          results.size > 1 ? "#{text} (+#{results.size - 1} more)" : text
         end
       end
 
