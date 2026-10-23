@@ -234,6 +234,9 @@ jobs:
       - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1
         with:
           ruby-version: "3.3"
+          # The repo commits no Gemfile.lock: the guard fails closed without
+          # one, so the bundle must exist before the guard runs.
+          bundler-cache: true
       # Fail fast on an unfaithful toolchain before the run spends minutes
       # (AGENTS.md, "Run discipline").
       - run: ruby bin/check-env
