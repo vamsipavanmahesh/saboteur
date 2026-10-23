@@ -22,6 +22,9 @@ Before any release:
 3. Batch work: at most one release per review round.
 4. Update `docs/harness-metrics.md` with the release's three counters,
    per release and cumulative.
+5. Bump `CUTOFF_VERSION` in `script/claims-check` to the version being
+   released, so the next cycle enforces claims from the following version
+   onward.
 
 An acceptance scenario that fails is listed in the release notes as a known
 gap, never edited to pass.

@@ -76,14 +76,27 @@ RSpec.describe "script/claims-check" do
     expect(failures.first).to include("CHANGELOG.md")
   end
 
-  it "exempts a CHANGELOG section with a matching git tag" do
-    spec_file
+  it "checks a tagged version after the cutoff - a tag never exempts" do
     write("CHANGELOG.md", "## [1.2.3]\n\n- Old thing.\n")
     Dir.chdir(@root) do
       system("git init -q && git add -A && git -c user.email=a@a -c user.name=a commit -qm x && git tag v1.2.3",
              out: File::NULL, err: File::NULL) or raise "git setup failed"
     end
+    failures = ClaimsCheck.run(@root)
+    expect(failures.size).to eq(1)
+    expect(failures.first).to include("Old thing")
+  end
+
+  it "exempts versions at or below the cutoff even when untagged" do
+    write("CHANGELOG.md", "## [0.0.1]\n\n- Gem skeleton to reserve the name.\n\n## [0.12.3]\n\n- Old release line.\n")
     expect(ClaimsCheck.run(@root)).to eq([])
+  end
+
+  it "fails closed on an unparseable version name" do
+    write("CHANGELOG.md", "## [beta]\n\n- Junk without a ref.\n")
+    failures = ClaimsCheck.run(@root)
+    expect(failures.size).to eq(1)
+    expect(failures.first).to include("Junk without a ref")
   end
 
   it "fails a versioned CHANGELOG section with no matching tag" do

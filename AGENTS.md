@@ -34,8 +34,9 @@ Names follow Uncle Bob's Clean Code conventions:
 
 - Claims: every CHANGELOG/README behavior claim ends with the e2e spec that
   demonstrates it: `(e2e: spec/e2e/<file>.rb)`. No spec, no claim.
-  `rake claims:check` enforces this for unreleased CHANGELOG entries and the
-  README "Highlights" / "Know the limits" bullets.
+  `rake claims:check` enforces this for CHANGELOG entries in versions after
+  the current release (`CUTOFF_VERSION` in `script/claims-check`, tagged or
+  not) and the README "Highlights" / "Know the limits" bullets.
 - Claims describe measured behavior. Use "partially", "presentation only" or
   "opt-in" when true. Overstatements get a "Corrected" CHANGELOG entry.
 - Wiring: any change to how two real objects connect (Engine, Scheduler,

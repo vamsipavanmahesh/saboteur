@@ -2,16 +2,21 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
-require "open3"
-
 # Claims check (AGENTS.md, "Evidence rules"): every CHANGELOG entry under the
 # unreleased/next version and every README bullet in "Highlights" or
 # "Know the limits" must end with the e2e spec that demonstrates it, as
 # `(e2e: spec/e2e/<file>.rb)`. The referenced spec must exist and contain at
-# least one example. CHANGELOG sections for tagged releases are exempt.
+# least one example. CHANGELOG sections at or below CUTOFF_VERSION are exempt;
+# versions after it are checked whether or not a git tag exists (maintainer
+# decision 2026-10-23).
 
 module ClaimsCheck
   E2E_REF = %r{\(e2e:\s*(spec/e2e/[A-Za-z0-9_\-.]+\.rb)\)}
+  # Maintainer decision 2026-10-23: enforce claims only for versions AFTER
+  # the current release. A fixed constant, bumped deliberately at each
+  # release (RELEASING.md) - never derived from version.rb or git tags, so
+  # the cutoff cannot silently float.
+  CUTOFF_VERSION = "0.12.3"
   VERSION_HEADING = /^## \[(?<name>[^\]]+)\]/
   SECTION_HEADING = /^## /
   BULLET = /^- /
@@ -24,16 +29,16 @@ module ClaimsCheck
 
   module_function
 
-  # Returns the names of CHANGELOG sections that are not released yet:
-  # [Unreleased] plus any versioned section with no matching git tag.
-  def unreleased_sections(changelog, tagged_versions)
+  # Returns the names of CHANGELOG sections to check: [Unreleased] plus
+  # any versioned section strictly after CUTOFF_VERSION, tagged or not.
+  def unreleased_sections(changelog)
     sections = []
     File.foreach(changelog, encoding: "UTF-8") do |line|
       match = VERSION_HEADING.match(line)
       next unless match
 
       name = match[:name]
-      sections << name if name == "Unreleased" || !tagged_versions.include?(name)
+      sections << name if name == "Unreleased" || after_cutoff?(name)
     end
     sections
   end
@@ -65,11 +70,12 @@ module ClaimsCheck
     claims
   end
 
-  def tagged_versions(root)
-    out, = Open3.capture2("git", "-C", root, "tag", "--list", "v*", err: File::NULL)
-    out.lines.map { |tag| tag.strip.sub(/\Av/, "") }
-  rescue SystemCallError
-    [] # no git: only [Unreleased] is checked
+  # True when a section name is a version strictly after the cutoff.
+  # An unparseable name is checked (fail closed).
+  def after_cutoff?(name)
+    Gem::Version.new(name) > Gem::Version.new(CUTOFF_VERSION)
+  rescue ArgumentError
+    true
   end
 
   def spec_has_example(root, relative)
@@ -83,7 +89,7 @@ module ClaimsCheck
   def run(root)
     failures = []
     changelog = File.join(root, "CHANGELOG.md")
-    unreleased = unreleased_sections(changelog, tagged_versions(root))
+    unreleased = unreleased_sections(changelog)
     readme = File.join(root, "README.md")
 
     claims = claims_in(changelog, unreleased, every_section: true) +
