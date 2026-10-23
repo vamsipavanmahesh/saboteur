@@ -59,6 +59,16 @@ never change scores or the exit code. The label also shows as a badge
 next to the survivor's status in the HTML report and as the
 `classification` field on each shown finding in the agent JSON.
 
+Two newer surfaces build on these kinds (#1314). The terminal list groups
+survivors by statement; each block header shows the missing check first
+and appends the observed gap only when it is known:
+`[boundary · input gap · #1 of 3 blocks]`. A group whose gap is unknown
+shows the kind alone (`[result unchecked · #2 of 3 blocks]`), and the
+header never says "coarse". Both JSON reports add the additive `kind`
+field next to `classification` and `gapKind`: the missing check whenever
+that dimension is truthful - omitted for the special classes, for coarse
+mutants and pseudo-test runs, and never present on a killed mutant.
+
 ## Anatomy of a survivor
 
 ```

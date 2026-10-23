@@ -72,7 +72,10 @@ module Saboteur
             coarse: result.mutation.coarse,
             # Why the survivor is worth a look, as a label only (#192).
             classification: SurvivorClassification.label(result),
-            gapKind: SurvivorClassification.kind(result)
+            gapKind: SurvivorClassification.kind(result),
+            # Additive (#1314): the missing check, whenever that dimension
+            # is truthful; classification and gapKind are unchanged.
+            kind: SurvivorClassification.missing_check(result)
           }.compact
           entry = with_changed_lines(report, result, entry)
           result.ignored ? entry.merge(reason: result.ignored) : entry

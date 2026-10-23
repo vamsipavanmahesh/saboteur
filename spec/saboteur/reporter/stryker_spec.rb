@@ -64,6 +64,18 @@ RSpec.describe Saboteur::Reporter::Stryker do
     expect(mutants.map { |m| [m["classification"], m["gapKind"]] }).to eq([%w[input_gap boundary], ["boundary", nil]])
   end
 
+  it "adds the missing check as a separate kind field, classification and gapKind unchanged (#1314)" do
+    seen = result_for(:survived, covered_by: %w[t1], value_differed: false)
+    plain = result_for(:survived, covered_by: %w[t1])
+    killed = result_for(:killed, covered_by: %w[t1], value_differed: true)
+    mutants = JSON.parse(JSON.generate(described_class.build(report_of(seen, plain, killed)))).dig("files", "person.rb",
+                                                                                                   "mutants")
+    expect(mutants.map { |m| m["kind"] }.compact).to eq(%w[boundary boundary])
+    expect(mutants.map { |m| [m["classification"], m["gapKind"]] }).to eq([%w[input_gap boundary], ["boundary", nil],
+                                                                           [nil, "boundary"]])
+    expect(mutants.find { |m| m["status"] == "Killed" }).not_to have_key("kind")
+  end
+
   it "carries confirmation state and the credited test on confirmation results (#1311)" do
     confirmed = result_for(:survived, covered_by: %w[t1]).with_confirmation("confirmed")
     credited = result_for(:killed, killed_by: ["t1"], covered_by: %w[t1]).with_confirmation("killed_by_confirmation")

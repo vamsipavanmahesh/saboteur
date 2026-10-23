@@ -102,12 +102,23 @@ RSpec.describe Saboteur::Reporter::SurvivorList, "survivor blocks" do
     expect(text).to include("  the covering specs pass without pinning this result\n")
   end
 
-  it "marks a group coarse by its first mutant, whatever the label comes from (#P4)" do
+  it "puts the kind first and appends the observed gap only when known (#1314)" do
+    seen = edited(PINS_CALCULATOR, "1 + rate", "1 - rate", operator: "comparison", dir:, value_differed: false,
+                                                           covered_by: ["./spec/calculator_spec.rb[2:1]"])
+    expect(render([seen])).to include("[boundary · input gap · #1 of 1 block]")
+
+    plain = edited(PINS_CALCULATOR, "1 + rate", "1 - rate", operator: "comparison", dir:,
+                                                            covered_by: ["./spec/calculator_spec.rb[2:1]"])
+    expect(render([plain])).to include("[boundary · #1 of 1 block]")
+  end
+
+  it "never names coarse in the header, whatever mutant the label comes from (#1314)" do
     whole = "principal * (1 + rate)**years"
     coarse = edited(PINS_CALCULATOR, whole, "nil", operator: "body_nil", dir:, coarse: true,
                                                    covered_by: ["./spec/calculator_spec.rb[2:1]"])
-    expect(render([coarse, operand])).to include("[coarse · result unchecked · #1 of 1 block]")
+    expect(render([coarse, operand])).to include("[result unchecked · #1 of 1 block]")
     expect(render([operand, coarse])).to include("[result unchecked · #1 of 1 block]")
+    expect(render([coarse, operand])).not_to include("coarse")
   end
 
   it "renders the golden block with colour tokens" do
@@ -317,8 +328,9 @@ RSpec.describe Saboteur::Reporter::SurvivorList, "survivor blocks" do
     allow(Saboteur::Reporter::SurvivorClassification).to receive(:label).and_return(nil)
     whole = edited(PINS_CALCULATOR, "principal * (1 + rate)**years", "nil", operator: "body_nil", dir:,
                                                                             coarse: true)
-    expect(render([whole])).to include("1. calculator.rb:3 Calculator#compound [coarse · #1 of 1 block]
+    expect(render([whole])).to include("1. calculator.rb:3 Calculator#compound [#1 of 1 block]
 ")
+    expect(render([whole])).not_to include("coarse")
   end
 
   it "counts blocks, not mutants, in the rank suffix and says which" do

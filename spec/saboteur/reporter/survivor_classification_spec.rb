@@ -88,6 +88,45 @@ RSpec.describe Saboteur::Reporter::SurvivorClassification do
       expect(described_class.group_kind([survivor_for(source, from: ">=", to: ">")])).to be_nil
     end
 
+    it "puts the kind first in the display label, the observed gap appended only when known (#1314)" do
+      seen = survivor_for(source, from: ">=", to: ">", operator: "comparison", value_differed: false)
+      asserted = survivor_for(source, from: ">=", to: ">", operator: "comparison", value_differed: true)
+      plain = survivor_for(source, from: ">=", to: ">", operator: "comparison")
+      uncovered = survivor_for(source, from: ">=", to: ">", operator: "comparison", covered_by: [])
+
+      expect(described_class.group_display([seen])).to eq("boundary · input gap")
+      expect(described_class.group_display([asserted])).to eq("boundary · assertion gap")
+      expect(described_class.group_display([plain])).to eq("boundary")
+      expect(described_class.group_display([uncovered])).to eq("input gap")
+    end
+
+    it "keeps special classes and nil as their own display label (#1314)" do
+      arid = survivor_for("class A\n  def tell(msg)\n    puts msg\n  end\nend\n", from: "puts msg", to: "nil")
+      coarse = survivor_for(source, from: "age >= 18", to: "nil", operator: "body_nil", coarse: true)
+
+      expect(described_class.group_display([arid])).to eq("arid")
+      expect(described_class.group_display([coarse])).to be_nil
+    end
+
+    it "names the missing check whenever it is truthful, never fabricates one (#1314)" do
+      seen = survivor_for(source, from: ">=", to: ">", operator: "comparison", value_differed: false)
+      plain = survivor_for(source, from: ">=", to: ">", operator: "comparison")
+      arid = survivor_for("class A\n  def tell(msg)\n    puts msg\n  end\nend\n", from: "puts msg", to: "nil")
+      pseudo = survivor_for(source, from: ">=", to: ">",
+                                    covered_by: [Saboteur::Execution::ExternalRunner::PSEUDO_TEST])
+      coarse = survivor_for(source, from: ">=", to: ">", operator: "comparison", coarse: true)
+      uncovered = survivor_for(source, from: ">=", to: ">", operator: "comparison", covered_by: [])
+      same = survivor_for(source, from: ">=", to: ">=", operator: "comparison")
+
+      killed = instance_double(Saboteur::MutantResult, status: :killed)
+
+      expect(described_class.missing_check(seen)).to eq("boundary")
+      expect(described_class.missing_check(plain)).to eq("boundary")
+      expect(described_class.missing_check(killed)).to be_nil
+      untruthful = [arid, pseudo, coarse, uncovered, same].map { |result| described_class.missing_check(result) }
+      expect(untruthful).to all(be_nil)
+    end
+
     it "lists assertion_gap among the labels" do
       expect(described_class::LABELS).to include("assertion_gap", "input_gap")
     end

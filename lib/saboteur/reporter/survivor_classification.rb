@@ -93,6 +93,33 @@ module Saboteur
           GapKinds::PRECEDENCE.find { |kind| kinds.include?(kind) }
         end
 
+        # The block header label (#1314): the kind first, the observed gap
+        # appended only when it is known - "boundary · input gap". An unknown
+        # gap leaves the kind alone, and a special class (likely_equivalent,
+        # arid, tool_limit) keeps its own truthful label; the gap never
+        # replaces the kind.
+        def group_display(results)
+          label = group_label(results)
+          gap = GapKinds::OBSERVED_DISPLAY[label]
+          return label unless gap
+
+          kind = group_kind(results)
+          kind ? "#{kind} · #{gap}" : gap
+        end
+
+        # The check a covering spec could add, from the operator and the
+        # edit shape (#1314): the always-populated counterpart of gapKind,
+        # which only names the kind an observed label replaced. nil where no
+        # check is really missing - a no-op mutant, an arid line or a
+        # tool-limited run must not fabricate one; a coarse mutant's
+        # method-level guess is not a real covering list.
+        def missing_check(result)
+          return nil unless result.status == :survived
+          return nil if %w[likely_equivalent arid tool_limit].include?(label(result))
+
+          gap_kind(result) if possible_test_gap?(result)
+        end
+
         private
 
         # The mutant's own def text, compiled side by side with the

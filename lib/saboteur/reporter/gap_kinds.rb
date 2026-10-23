@@ -77,6 +77,11 @@ module Saboteur
       # What an observed label (input_gap/assertion_gap, #1290) replaces
       # the kind with, and the advice the kind gave: kept in the reason.
       OBSERVED = %w[input_gap assertion_gap].freeze
+
+      # The observed labels as a reader sees them (#1314): the internal
+      # snake_case ids stay in JSON (classification), the display form joins
+      # a block header after its kind ("boundary · input gap").
+      OBSERVED_DISPLAY = { "input_gap" => "input gap", "assertion_gap" => "assertion gap" }.freeze
       ADVICE = {
         "boundary" => "exercise both sides of this boundary",
         "branch" => "exercise both branches",
