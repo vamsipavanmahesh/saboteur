@@ -91,8 +91,10 @@ RSpec.describe Saboteur::Reporter::DefaultFindings, "default findings pins" do
     no_change = survivor("Alpha#one", value_differed: false)
     changed = survivor("Alpha#one", replacement: "*", value_differed: true,
                                     covering: D1_THICK_COVERAGE)
-    text = render([no_change, changed])
-    expect(text).to include("widget.rb:2 Alpha#one [assertion_gap] - #{changed.digest} (+1 more)")
+    third = survivor("Alpha#one", replacement: "/", value_differed: true,
+                                  covering: D1_THICK_COVERAGE + ["./spec/widget_spec.rb[5:1]"])
+    text = render([no_change, changed, third])
+    expect(text).to include("widget.rb:2 Alpha#one [assertion_gap] - #{changed.digest} (+2 more)")
     expect(text).not_to include("widget.rb:2 Alpha#one [assertion_gap] - #{no_change.digest}")
   end
 

@@ -84,7 +84,7 @@ module Saboteur
         # diff match that mutant's JSON record (0.12.4 review, finding 1).
         def representative(results)
           labels = results.map { |result| label(result) }
-          results[labels.index(GROUP_ORDER.find { |kind| labels.include?(kind) } || labels.compact.first) || 0]
+          results[labels.index(GROUP_ORDER.find { |kind| labels.include?(kind) } || labels.compact.first)]
         end
 
         # The gap kind an observed label (input_gap/assertion_gap) replaced:
