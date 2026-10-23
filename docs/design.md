@@ -619,3 +619,94 @@ Rejected, with reason:
 Noted as risks, not designed for yet: `before(:suite)` re-running in children
 and `before(:all)` attribution (measure in Phase 1/2); `extend self`,
 `private_class_method`, captured `Method` objects (list in limitations).
+
+## Proposed: Rails validation-option subjects (#1338)
+
+Status: design before implementation, not shipped. The reported Chatwoot
+`7fe41fe03731fc2f5b1841b84351386962d2fd05` dry-run was static only, with no
+tests run: 0 mutants on 218 validates, 132 callback, 39 enum and 250
+association lines. Those are user-provided counts, not measurements from
+saboteur's fixture suite. `spec/e2e/class_body_validation_limit_spec.rb`
+is the narrow real-CLI limitation fixture; its ordinary method is a
+positive control. The validation declarations remain unmutated today.
+
+### Existing mechanism and the missing boundary
+
+Section 3 already supports named method-producing DSL bodies, including
+`scope :name, -> { ... }`; that is not validation-option mutation. Constants
+have a whole-file replay path (`Execution::Reevaluator#eval_whole_file`),
+but it evaluates against the existing process's classes. `Engine::Boot`
+loads the target before mutant execution. Re-running `validates` against
+that already configured class can append validators and callbacks instead
+of replacing the originals. A surviving mutant from that path would be
+misleading. Do not implement this by treating a declaration as an ordinary
+method or by silently enabling `c.whole_file`.
+
+### First supported shapes
+
+Recognize receiverless `validates` calls directly in a named class body,
+with literal attribute names and literal keyword hashes. Initially omit
+calls inside concerns/blocks, custom validators, dynamically computed
+options, `with_options`, and `validates_*_of`. Report those omissions; do
+not evaluate expressions to discover mutation sites. Keep callbacks,
+association options and enum declarations outside this first design.
+
+Each operator changes one option at its Prism byte span:
+
+| Option | Proposed first mutations | Boundary |
+| --- | --- | --- |
+| `presence: true` | replace `true` with `false` | no removal of unrelated validators |
+| `numericality: { greater_than: N }` | `greater_than` to `greater_than_or_equal_to` | reverse the pair for inclusive input |
+| `less_than: N` | `less_than` to `less_than_or_equal_to` | reverse the pair for inclusive input |
+| numeric literal bounds | `N - 1`, `N + 1` | finite integer literals only initially; no expression evaluation |
+| `length: { minimum: N, maximum: M, is: K }` | move one integer bound by one | reject negative resulting lengths; keep other keys unchanged |
+| literal `if:` / `unless:` symbol or string predicate | swap the keyword | preserve the predicate, mutate one condition only |
+
+Do not add arbitrary option removal, mutate attribute names, or convert
+custom executable predicates in this first slice. Existing generic numeric
+operators must not duplicate these declaration mutants. Stable identities
+include owner, declaration span, attribute set and changed option, rather
+than pretending a generated validator is a source method.
+
+### Execution and coverage contract
+
+A validation mutant needs a clean load of the class with the changed
+source before Rails registers any validators. The minimal correctness-first
+prototype uses a fresh process and a staged source tree, boots the target
+there, and runs the selected specs. It must not edit the user's tree. This
+is a new execution path, not an unreviewed reuse of constant replay. First
+prove that the original and mutated validator do not coexist, including
+inherited validators and repeated runs. Class unloading in the live Rails
+process is not an acceptable shortcut: existing class references can remain.
+
+A declaration line is executed at boot, not necessarily while the test
+exercises validation. Do not use that line's Coverage hit as evidence that
+a selected test observes the validator. Initially require explicit tests
+or `--all`; do not claim inferred per-validator coverage until separately
+proved. Keep absent coverage as unknown rather than falsely unreachable.
+Fresh-process overhead is unmeasured; no performance claim belongs here.
+
+### Implementation order and evidence
+
+1. Land the limitation and its real-CLI fixture first.
+2. Review this execution boundary before operator code. The existing
+   method-fork path is insufficient; implementation remains blocked on a
+   clean-load prototype and explicit test-selection contract.
+3. Prototype presence only. A real ActiveModel fixture must show a mutant
+   killed by a validation assertion and surviving when that assertion is
+   removed, with an independent ordinary-method control. Prove no duplicate
+   validators, unchanged parent process and no user-tree writes.
+4. Add numericality bounds, then length and condition keyword swaps in
+   separate behavior slices with boundary-value and conditional fixtures.
+   Include a true Rails model and a concern-shaped unsupported case before
+   claiming Rails support, not only a DSL stub.
+5. Run focused tests and the required fast acceptance locally, full CI
+   before merge, and a pinned Chatwoot replay only after its independent
+   field-run protocol permits it. Static counts are not replaced by this
+   fixture evidence and do not demonstrate a kill rate.
+
+Review decision needed before implementation: accept the initial
+fresh-process execution cost and explicit-tests/whole-suite restriction,
+or keep the documented limitation while a narrower safe execution model
+is researched. This is a meaningful behavior and cost tradeoff, not an
+operator implementation detail.
