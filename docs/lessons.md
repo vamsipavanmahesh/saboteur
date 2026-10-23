@@ -401,3 +401,31 @@ review-to-checks loop in [agents/review-to-checks.md](agents/review-to-checks.md
 - Prevented by: every check lands with a spec per input path that fails
   when the check is disabled and passes when it runs (a negative check for
   the checker itself). Verification claims name each input exercised.
+## 28. The acceptance runner's RUBYLIB shadowed the gate's prism
+
+- Class: environment parity (local green did not transfer to the gate).
+- What happened: the acceptance runner unconditionally put the running
+  Ruby's stdlib dirs on the child's RUBYLIB, a workaround one Ruby build
+  needs to resolve its own stdlib. RUBYLIB entries shadow gem activation,
+  and a stock Ruby 3.3 ships prism 0.19 in rubylibdir, so on CI the
+  bundled 0.19 overrode the gemspec's prism 1.x. The first live
+  acceptance run (39928487173) died in all 8 cases with a
+  Prism::ParseResult superclass mismatch (exit 70); the crash masked
+  every assertion, so the run said nothing about the product. The
+  controlled product-break proof on that baseline hit the same crash,
+  was recorded inconclusive, and closed unmerged. Local acceptance runs
+  were green only because the local Ruby has no bundled prism in
+  rubylibdir: the shadow never fired there.
+- Root cause: process. A workaround for one Ruby build's stdlib layout
+  was applied unconditionally, and the gate environment's different
+  layout was never probed. The local green was environment-narrow.
+- Prevented by: the runner keeps the child's RUBYLIB to the project lib
+  and appends stdlib dirs only for builds that fail a once-per-runner
+  probe (`require "rubygems"` with RUBYLIB/RUBYOPT cleared). An
+  acceptance run whose cases all die with the same internal error is an
+  infrastructure failure, not a product result: stop, diagnose the
+  runner, and re-run before drawing any product conclusion from it. A
+  mechanism is claimed only after a same-head wrong-vs-right
+  reproduction plus a gate run on the fix (run 39930740816: 8 cases, 6
+  pass, exactly the two frozen expectation reds; the repeated controlled
+  break then added exactly the predicted third red).
