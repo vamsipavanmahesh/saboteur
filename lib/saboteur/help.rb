@@ -83,7 +83,7 @@ module Saboteur
                      "gates still apply. Every run option still works; explicit flags win (#654).",
         takes_options: true,
         exit_codes: EXIT_CODE_MEANINGS,
-        examples: [["Changed lines since main", "saboteur pr"],
+        examples: [["Changed lines since the default branch", "saboteur pr"],
                    ["Changed lines since another target", "saboteur pr origin/develop"],
                    ["The same loop with two baseline checks", "saboteur pr --baseline-passes 2"]]
       ),

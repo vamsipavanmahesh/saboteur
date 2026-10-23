@@ -47,8 +47,9 @@ git fetch origin main
 bundle exec saboteur pr
 ```
 
-The `pr` preset is `--since main --baseline-passes 1 --max-duration 10m`:
-changed lines since `main`, one unchanged-suite check instead of two, and a
+The `pr` preset is `--since <default branch> --baseline-passes 1 --max-duration 10m`:
+changed lines since the default branch (`main` when origin/HEAD is unset),
+one unchanged-suite check instead of two, and a
 ten-minute wall-clock budget whose exhaustion fails the run with exit 4 -
 pass `--max-duration-ok` explicitly to accept the partial verdict. Explicit
 flags after the preset win.

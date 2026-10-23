@@ -161,7 +161,7 @@ bundle exec saboteur run --subject Billing        <span class="c"># a namespace<
 bundle exec saboteur run --incremental            <span class="c"># reuse verdicts that did not change</span>
 bundle exec saboteur run --jobs 6                 <span class="c"># parallel workers</span>
 bundle exec saboteur run --max-duration 10m       <span class="c"># stop before the next subject when the budget is spent</span>
-bundle exec saboteur pr                           <span class="c"># PR loop: since main, baseline x1, 10-minute budget</span>
+bundle exec saboteur pr                           <span class="c"># PR loop: since the default branch, baseline x1, 10-minute budget</span>
 bundle exec saboteur audit                        <span class="c"># whole project, all operators, JSON and HTML reports</span></code></pre></div>
 <p>Every mutation run first runs the unchanged tests twice, even when the coverage cache is warm (replay of one mutant skips this): a kill only counts when the same tests pass on the unchanged code. <code>--baseline-passes 1</code> makes it one run, for the fast PR loop. Since 0.7.0 the run infers the specs named after each mutated file and runs only those, baseline passes included. A mutated file with no conventional spec stops with exit 2 before anything boots and names both ways out: pass <code>--test</code> once per spec path (one path per flag: <code>--test spec/billing_spec.rb --test spec/payments_spec.rb</code>), or <code>--all</code> to keep the whole configured suite (the 0.6.0 behavior).</p>
 <h3>4. Configure (optional)</h3>
