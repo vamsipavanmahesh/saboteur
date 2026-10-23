@@ -324,7 +324,7 @@ class AcceptanceRunner
     candidates = mutants(run.json).select { |m| m["replacement"] == want.fetch("match").fetch("replacement") }
     return ["no mutant with replacement #{want['match']['replacement'].inspect}"] if candidates.empty?
 
-    fields = %w[status gapKind valueDiffered].select { |field| want.key?(field) }
+    fields = %w[status gapKind classification valueDiffered].select { |field| want.key?(field) }
     return [] if candidates.any? { |m| fields.all? { |field| m[field] == want[field] } }
 
     lines = candidates.map { |m| candidate_misses(m, fields, want) }
@@ -366,10 +366,11 @@ class AcceptanceRunner
   def check_ranked_top3(expect, ranked)
     top3 = ranked.select { |entry| entry[:rank] <= 3 }
     Array(expect["ranked_top3"]).filter_map do |want|
-      next if top3.any? { |entry| entry[:line] == want["line"] && entry[:label] == want["label"] }
+      labels = Array(want["label"])
+      next if top3.any? { |entry| entry[:line] == want["line"] && labels.include?(entry[:label]) }
 
       actual = top3.map { |entry| "#{entry[:path]}:#{entry[:line]} #{entry[:label]}" }.join("; ")
-      "no top-3 entry at line #{want['line']} labelled #{want['label']} (top 3: #{actual})"
+      "no top-3 entry at line #{want['line']} labelled #{labels.join(' or ')} (top 3: #{actual})"
     end
   end
 
