@@ -376,14 +376,27 @@ review-to-checks loop in [agents/review-to-checks.md](agents/review-to-checks.md
   local tree (a pre-0.12.3-release CHANGELOG) with no tags fetched; on
   current main the fixed checker reports 15 failures (14 README bullets
   plus the historical 0.0.1 skeleton bullet). No tag was written.
+- Recurrence, same day: a "main lineage replaced" loss alarm was raised
+  from a clone whose `origin` was a local mirror directory, not GitHub.
+  The mirror's stale state (a forced-update fetch line and a four-commit
+  history) was reported as the live main. It was retracted within
+  minutes, with no writes made: `git ls-remote` of the canonical GitHub
+  URL and the GitHub branch API agreed on the actual head, and the real
+  lineage was intact. The alarm came from a tracking ref whose remote's
+  identity was never checked.
 - Root cause: claim. The extent of a versioned set was derived from the
   tail of a lexically sorted list, and a stale working tree was treated as
-  current main.
+  current main. The recurrence adds a third form: a remote-tracking ref
+  was read as the remote itself.
 - Prevented by: never read a sorted tail as the extent of a versioned set;
   use `sort -V` and count the full list. Claims about remote state need a
-  live `git ls-remote` (or API) quoted in the same report. Diagnostic runs
-  state the exact tree they ran on: "current main" means a fresh fetch and
-  a quoted `git rev-parse`.
+  live `git ls-remote` (or API) quoted in the same report. Before any
+  claim or alarm about the remote's state, verify the remote's identity
+  first: `git remote -v` checked against the canonical URL, because a
+  local mirror or a stale tracking ref is not the remote; then read the
+  canonical URL itself with `git ls-remote <url>` or the API. Diagnostic
+  runs state the exact tree they ran on: "current main" means a fresh
+  fetch and a quoted `git rev-parse`.
 
 ## 27. A shipped checker's second input path was dead code
 
