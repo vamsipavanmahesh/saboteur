@@ -60,6 +60,31 @@ Names follow Uncle Bob's Clean Code conventions:
 - Before any long run, state what result you expect and what you will do
   with it. If you can't say, don't run it.
 
+## Run discipline
+
+- Run `bin/check-env` before any test or acceptance run, locally and in CI.
+  It fails fast when the environment cannot run the suite faithfully: Ruby
+  version, Bundler, locked gems, and the activated RSpec and prism versions.
+  The rake tasks, script/rspec-shard, the acceptance runner and
+  spec/spec_helper.rb all invoke the gate, and every CI job that runs
+  tests (test, macOS, locale, dogfood, integration-gems) runs it as a
+  step, so a red check-env stops the run at every entry point. Inside
+  saboteur's own mutation-test children (SABOTEUR_CHILD or
+  SABOTEUR_EXTERNAL_CHILD set) spec_helper skips the gate; the parent run
+  checks the environment before spawning them. Probing tools by hand is
+  not a substitute.
+- Run the fast checks first and the full suite once per tree. Do not start
+  a second full run to answer a question a targeted check can answer.
+- Start a long run in the background with a captured log, and never
+  interrupt one. A partial log is not a result; the run does not count.
+- Report status as a stage - code ready / tests passing locally / CI green
+  / released - plus what blocks the next stage. Do not give ETAs or
+  projections.
+- When the maintainer gives a task a deadline and it has not reached the
+  next stage by then, stop and report where it stands.
+- Log every estimate given and its actual in
+  [docs/harness-metrics.md](docs/harness-metrics.md).
+
 ## Documentation
 
 - A pull request that changes CLI flags, behavior or usage must update the reference docs under [docs/](docs/) in the same pull request; README.md stays short and is not the CLI reference.
