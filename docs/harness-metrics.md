@@ -70,6 +70,14 @@ absent plus label-slot and "coarse" wording; outdated README limit;
 `--quiet` still printing the spec-inference notice). Rounds 1-3 are not
 enumerated in a retrievable source.
 
+## Metric 1 log
+
+One row per distinct claim unit, counted per the rule below.
+
+| Date | Claim | Finding |
+| --- | --- | --- |
+| 2026-10-23 | "all feedback done", reported during 0.12.4 release preparation | The independent review of main at 64b5853a verified the product fixes but showed the claim was not accurate: findings remained open, and the claims gate then failed twice on the release candidate (3 invalid e2e references, then 2) before passing on the corrected tree. Counted as one false claim, distinct from the claims counted in the review report itself. |
+
 ## How to count going forward
 
 - Metric 1 is counted per reviewer report at release time, one row per
