@@ -20,6 +20,11 @@ index=$1
 total=$2
 shift 2
 
+# Fail fast on an unfaithful toolchain before the shard spends minutes
+# (AGENTS.md, "Run discipline"); covers local shard runs directly - CI also
+# runs the gate as its own step before invoking this script.
+ruby "$(cd "$(dirname "$0")/.." && pwd)/bin/check-env"
+
 weights="$(cd "$(dirname "$0")" && pwd)/rspec-shard-weights.txt"
 
 # First line: how many spec files exist. Then this shard's files, in sorted

@@ -3,7 +3,7 @@
 
 namespace :claims do
   desc "Check that CHANGELOG and README claims carry (e2e:) proof references"
-  task :check do
+  task check: :check_env do
     sh "script/claims-check"
   end
 end

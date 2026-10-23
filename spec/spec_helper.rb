@@ -2,6 +2,21 @@
 # frozen_string_literal: true
 
 require "fileutils"
+require "rbconfig"
+
+# Run the environment gate once per suite process (AGENTS.md, "Run
+# discipline"): a bare `bundle exec rspec` bypasses the rake tasks and
+# script/rspec-shard, so the suite itself refuses to run on a red toolchain.
+# Skipped inside saboteur's own test-run children (SABOTEUR_CHILD from the
+# supervisor, SABOTEUR_EXTERNAL_CHILD from the external runner): when
+# saboteur dogfoods this repo, every mutated child would rerun the gate and
+# a gate abort would be credited as a mutant kill. The parent run checks
+# the environment before spawning children.
+unless ENV["SABOTEUR_CHILD"] || ENV["SABOTEUR_EXTERNAL_CHILD"] ||
+       system(RbConfig.ruby, File.expand_path("../bin/check-env", __dir__), chdir: File.expand_path("..", __dir__))
+  abort "check-env failed; fix the environment before running the suite"
+end
+
 require "saboteur"
 require "saboteur/cli"
 

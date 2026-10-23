@@ -12,6 +12,7 @@
 # projects are copied to a temp dir before any saboteur run touches them.
 
 require "fileutils"
+require "rbconfig"
 require "json"
 require "open3"
 require "open-uri"
@@ -39,6 +40,7 @@ class AcceptanceRunner
   end
 
   def run
+    check_environment!
     scenarios = YAML.load_file(EXPECTED).fetch("scenarios")
     Dir.mktmpdir("saboteur-acceptance-") do |work|
       gem_home = build_and_install_gem(work)
@@ -56,6 +58,16 @@ class AcceptanceRunner
   end
 
   private
+
+  # Fail fast on an unfaithful toolchain (AGENTS.md, "Run discipline"): the
+  # runner is also invoked directly (release gate, local runs), not only
+  # through the rake tasks that already depend on the check_env task.
+  def check_environment!
+    return if system(RbConfig.ruby, File.join(ROOT, "bin", "check-env"), chdir: ROOT)
+
+    @out.puts "acceptance: environment gate failed; refusing to run"
+    exit 1
+  end
 
   def build_and_install_gem(work)
     gem_home = File.join(work, "gemhome")

@@ -84,6 +84,9 @@ jobs:
         with:
           ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
+      # Fail fast on an unfaithful toolchain before the suite spends
+      # minutes (AGENTS.md, "Run discipline").
+      - run: ruby bin/check-env
       # The extra json formatter only records per-example run times for the
       # shard weights (script/rspec-shard); the progress output and the
       # pass/fail verdict are unchanged. One Ruby per OS keeps the artifact
@@ -151,6 +154,9 @@ jobs:
         with:
           ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
+      # Fail fast on an unfaithful toolchain before the suite spends
+      # minutes (AGENTS.md, "Run discipline").
+      - run: ruby bin/check-env
       - run: script/rspec-shard ${{ matrix.shard }} ${{ matrix.total }} --format progress --format json --out "$RUNNER_TEMP/rspec-times.json"
       - name: Keep the per-example run times
         if: always() && matrix.ruby == 'ruby'
@@ -191,6 +197,9 @@ jobs:
         with:
           ruby-version: "3.4"
           bundler-cache: true
+      # Fail fast on an unfaithful toolchain before the suite spends
+      # minutes (AGENTS.md, "Run discipline").
+      - run: ruby bin/check-env
       - run: script/rspec-shard ${{ matrix.shard }} ${{ matrix.total }}
 
   lint:
@@ -225,6 +234,9 @@ jobs:
       - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1
         with:
           ruby-version: "3.3"
+      # Fail fast on an unfaithful toolchain before the run spends minutes
+      # (AGENTS.md, "Run discipline").
+      - run: ruby bin/check-env
       - name: Run against the pinned commit and compare counts
         # --jobs 4 uses all 4 vCPUs of the runner; everything after `--`
         # is forwarded to saboteur by script/integration-target.
@@ -252,6 +264,9 @@ jobs:
         with:
           ruby-version: "3.3"
           bundler-cache: true
+      # Fail fast on an unfaithful toolchain before the run spends minutes
+      # (AGENTS.md, "Run discipline").
+      - run: ruby bin/check-env
       # Bind the dispatch to the pull request it names before mutating: the
       # checked-out SHA must be the pull request's current head and the
       # base_sha input its current base, proven from the API - the inputs are
