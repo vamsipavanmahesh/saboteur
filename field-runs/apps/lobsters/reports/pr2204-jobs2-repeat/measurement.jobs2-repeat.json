@@ -1,0 +1,17 @@
+{
+  "kind": "parallel",
+  "status": null,
+  "command": "bundle exec saboteur pr --since 8f1b50061e5ef0b88ddbadc675395f7b5cf4eb76 --jobs 2 --json /home/sandbox/field-runs/saboteur-field-runs/apps/lobsters/reports/pr2204-jobs2-repeat/report.json",
+  "started_at": "2026-10-24T07:29:35.886212+05:30",
+  "ended_at": "2026-10-24T07:30:08.379928+05:30",
+  "wall_seconds": 32.49,
+  "wall_seconds_monotonic_suspect": 32.49,
+  "exit_code": 1,
+  "peak_rss_kb": 392576,
+  "base_sha": "8f1b50061e5ef0b88ddbadc675395f7b5cf4eb76",
+  "head_sha": "ed722e449227b39ab6268f4260aaa66df95275bd",
+  "pr_url": "https://github.com/lobsters/lobsters/pull/2204",
+  "saboteur_version": "0.12.3",
+  "saboteur_sha": "6f87ccc98377bf0c23f3cf409006f0464c2aa67c",
+  "evidence_paths": []
+}
