@@ -2,7 +2,7 @@ name: "Field run - Chatwoot (stage 1 - env, provision, bounded baseline)"
 
 # Stage 1 of the chatwoot field run on standard GitHub-hosted runners.
 # This workflow provisions the era environment and runs the bounded baseline
-# subset (spec/models + spec/services + the extra spec). It does NOT build
+# subset (spec/models + spec/services). It does NOT build
 # the whole-suite coverage map and does NOT run per-PR mutation replays;
 # those stages land in a later workflow change after this one proves green.
 # Every stage emits receipts and uploads its raw logs; nothing here is a
@@ -52,7 +52,7 @@ jobs:
           sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
           curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/postgresql.gpg
           sudo apt-get update -qq
-          sudo apt-get install -y -qq postgresql-16 postgresql-16-pgvector postgresql-contrib-16 redis-server 2>&1 | tail -2
+          sudo apt-get install -y -qq postgresql-16 postgresql-16-pgvector postgresql-contrib-16 redis-server 2>&1 | tee receipts/apt.log | tail -2
           {
             echo "postgres=$(dpkg-query -W -f='${Version}' postgresql-16)"
             echo "pgvector=$(dpkg-query -W -f='${Version}' postgresql-16-pgvector)"
@@ -67,13 +67,13 @@ jobs:
           pg_isready
 
       - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
+        uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1
         with:
           ruby-version: ${{ env.RUBY_VERSION }}
           bundler: ${{ env.BUNDLER_VERSION }}
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -84,14 +84,30 @@ jobs:
           pnpm --version | tee -a receipts/env.env
 
       - name: Check out chatwoot at the frozen collection HEAD
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           repository: chatwoot/chatwoot
           ref: ${{ env.CHATWOOT_SHA }}
           path: chatwoot
 
+      - name: Checkout + runtime + lockfile receipts
+        run: |
+          {
+            echo "chatwoot_head=$(git -C chatwoot rev-parse HEAD)"
+            echo "chatwoot_head_expected=${{ env.CHATWOOT_SHA }}"
+            test "$(git -C chatwoot rev-parse HEAD)" = "${{ env.CHATWOOT_SHA }}" && echo "checkout_match=YES"
+            echo "ruby=$(ruby -v)"
+            echo "gem=$(gem -v)"
+            echo "bundler=$(bundle -v)"
+            echo "node=$(node -v)"
+            echo "psql=$(psql --version)"
+            echo "gemfile_lock_sha256_pre=$(sha256sum chatwoot/Gemfile.lock | cut -d' ' -f1)"
+            echo "ruby_version_file=$(cat chatwoot/.ruby-version)"
+            echo "node_version_file=$(cat chatwoot/.node-version)"
+          } | tee -a receipts/env.env
+
       - name: Check out saboteur at the tool pin
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           path: saboteur-pin
           ref: ${{ env.SABOTEUR_PIN }}
@@ -102,15 +118,18 @@ jobs:
           cd saboteur-pin
           gem build saboteur.gemspec --output=saboteur-pin.gem > /dev/null
           echo "built_gem_sha256=$(sha256sum saboteur-pin.gem | cut -d' ' -f1)" | tee ../receipts/gem.env
-          gem install --local saboteur-pin.gem --no-document 2>&1 | tail -1
-          INSTALLED=$(gem contents saboteur | grep '/lib/\|/exe/' | sed "s|^$(gem env gemdir)||" | sort)
-          diff <(cd lib && find . -type f | sort; cd ../exe && find . -type f | sort) <(echo "$INSTALLED" | sed 's|/gems/saboteur-0.12.3||') > ../receipts/gem-payload-paths.diff || true
-          cd lib && find . -type f | sort | xargs sha256sum > ../../receipts/gem-payload-source.sha256
+          gem install --local saboteur-pin.gem --no-document 2>&1 | tee ../receipts/gem-install.log | tail -1
+          INSTALLED=$(gem contents saboteur | grep -E '/(lib|exe)/' | sed "s|^$(gem env gemdir)/gems/saboteur-0.12.3/||" | sort)
+          SRC=$( (cd lib && find . -type f | sed 's|^\./|lib/|'; cd ../exe && find . -type f | sed 's|^\./|exe/|') | sort )
+          diff <(echo "$SRC") <(echo "$INSTALLED") > ../receipts/gem-payload-paths.diff || true
+          test ! -s ../receipts/gem-payload-paths.diff && echo "payload_paths=identical-lib+exe" | tee -a ../receipts/gem.env
+          (cd lib && find . -type f | sort | xargs sha256sum | sed 's|  \./|  lib/|'; cd ../exe && find . -type f | sort | xargs sha256sum | sed 's|  \./|  exe/|') > ../receipts/gem-payload-source.sha256
           GEMDIR=$(gem env gemdir)/gems/saboteur-0.12.3
-          (cd "$GEMDIR/lib" && find . -type f | sort | xargs sha256sum) > ../../receipts/gem-payload-installed.sha256
-          cd ../..
-          diff receipts/gem-payload-source.sha256 receipts/gem-payload-installed.sha256 > receipts/gem-payload.diff
-          test ! -s receipts/gem-payload.diff && echo "payload_diff=EMPTY-identical" | tee -a receipts/gem.env
+          (cd "$GEMDIR" && find lib exe -type f | sort | xargs sha256sum) > ../receipts/gem-payload-installed.sha256
+          diff ../receipts/gem-payload-source.sha256 ../receipts/gem-payload-installed.sha256 > ../receipts/gem-payload.diff
+          test ! -s ../receipts/gem-payload.diff && echo "payload_diff=EMPTY-identical" | tee -a ../receipts/gem.env
+          saboteur --version 2>&1 | tee ../receipts/exe-version.txt
+          test -s ../receipts/exe-version.txt
 
       - name: Chatwoot env file with generated keys (never committed)
         run: |
@@ -131,11 +150,19 @@ jobs:
           } > .env
 
       - name: Bundle install (single bounded attempt)
+        timeout-minutes: 45
         working-directory: chatwoot
         run: |
           set -o pipefail
           MAKEFLAGS=-j1 bundle config set --local path vendor/bundle
           MAKEFLAGS=-j1 bundle install --jobs 1 --without development 2>&1 | tee ../receipts/bundle.log | tail -3
+
+      - name: Lockfile receipt (post-patch)
+        run: |
+          {
+            echo "gemfile_lock_sha256_post=$(sha256sum chatwoot/Gemfile.lock | cut -d' ' -f1)"
+            echo "gemfile_patch_lines=$(grep -c saboteur chatwoot/Gemfile || true)"
+          } | tee -a receipts/env.env
 
       - name: pnpm install (frozen lockfile)
         working-directory: chatwoot
@@ -164,8 +191,10 @@ jobs:
           set -o pipefail
           echo "started_at=$(date -Iseconds)" > ../receipts/baseline-meta.env
           t0=$(date +%s)
+          set +e
           bundle exec rspec spec/models spec/services --format progress --format json --out ../receipts/baseline-rspec.json > ../receipts/baseline-rspec.log 2>&1
           ec=$?
+          set -e
           {
             echo "exit_code=$ec"
             echo "ended_at=$(date -Iseconds)"
@@ -178,11 +207,11 @@ jobs:
       - name: Stage manifest
         if: always()
         run: |
-          cd receipts && find . -type f | sort | xargs sha256sum > MANIFEST.sha256 && cat MANIFEST.sha256
+          cd receipts && find . -type f | sort | xargs sha256sum > /tmp/MANIFEST.sha256 && mv /tmp/MANIFEST.sha256 ./MANIFEST.sha256 && cat MANIFEST.sha256
 
       - name: Upload receipts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: field-run-chatwoot-stage1-${{ github.run_id }}
           path: receipts/
