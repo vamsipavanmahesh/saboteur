@@ -10,6 +10,9 @@ a25f45c4a91a8204b76be21fff43d49f1f2a9016a604e6bf68c13801140d7af1  ./he/noise-led
 4748a3f66df73bedbd72ba3c04f8a92307fe1a199d369f7b90a38d65924dd400  ./he/selection-v4-scope10.json
 0008cf0e235d2e89c2e367d326a0a34e19cb03e87688088c4406720f07e698a2  ./he/snapshot-compat-matrix-scope10.json
 eda3b9baa78c31df902c2fff3bc37eadcab43879571e7f98c545f3095de2e36b  ./he/triage-schema.json
+53dd2399c52a5d22c0127de02a08f687955cda2ccc7bf595dc071859248236b8  ./lobsters/FINAL-VALUES.md
+4089f98d008f5fa7b04b93494cc34b47cf3b8b0b6c7c5fe12b1d825c6388e360  ./lobsters/gap-values-final.json
 584cb4c910d61095d298f4716a6f311a8f59403a8abc6145fca970fe556e2d28  ./lobsters/gap-values.json
 3aea88f94e1d87012f38e2fcf54af8a90b4fad724d15d23f345a036e55561859  ./lobsters/native-finding-and-score-evidence.json
 822bb1f8d0a51aea0178f973650de2a47fd9d33f0f12e075a5a966c26114a77d  ./lobsters/summary-and-native-ranking.json
+11456eb876d70d1b1c68c5c0d7d5a66656c3b43993d1c712b3ccfaef04d74d35  ./lobsters/summary-final.json

@@ -1,0 +1,49 @@
+{
+ "gap_values": {
+  "low": 7,
+  "high": 3,
+  "medium": 2
+ },
+ "mutant_values": {
+  "low": 39,
+  "high": 5,
+  "medium": 8
+ },
+ "assessed_prs": 13,
+ "comment_worthy_prs": [
+  2156,
+  2174,
+  2204,
+  2205
+ ],
+ "comment_count": 4,
+ "silent_prs": [
+  2103,
+  2157,
+  2171,
+  2172,
+  2175,
+  2182,
+  2183,
+  2197,
+  2231
+ ],
+ "silent_count": 9,
+ "pending_prs": [
+  2178,
+  2158
+ ],
+ "noise_gaps": {
+  "equivalent": 0,
+  "false_survivor": 0,
+  "environment_noise": 0,
+  "real_gap": 12
+ },
+ "noise_mutants": {
+  "equivalent": 0,
+  "false_survivor": 0,
+  "environment_noise": 0,
+  "real_gap": 52
+ },
+ "ranking_metric": "within-PR ranking is retired for this study; per-PR comment-worthiness (at least one high or medium gap) replaces it. Native finding order stays on file as evidence and is not a value-prioritization claim."
+}
