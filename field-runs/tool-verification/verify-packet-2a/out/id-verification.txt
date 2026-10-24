@@ -1,0 +1,15 @@
+FULL-ID VERIFICATION vs producer reports (2026-10-24T04:35:12Z)
+2204 kill e4679d48fadc0ef4 VERIFIED in producer report-b79f3865
+2204 kill 04d20954d514506c VERIFIED in producer report-b79f3865
+2204 kill 829cfe49830087d8 VERIFIED in producer report-b79f3865
+2204 kill c48b2d39f463cdc1 VERIFIED in producer report-b79f3865
+2204 kill 26b630dfecabae19 VERIFIED in producer report-b79f3865
+2204 kill f638f3e4a9d1cc1f VERIFIED in producer report-b79f3865
+2204 kill 65f55d1d42cd1b58 VERIFIED in producer report-b79f3865
+2156 kill 5e66e0c9f4a67ce7 VERIFIED in report-21907161
+2231 kill a40b6c227630d3c3 VERIFIED in report-4e03bca3
+2090 kill 11436dd311d9bb17 VERIFIED in report-9c44eb38
+2204 survivor 56ec2857eb8103bd VERIFIED in report-b79f3865
+2204 survivor 695982748e0e8ebb VERIFIED in report-b79f3865
+2204 survivor 9786b8df27eddc21 VERIFIED in report-b79f3865
+2156 survivor 84a2b3ca16355339 VERIFIED in report-21907161

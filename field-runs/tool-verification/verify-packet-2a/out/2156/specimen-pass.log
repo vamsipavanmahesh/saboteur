@@ -1,0 +1,10 @@
++ timeout 600 bundle exec rspec spec/controllers/zz_independent_verification_settings_no_rename_spec.rb
+W, [2026-10-24T09:47:32.890643 #18680]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+.
+
+Finished in 1.86 seconds (files took 4.55 seconds to load)
+1 example, 0 failures
+
+Coverage report generated for RSpec to /home/sandbox/verify/tree-2156/coverage.
+Line Coverage: 10.45% (771 / 7378)
+exit=0

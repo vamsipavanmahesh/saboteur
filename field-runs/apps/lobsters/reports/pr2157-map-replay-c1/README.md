@@ -17,3 +17,6 @@ PROVENANCE GAPS (provenance NOT yet qualified; packet holds logs+report only):
 Environment notes (informational): tool reports Ruby 4.0.0 path (ruby/ruby-4.0.0) on this lane; Landlock ABI 2 < 3 - sandbox runs hazard-guard + canary only (restriction of truncate() unavailable). Neither affects the counts; both stay disclosed.
 
 Counts: study qualified count unchanged 1/45 (2231 only) until kill-cause and survivor-triage proofs land.
+
+## Map provenance artifacts appended 10:06 IST - gap 1 CLOSED
+coverage/inputs/pointer received and published under map-artifacts/. Binding chain merger-verified: pointer content == 4969a381d449168f220f5e9ef5bdaf268a20e3d37116a8863c9946270b9730c6 == observer-log key == inputs.map_key; inputs.map_digest a0069dc62bfadd4dc08c62afcc7c6ec18d375b0917eba8ab3d5506fd1d4ba41a == actual sha256 of the published coverage JSON; coverage carries 865 tests (matches map log). REMAINING GAPS: (2) empty headmap-driver log (no attempt_start/bundle/schema receipts for the map attempt), (3) no POST-replay pointer-unchanged receipt, (4) no era Gemfile.lock/prefix receipts.

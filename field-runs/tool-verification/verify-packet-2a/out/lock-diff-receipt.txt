@@ -1,0 +1,48 @@
+=== tree-2204 Gemfile.lock diff vs era original ===
++PATH
++  remote: /home/sandbox/verify/saboteur-src
++  specs:
++    saboteur (0.12.3)
++      prism (>= 1.2, < 2)
++
++    fiddle (1.1.8)
++  fiddle
++  saboteur!
++  fiddle (1.1.8) sha256=7fa8ee3627271497f3add5503acdbc3f40b32f610fc1cf49634f083ef3f32eee
++  saboteur (0.12.3)
+=== tree-2156 Gemfile.lock diff vs era original ===
++PATH
++  remote: /home/sandbox/verify/saboteur-src
++  specs:
++    saboteur (0.12.3)
++      prism (>= 1.2, < 2)
++
++    fiddle (1.1.8)
++  fiddle
++  saboteur!
++  fiddle (1.1.8) sha256=7fa8ee3627271497f3add5503acdbc3f40b32f610fc1cf49634f083ef3f32eee
++  saboteur (0.12.3)
+=== tree-2231 Gemfile.lock diff vs era original ===
++PATH
++  remote: /home/sandbox/verify/saboteur-src
++  specs:
++    saboteur (0.12.3)
++      prism (>= 1.2, < 2)
++
++    fiddle (1.1.8)
++  fiddle
++  saboteur!
++  fiddle (1.1.8) sha256=7fa8ee3627271497f3add5503acdbc3f40b32f610fc1cf49634f083ef3f32eee
++  saboteur (0.12.3)
+=== tree-2090 Gemfile.lock diff vs era original ===
++PATH
++  remote: /home/sandbox/verify/saboteur-src
++  specs:
++    saboteur (0.12.3)
++      prism (>= 1.2, < 2)
++
++    fiddle (1.1.8)
++  fiddle
++  saboteur!
++  fiddle (1.1.8) sha256=7fa8ee3627271497f3add5503acdbc3f40b32f610fc1cf49634f083ef3f32eee
++  saboteur (0.12.3)

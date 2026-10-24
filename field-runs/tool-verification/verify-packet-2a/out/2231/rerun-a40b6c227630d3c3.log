@@ -1,0 +1,52 @@
++ timeout 900 bundle exec saboteur run --id a40b6c227630d3c3 --since 372345a2cca5ed8e5d3376dcdc7e0a33e7f4f17c --test spec/mailers/email_reply_mailer_spec.rb --jobs 1 --baseline-passes 1 --max-duration 600 --seed 1 --verbose --json /home/sandbox/verify/out/2231/report-a40b6c227630d3c3.json
+saboteur: warning: 4 uncommitted or untracked change(s) in the working tree: none inside the mutation scope, 3 outside it (3 tracked, 0 untracked), 1 saboteur setup file(s) (0 tracked, 1 untracked).
+  setup files: config/saboteur.rb
+  Mutants run your code and could alter or delete files; run on a clean, committed tree or a CI checkout.
+saboteur: Operators: operator_assignment, condition_negation, range, body_nil, body_true, body_false, body_raise, comparison, arithmetic, boolean_logic, condition_true, condition_false, negation_removal, literal_number, or_assign, and_assign, safe_navigation, statement_removal, filter_replacement, copy_replacement, literal_string, literal_boolean, argument_swap, argument_removal, pair_removal, element_removal, endpoint_replacement, chain_removal, method_swap, operand_replacement, interpolation_removal, jump_value, rescue_removal, ensure_removal, when_removal, unary_removal, regex_replacement
+saboteur: loading the application
+saboteur: SimpleCov.start ignored for this run (saboteur needs Ruby's Coverage itself)
+W, [2026-10-24T09:49:40.435541 #19518]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+saboteur: checking the unchanged suite once (seed 1); order stability between passes is not checked (baseline_passes: 1)
+saboteur: baseline check 1 took 3 s; about 3 s left for the coverage map build at that rate
+saboteur: coverage cache miss: input files changed since the last map: 1 edited (Gemfile.lock); the map build runs the selected specs once
+saboteur: building coverage map (runs the selected specs once)
+saboteur: 1 subject, 7 tests in coverage map
+.:killed S:survived T:timeout E:error s:skipped L:resource limit
+saboteur: Comment#parents  .
+.  1/1 (100%)
+
+warning: 3 other thread(s) alive at fork time; they do not run in children: DEBUGGER__::SESSION@server (the debug gem's remote-console server: what it does in children depends on RUBY_DEBUG_FORK_MODE - with parent no debugger runs in children; with child or both (the gem's default) the debugger activates in children and can pause or interfere with supervised mutation runs. For an unattended run, do not start the remote debugger at all: drop RUBY_DEBUG_OPEN or require "debug" without :open), /home/sandbox/verify/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/rack-mini-profiler-4.0.0/lib/mini_profiler/storage/file_store.rb:85:in 'Kernel#sleep', AR Pool Reaper (ActiveRecord's connection-pool reaper: expected harmless when children reconnect the database after fork (rails mode does) - it only maintains the parent's pool); a thread that does not run in a child cannot do background work a mutant's test may rely on (a pool reaper, a flusher), so results can differ when one is left behind
+warning: sandbox is on but this kernel's Landlock ABI is 2 but ABI 3 (Linux 6.2+) is needed to restrict truncate(); children run with the hazard guard and canary only
+saboteur 0.12.3 · --since 372345a2cca5ed8e5d3376dcdc7e0a33e7f4f17c · seed 1
+
+✓ 1/1 mutants killed · score 100.0% · 23.4s total
+speed footer: done in 23.4s - baseline 2.7s · map 10.2s · mutants 3.1s (jobs=1)
+
+Replay: Comment#parents body_raise a40b6c227630d3c3 (killed)
+--- a/app/models/comment.rb
++++ b/app/models/comment.rb
+@@ -465,12 +465,3 @@
+   def parents
+-    return Comment.none if parent_comment_id.nil?
+-
+-    # starts from parent_comment_id so it works on new records
+-    Comment.with_recursive(parents: [
+-      Comment.where(id: parent_comment_id),
+-      Comment.joins("JOIN parents on comments.id = parents.parent_comment_id")
+-    ])
+-      # select directly from RCTE; AR would generate a JOIN against 'comments'
+-      .select("*").from("parents")
+-      .order(depth: :asc)
++    raise
+   end
+Selected tests:
+  ./spec/mailers/email_reply_mailer_spec.rb[1:1]
+  ./spec/mailers/email_reply_mailer_spec.rb[1:5]
+  ./spec/mailers/email_reply_mailer_spec.rb[1:4]
+  ./spec/mailers/email_reply_mailer_spec.rb[1:3]
+  ./spec/mailers/email_reply_mailer_spec.rb[1:7]
+  ./spec/mailers/email_reply_mailer_spec.rb[1:6]
+  ./spec/mailers/email_reply_mailer_spec.rb[1:2]
+
+Reports: /home/sandbox/verify/out/2231/report-a40b6c227630d3c3.json (JSON), .saboteur/report.html (HTML)
+exit=0
