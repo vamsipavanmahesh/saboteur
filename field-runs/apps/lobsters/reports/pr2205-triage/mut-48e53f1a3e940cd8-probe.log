@@ -1,0 +1,20 @@
+W, [2026-10-24T11:49:10.675041 #23336]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+..F.....
+
+Failures:
+
+  1) Story hide/save predicates (verification probe) PROBE-H3 hidden by another user is not hidden for user
+     Failure/Error: expect(story.is_hidden_by_user?(user)).to eq false
+       Expected true to eq false.
+     # ./spec/models/story_hide_save_probe_spec.rb:20:in 'block (3 levels) in <top (required)>'
+
+Finished in 2.03 seconds (files took 4.96 seconds to load)
+8 examples, 1 failure
+
+Failed examples:
+
+rspec ./spec/models/story_hide_save_probe_spec.rb:18 # Story hide/save predicates (verification probe) PROBE-H3 hidden by another user is not hidden for user
+
+Coverage report generated for RSpec to /home/sandbox/verify/tree-2205/coverage.
+Line Coverage: 12.26% (911 / 7430)
+Stopped processing SimpleCov as a previous error not related to SimpleCov has been detected

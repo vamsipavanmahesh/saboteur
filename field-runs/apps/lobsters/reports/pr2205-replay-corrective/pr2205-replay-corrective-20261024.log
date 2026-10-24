@@ -1,0 +1,78 @@
+saboteur: warning: 185 uncommitted or untracked change(s) in the working tree: none inside the mutation scope, 184 outside it (2 tracked, 182 untracked), 1 saboteur setup file(s) (0 tracked, 1 untracked).
+  setup files: config/saboteur.rb
+  Mutants run your code and could alter or delete files; run on a clean, committed tree or a CI checkout.
+saboteur: Operators: operator_assignment, condition_negation, range, body_nil, body_true, body_false, body_raise, comparison, arithmetic, boolean_logic, condition_true, condition_false, negation_removal, literal_number, or_assign, and_assign, safe_navigation, statement_removal, filter_replacement, copy_replacement, literal_string, literal_boolean, argument_swap, argument_removal, pair_removal, element_removal, endpoint_replacement, chain_removal, method_swap, operand_replacement, interpolation_removal, jump_value, rescue_removal, ensure_removal, when_removal, unary_removal, regex_replacement
+saboteur: loading the application
+saboteur: SimpleCov.start ignored for this run (saboteur needs Ruby's Coverage itself)
+W, [2026-10-24T11:43:51.977338 #33054]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+saboteur: checking the unchanged suite once (seed 1); order stability between passes is not checked (baseline_passes: 1)
+saboteur: baseline check 1 took 8 s; about 8 s left for the coverage map build at that rate
+saboteur: coverage cache miss: settings, Ruby or saboteur version changed; the map build runs the selected specs once
+saboteur: building coverage map (runs the selected specs once)
+saboteur: 2 subjects, 46 tests in coverage map
+.:killed S:survived T:timeout E:error s:skipped L:resource limit
+saboteur: Story#is_hidden_by_user?  SS.SS
+saboteur: Story#is_saved_by_user?  SS.SS
+SS.SSSS.SS  10/10 (100%)
+saboteur: confirmation: 8 unconfirmed
+
+Survivors (8) - changes your tests did not catch
+
+1. app/models/story.rb:781 Story#is_hidden_by_user? [effect · #1 of 2 blocks]
+  the covering specs pass without pinning this effect
+  780 def is_hidden_by_user?(user)
+- 781     HiddenStory.exists?(user_id: user.id, story_id: id)
++ 781     HiddenStory.exists?( story_id: id)   pair_removal · 48e53f1a3e940cd8
+                              ^
+  782   end
+  why it matters: the hash no longer depends on this key
+  changed line: app/models/story.rb:781
+  covered by ./spec/features/read_story_spec.rb[1:5:1] - ran, still passed
+  +23 more covered (all 23 ran, all passed)
+  → try have_received(...).with(...), or assert the hash content under this key
+  3 more mutants here: 030338415f22872f (body_false), 380d564f2434c995 (body_true), ce014587c8ab2093 (pair_removal)
+       expand: saboteur run --all-mutants --since fb4afa937f9ebfce374fef14ec1272a620b06d71
+
+2. app/models/story.rb:789 Story#is_saved_by_user? [effect · #2 of 2 blocks]
+  the covering specs pass without pinning this effect
+  788 def is_saved_by_user?(user)
+- 789     SavedStory.exists?(user_id: user.id, story_id: id)
++ 789     SavedStory.exists?( story_id: id)   pair_removal · 5988c535eefd7cbd
+                             ^
+  790   end
+  why it matters: the hash no longer depends on this key
+  changed line: app/models/story.rb:789
+  covered by ./spec/features/read_story_spec.rb[1:5:1] - ran, still passed
+  +23 more covered (all 23 ran, all passed)
+  → try have_received(...).with(...), or assert the hash content under this key
+  3 more mutants here: f50093f348880e7f (body_true), f5f54769759d3f8a (body_false), 77cce71ad8c3e450 (pair_removal)
+       expand: saboteur run --all-mutants --since fb4afa937f9ebfce374fef14ec1272a620b06d71
+
+Hints are suggestions, not diagnoses: a survivor can also be an equivalent
+mutant, or a change the selected tests cannot observe.
+
+warning: 2 other thread(s) alive at fork time; they do not run in children: DEBUGGER__::SESSION@server (the debug gem's remote-console server: what it does in children depends on RUBY_DEBUG_FORK_MODE - with parent no debugger runs in children; with child or both (the gem's default) the debugger activates in children and can pause or interfere with supervised mutation runs. For an unattended run, do not start the remote debugger at all: drop RUBY_DEBUG_OPEN or require "debug" without :open), /home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/rack-mini-profiler-4.0.0/lib/mini_profiler/storage/file_store.rb:85:in 'Kernel#sleep'; a thread that does not run in a child cannot do background work a mutant's test may rely on (a pool reaper, a flusher), so results can differ when one is left behind
+warning: sandbox is on but this kernel's Landlock ABI is 2 but ABI 3 (Linux 6.2+) is needed to restrict truncate(); children run with the hazard guard and canary only
+warning: survivor confirmation: the whole-suite coverage map covers none of the edited lines of 8 survivors, so they stay counted; run `saboteur run --all` to rebuild it
+saboteur 0.12.3: 2 subjects, 10 mutants, wall 98.46 s, seed 1 (repeat with --seed 1)
+Score: 20.0% (2/10 killed, tested subjects) (assertion 0.0 %, crash 20.0 %) (killed+timeout)/(killed+survived+timeout); errors, resource limits and skips excluded
+score without whole-body mutants 0.0 % (4 mutants); whole-body mutants alone 33.3 % (6)
+mean time per executed mutant 4.922 s
+kills rejected by unchanged-method check: 0
+kills: 0 by a failed assertion, 2 by a crash (RuntimeError 2)
+crash kills by operator: body_raise 2 of 2
+saboteur: 2 killed, 8 survived in 1m38s - score 20.0%
+✗ exit 1 - 8 survivors
+
+Next steps:
+  replay one survivor: saboteur run --id 030338415f22872f --since fb4afa937f9ebfce374fef14ec1272a620b06d71 --test spec/features/read_story_spec.rb --test spec/requests/mod/stories_spec.rb --test spec/features/submit_story_spec.rb --test spec/features/story_spec.rb --test spec/features/comment_spec.rb --jobs 1 --baseline-passes 1 --max-duration 600.0 --seed 1
+  accept an equivalent one: add to your ignore file
+    (c.ignore_file, default config/saboteur_ignore.rb):
+    Saboteur.ignore do |i|
+      i.mutation "030338415f22872f", subject: "Story#is_hidden_by_user?", reason: "why it is equivalent"
+    end
+  let an agent close the gaps: saboteur run --agent, with the same options
+speed footer: done in 98.5s - baseline 8.2s · map 28.6s · mutants 53.1s (jobs=1)
+
+Reports: .saboteur/report.json (JSON), .saboteur/report.html (HTML)
+MEASURED exit=1 wall=101.2s rss_kb=428680

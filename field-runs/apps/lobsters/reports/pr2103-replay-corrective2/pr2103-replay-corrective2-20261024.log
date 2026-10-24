@@ -1,0 +1,127 @@
+saboteur: warning: 185 uncommitted or untracked change(s) in the working tree: none inside the mutation scope, 184 outside it (2 tracked, 182 untracked), 1 saboteur setup file(s) (0 tracked, 1 untracked).
+  setup files: config/saboteur.rb
+  Mutants run your code and could alter or delete files; run on a clean, committed tree or a CI checkout.
+saboteur: Operators: operator_assignment, condition_negation, range, body_nil, body_true, body_false, body_raise, comparison, arithmetic, boolean_logic, condition_true, condition_false, negation_removal, literal_number, or_assign, and_assign, safe_navigation, statement_removal, filter_replacement, copy_replacement, literal_string, literal_boolean, argument_swap, argument_removal, pair_removal, element_removal, endpoint_replacement, chain_removal, method_swap, operand_replacement, interpolation_removal, jump_value, rescue_removal, ensure_removal, when_removal, unary_removal, regex_replacement
+saboteur: loading the application
+saboteur: SimpleCov.start ignored for this run (saboteur needs Ruby's Coverage itself)
+W, [2026-10-24T11:48:17.504613 #33972]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+saboteur: checking the unchanged suite once (seed 1); order stability between passes is not checked (baseline_passes: 1)
+saboteur: baseline check 1 took 6 s; about 6 s left for the coverage map build at that rate
+saboteur: coverage cache miss: settings, Ruby or saboteur version changed; the map build runs the selected specs once
+saboteur: building coverage map (runs the selected specs once)
+saboteur: 2 subjects, 52 tests in coverage map
+.:killed S:survived T:timeout E:error s:skipped L:resource limit
+saboteur: ApplicationHelper#link_to_different_page  ...SSS.S
+saboteur: TrafficHelper.novelty_logo  S.S????????
+...SSS.SS.S  11/19 (57%) eta 0m11s
+saboteur: confirmation: 6 unconfirmed
+
+Survivors (6) - changes your tests did not catch
+
+1. app/helpers/application_helper.rb:109 ApplicationHelper#link_to_different_page [branch · #1 of 4 blocks]
+  the covering specs pass without pinning this branch
+  105 def link_to_different_page(text, path, options = {})
+  106     current = request.path.sub(/\/page\/\d+$/, "").sub(/\/\d+[dwmy]$/, "")
+  107     path = path.sub(/\/page\/\d+$/, "").sub(/\/\d+[dwmy]$/, "")
+  108     options[:class] = class_names(options[:class])
+- 109     if options[:class].empty? then options.delete(:class) end
++ 109     if !(options[:class].empty?) then options.delete(:class) end   condition_negation · 3357bbd3579ca0dc
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+  110     if current == path
+      ...
+  114     link_to text, path, options
+  115   end
+  why it matters: the condition now picks the opposite branch
+  changed line: app/helpers/application_helper.rb:109
+  covered by ./spec/helpers/application_helper_spec.rb[1:2:2] - ran, still passed
+  +2 more covered (all 2 ran, all passed)
+  2 more mutants here: 97154a11ddda03c6 (condition_true), b108a3614e6b02a4 (condition_false)
+       expand: saboteur run --all-mutants --since 1c22c1e326fa3b5e094844519f6df867dd33198a
+
+2. app/helpers/application_helper.rb:108 ApplicationHelper#link_to_different_page [effect · #2 of 4 blocks]
+  the covering specs pass without pinning this effect
+  105 def link_to_different_page(text, path, options = {})
+  106     current = request.path.sub(/\/page\/\d+$/, "").sub(/\/\d+[dwmy]$/, "")
+  107     path = path.sub(/\/page\/\d+$/, "").sub(/\/\d+[dwmy]$/, "")
+- 108     options[:class] = class_names(options[:class])
++ 108     options[:class] = class_names()   argument_removal · 629ab82786f06cb3
+                                        ^
+  109     if options[:class].empty? then options.delete(:class) end
+      ...
+  114     link_to text, path, options
+  115   end
+  why it matters: the call no longer depends on this argument
+  changed line: app/helpers/application_helper.rb:108
+  covered by ./spec/helpers/application_helper_spec.rb[1:2:2] - ran, still passed
+  +2 more covered (all 2 ran, all passed)
+  → try have_received(...).with(...), or assert a result that depends on this argument
+
+3. app/helpers/traffic_helper.rb:63 TrafficHelper.novelty_logo [#3 of 4 blocks]
+   62 def self.novelty_logo
+-  63     time = Time.current
++  63     nil   body_nil · 556caf228d63258a
+          ^^^
+   64     h = ActionController::Base.helpers
+      ...
+  101     nil
+  102   end
+  why it matters: no test observes this change
+  changed lines: app/helpers/traffic_helper.rb:69, app/helpers/traffic_helper.rb:70, app/helpers/traffic_helper.rb:71 (+3 more)
+  covered by ./spec/controllers/messages_controller_spec.rb[1:3:1] - ran, still passed
+  +27 more covered (all 27 ran, all passed)
+  → try asserting this method's result or its effect
+
+4. app/helpers/traffic_helper.rb:66 TrafficHelper.novelty_logo [effect · #4 of 4 blocks]
+  the covering specs pass without pinning this effect
+   62 def self.novelty_logo
+   63     time = Time.current
+   64     h = ActionController::Base.helpers
+   65 
+-  66     if time.month == 3 && time.day <= 7 && time.monday?
++  66     nil   statement_removal · 2da30124e7509574
+          ^^^
+   67       return h.content_tag(:a,
+      ...
+  101     nil
+  102   end
+  why it matters: the statement's effect goes unobserved
+  changed lines: app/helpers/traffic_helper.rb:69, app/helpers/traffic_helper.rb:70, app/helpers/traffic_helper.rb:71 (+3 more)
+  covered by ./spec/controllers/messages_controller_spec.rb[1:3:1] - ran, still passed
+  +27 more covered (all 27 ran, all passed)
+  → try asserting the effect of this statement
+
+Hints are suggestions, not diagnoses: a survivor can also be an equivalent
+mutant, or a change the selected tests cannot observe.
+
+warning: 2 other thread(s) alive at fork time; they do not run in children: DEBUGGER__::SESSION@server (the debug gem's remote-console server: what it does in children depends on RUBY_DEBUG_FORK_MODE - with parent no debugger runs in children; with child or both (the gem's default) the debugger activates in children and can pause or interfere with supervised mutation runs. For an unattended run, do not start the remote debugger at all: drop RUBY_DEBUG_OPEN or require "debug" without :open), /home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/rack-mini-profiler-4.0.0/lib/mini_profiler/storage/file_store.rb:85:in 'Kernel#sleep'; a thread that does not run in a child cannot do background work a mutant's test may rely on (a pool reaper, a flusher), so results can differ when one is left behind
+warning: sandbox is on but this kernel's Landlock ABI is 2 but ABI 3 (Linux 6.2+) is needed to restrict truncate(); children run with the hazard guard and canary only
+warning: survivor confirmation: the whole-suite coverage map covers none of the edited lines of 6 survivors, so they stay counted; run `saboteur run --all` to rebuild it
+saboteur 0.12.3: 2 subjects, 19 mutants, wall 54.03 s, seed 1 (repeat with --seed 1)
+Score: 45.5% (5/11 killed, tested subjects) (assertion 9.1 %, crash 36.4 %) (killed+timeout)/(killed+survived+timeout); errors, resource limits and skips excluded
+  8 mutants on lines no test runs (not in the score): the JSON report lists them as NoCoverage
+skipped: no coverage (branch not taken): 8
+score without whole-body mutants 28.6 % (assertion 0.0 %, crash 28.6 %) (7 mutants); whole-body mutants alone 75.0 % (4)
+mean time per executed mutant 1.246 s
+kills rejected by unchanged-method check: 0
+kills: 1 by a failed assertion, 4 by a crash (RuntimeError 2, NoMethodError 1, ArgumentError 1)
+crash kills by operator: body_raise 2 of 2, statement_removal 1 of 1, argument_removal 1 of 1
+
+Score by file (worst first):
+  app/helpers/traffic_helper.rb       33.3% (1/3)
+  app/helpers/application_helper.rb   50.0% (4/8)
+saboteur: 5 killed, 6 survived in 54s - score 45.5%
+✗ exit 1 - 6 survivors
+
+Next steps:
+  replay one survivor: saboteur run --id 3357bbd3579ca0dc --since 1c22c1e326fa3b5e094844519f6df867dd33198a --test spec/helpers/application_helper_spec.rb --jobs 1 --baseline-passes 1 --max-duration 600.0 --seed 1
+  accept an equivalent one: add to your ignore file
+    (c.ignore_file, default config/saboteur_ignore.rb):
+    Saboteur.ignore do |i|
+      i.mutation "3357bbd3579ca0dc", subject: "ApplicationHelper#link_to_different_page", reason: "why it is equivalent"
+    end
+  let an agent close the gaps: saboteur run --agent, with the same options
+speed footer: done in 54.0s - baseline 5.6s · map 25.1s · mutants 14.9s (jobs=1)
+  slowest: TrafficHelper.novelty_logo (statement_removal, 4.4s)
+
+Reports: .saboteur/report.json (JSON), .saboteur/report.html (HTML)
+MEASURED exit=1 wall=55.33s rss_kb=413300

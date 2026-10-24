@@ -1,0 +1,156 @@
+saboteur: warning: 185 uncommitted or untracked change(s) in the working tree: none inside the mutation scope, 184 outside it (2 tracked, 182 untracked), 1 saboteur setup file(s) (0 tracked, 1 untracked).
+  setup files: config/saboteur.rb
+  Mutants run your code and could alter or delete files; run on a clean, committed tree or a CI checkout.
+saboteur: inferred specs: no spec found for app/controllers/mod/domains_controller.rb (expected spec/controllers/mod/domains_controller_spec.rb); its mutants run only against the inferred specs and a line they miss is reported as NoCoverage
+saboteur: inferred specs: no spec found for app/controllers/mod/origins_controller.rb (expected spec/controllers/mod/origins_controller_spec.rb); its mutants run only against the inferred specs and a line they miss is reported as NoCoverage
+saboteur: inferred specs: running only spec/controllers/inbox_controller_spec.rb, spec/controllers/messages_controller_spec.rb, spec/requests/mod/reparents_spec.rb, spec/requests/mod_mails_spec.rb, spec/requests/search_spec.rb, spec/requests/settings_spec.rb. A spec the diff did not change that reaches a changed file only through another file does not run, so a mutant only it would kill can survive, and a line no inferred spec executes is reported as NoCoverage
+saboteur: Operators: operator_assignment, condition_negation, range, body_nil, body_true, body_false, body_raise, comparison, arithmetic, boolean_logic, condition_true, condition_false, negation_removal, literal_number, or_assign, and_assign, safe_navigation, statement_removal, filter_replacement, copy_replacement, literal_string, literal_boolean, argument_swap, argument_removal, pair_removal, element_removal, endpoint_replacement, chain_removal, method_swap, operand_replacement, interpolation_removal, jump_value, rescue_removal, ensure_removal, when_removal, unary_removal, regex_replacement
+saboteur: loading the application
+saboteur: SimpleCov.start ignored for this run (saboteur needs Ruby's Coverage itself)
+W, [2026-10-24T11:55:08.881213 #34727]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+saboteur: checking the unchanged suite once (seed 1); order stability between passes is not checked (baseline_passes: 1)
+saboteur: baseline check 1 took 3 s; about 3 s left for the coverage map build at that rate
+saboteur: coverage cache miss: no earlier map to compare with; the map build runs the selected specs once
+saboteur: building coverage map (runs the selected specs once)
+saboteur: 10 subjects, 25 tests in coverage map
+saboteur: InboxController#unread (app/controllers/inbox_controller.rb:36): skipped (no coverage); its change is not verified by this run - loaded specs: spec/controllers/inbox_controller_spec.rb, spec/controllers/messages_controller_spec.rb, spec/requests/mod/reparents_spec.rb, spec/requests/mod_mails_spec.rb, spec/requests/search_spec.rb and 1 more; other spec files may cover it, pass --test to load them
+saboteur: MessagesController#index (app/controllers/messages_controller.rb:9): skipped (no coverage); its change is not verified by this run - loaded specs: spec/controllers/inbox_controller_spec.rb, spec/controllers/messages_controller_spec.rb, spec/requests/mod/reparents_spec.rb, spec/requests/mod_mails_spec.rb, spec/requests/search_spec.rb and 1 more; other spec files may cover it, pass --test to load them
+saboteur: Mod::DomainsController#edit (app/controllers/mod/domains_controller.rb:17): skipped (no coverage); its change is not verified by this run - loaded specs: spec/controllers/inbox_controller_spec.rb, spec/controllers/messages_controller_spec.rb, spec/requests/mod/reparents_spec.rb, spec/requests/mod_mails_spec.rb, spec/requests/search_spec.rb and 1 more; other spec files may cover it, pass --test to load them
+saboteur: Mod::OriginsController#edit (app/controllers/mod/origins_controller.rb:4): skipped (no coverage); its change is not verified by this run - loaded specs: spec/controllers/inbox_controller_spec.rb, spec/controllers/messages_controller_spec.rb, spec/requests/mod/reparents_spec.rb, spec/requests/mod_mails_spec.rb, spec/requests/search_spec.rb and 1 more; other spec files may cover it, pass --test to load them
+saboteur: SettingsController#index (app/controllers/settings_controller.rb:8): skipped (no coverage); its change is not verified by this run - loaded specs: spec/controllers/inbox_controller_spec.rb, spec/controllers/messages_controller_spec.rb, spec/requests/mod/reparents_spec.rb, spec/requests/mod_mails_spec.rb, spec/requests/search_spec.rb and 1 more; other spec files may cover it, pass --test to load them
+.:killed S:survived T:timeout E:error s:skipped L:resource limit
+saboteur: InboxController#all  ..SS
+saboteur: MessagesController#create  ....
+saboteur: Mod::ReparentsController#new  S.SSSSS
+saboteur: ModMailsController#index  ..SS
+saboteur: SearchController#index  ..SSSS
+..SS....S.SSSSS..SS..SSSS  25/25 (100%)
+saboteur: confirmation: 14 unconfirmed
+
+Survivors (14) - changes your tests did not catch
+
+1. app/controllers/mod/reparents_controller.rb:6 Mod::ReparentsController#new [result unchecked · #1 of 5 blocks]
+  the covering specs pass without pinning this result
+    5 def new
+-   6     @title = "Reparent #{@reparent_user.username}"
++   6     @title = "#{@reparent_user.username}"   interpolation_removal · 111b8e283f0397ea
+                    ^
+    7     @title_h1 = false
+    8   end
+  why it matters: the interpolated value goes unobserved
+  changed line: app/controllers/mod/reparents_controller.rb:6
+  covered by ./spec/requests/mod/reparents_spec.rb[1:1:1] - ran, still passed
+  3 more mutants here: ee7636cfd988297a (body_nil), 16ca5c211943b17d (statement_removal), aa15cc2fbfadb177 (interpolation_removal)
+       expand: saboteur run --all-mutants --since 01a8041f9447921c86c73f83c3385966e49a2879
+
+2. app/controllers/search_controller.rb:19 SearchController#index [result unchecked · #2 of 5 blocks]
+  the covering specs pass without pinning this result
+    7 def index
+    8     @title = "Search"
+    9 
+      ...
+   18     if @user && @search.results
+-  19       @title = "Search results" if !params[:what].nil?
++  19       @title = "" if !params[:what].nil?   literal_string · d1902dce1d6c0bed
+                     ^^
+   20       if params[:what] == "stories"
+      ...
+   31     end
+   32   end
+  why it matters: no test asserts on this exact text
+  changed line: app/controllers/search_controller.rb:19
+  covered by ./spec/requests/search_spec.rb[1:7] - ran, still passed
+  → try asserting on this text
+  3 more mutants here: 721be5b96d2f1bf9 (condition_false), 7a2eb67c33630d46 (condition_true), b3c29e6d9b83c93b (negation_removal)
+       expand: saboteur run --all-mutants --since 01a8041f9447921c86c73f83c3385966e49a2879
+
+3. app/controllers/mod/reparents_controller.rb:7 Mod::ReparentsController#new [result unchecked · #3 of 5 blocks]
+  the covering specs pass without pinning this result
+    5 def new
+    6     @title = "Reparent #{@reparent_user.username}"
+-   7     @title_h1 = false
++   7     @title_h1 = true   literal_boolean · 6384cf5436c30d89
+                      ^^^^
+    8   end
+  why it matters: no test depends on this exact true/false value
+  changed line: app/controllers/mod/reparents_controller.rb:7
+  covered by ./spec/requests/mod/reparents_spec.rb[1:1:1] - ran, still passed
+  → try an example that depends on this true/false value
+  1 more mutant here: 7628a88b22719ecf (statement_removal)
+       expand: saboteur run --all-mutants --since 01a8041f9447921c86c73f83c3385966e49a2879
+
+4. app/controllers/mod_mails_controller.rb:5 ModMailsController#index [result unchecked · #4 of 5 blocks]
+  the covering specs pass without pinning this result
+    4 def index
+-   5     @title = "ModMail"
++   5     @title = ""   literal_string · cac125b5b23f254f
+                   ^^
+    6     @mod_mails = @user.mod_mails.order(updated_at: :desc)
+    7   end
+  why it matters: no test asserts on this exact text
+  changed line: app/controllers/mod_mails_controller.rb:5
+  covered by ./spec/requests/mod_mails_spec.rb[1:1:1] - ran, still passed
+  → try asserting on this text
+  1 more mutant here: 85a0d301c72ae598 (statement_removal)
+       expand: saboteur run --all-mutants --since 01a8041f9447921c86c73f83c3385966e49a2879
+
+5. app/controllers/inbox_controller.rb:17 InboxController#all [result unchecked · #5 of 5 blocks]
+  the covering specs pass without pinning this result
+   16 def all
+-  17     @title = "Inbox"
++  17     @title = ""   literal_string · 8ff5c5c19270c92b
+                   ^^
+   18     notifications_per_page = 25
+      ...
+   33     end
+   34   end
+  why it matters: no test asserts on this exact text
+  changed line: app/controllers/inbox_controller.rb:17
+  covered by ./spec/controllers/inbox_controller_spec.rb[1:1:1] - ran, still passed
+  +2 more covered (all 2 ran, all passed)
+  → try asserting on this text
+  1 more mutant here: 265ba36e379f861c (statement_removal)
+       expand: saboteur run --all-mutants --since 01a8041f9447921c86c73f83c3385966e49a2879
+
+Hints are suggestions, not diagnoses: a survivor can also be an equivalent
+mutant, or a change the selected tests cannot observe.
+
+methods never run by tests: 5
+warning: 2 other thread(s) alive at fork time; they do not run in children: DEBUGGER__::SESSION@server (the debug gem's remote-console server: what it does in children depends on RUBY_DEBUG_FORK_MODE - with parent no debugger runs in children; with child or both (the gem's default) the debugger activates in children and can pause or interfere with supervised mutation runs. For an unattended run, do not start the remote debugger at all: drop RUBY_DEBUG_OPEN or require "debug" without :open), /home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/rack-mini-profiler-4.0.0/lib/mini_profiler/storage/file_store.rb:85:in 'Kernel#sleep'; a thread that does not run in a child cannot do background work a mutant's test may rely on (a pool reaper, a flusher), so results can differ when one is left behind
+warning: sandbox is on but this kernel's Landlock ABI is 2 but ABI 3 (Linux 6.2+) is needed to restrict truncate(); children run with the hazard guard and canary only
+warning: survivor confirmation: the whole-suite coverage map covers none of the edited lines of 14 survivors, so they stay counted; run `saboteur run --all` to rebuild it
+saboteur 0.12.3: 10 subjects, 25 mutants, wall 66.31 s, seed 1 (repeat with --seed 1)
+Score: 44.0% (11/25 killed, tested subjects) (assertion 8.0 %, crash 36.0 %) (killed+timeout)/(killed+survived+timeout); errors, resource limits and skips excluded  5 subjects not scored - no test executes them
+score without whole-body mutants 13.3 % (assertion 6.7 %, crash 6.7 %) (15 mutants); whole-body mutants alone 90.0 % (10)
+mean time per executed mutant 1.357 s
+kills rejected by unchanged-method check: 0
+kills: 2 by a failed assertion, 9 by a crash (RuntimeError 5, NoMethodError 2, ActionView::Template::Error 2)
+crash kills by operator: body_nil 3 of 4, body_raise 5 of 5, statement_removal 1 of 1
+
+Score by file (worst first):
+  app/controllers/mod/reparents_controller.rb   14.3% (1/7)
+  app/controllers/search_controller.rb          33.3% (2/6)
+  app/controllers/inbox_controller.rb           50.0% (2/4) · n/a - 1 subject - no test executes it
+  app/controllers/mod_mails_controller.rb       50.0% (2/4)
+  app/controllers/messages_controller.rb       100.0% (4/4) · n/a - 1 subject - no test executes it
+  app/controllers/mod/domains_controller.rb    n/a - 1 subject - no test executes it
+  app/controllers/mod/origins_controller.rb    n/a - 1 subject - no test executes it
+  app/controllers/settings_controller.rb       n/a - 1 subject - no test executes it
+
+Not scored - no test executes these (treat these as your biggest gaps):
+  ! InboxController#unread (app/controllers/inbox_controller.rb:36) · MessagesController#index (app/controllers/messages_controller.rb:9) · Mod::DomainsController#edit (app/controllers/mod/domains_controller.rb:17) · Mod::OriginsController#edit (app/controllers/mod/origins_controller.rb:4) · SettingsController#index (app/controllers/settings_controller.rb:8)
+saboteur: 11 killed, 14 survived, 5 subjects untested in 1m06s - score 44.0%
+✗ exit 1 - 14 survivors
+
+Next steps:
+  replay one survivor: saboteur run --id ee7636cfd988297a --since 01a8041f9447921c86c73f83c3385966e49a2879 --test spec/requests/mod/reparents_spec.rb --jobs 1 --baseline-passes 1 --max-duration 600.0 --seed 1
+  accept an equivalent one: add to your ignore file
+    (c.ignore_file, default config/saboteur_ignore.rb):
+    Saboteur.ignore do |i|
+      i.mutation "ee7636cfd988297a", subject: "Mod::ReparentsController#new", reason: "why it is equivalent"
+    end
+  let an agent close the gaps: saboteur run --agent, with the same options
+speed footer: done in 66.3s - baseline 3.3s · map 13.3s · mutants 40.9s (jobs=1)
+
+Reports: .saboteur/report.json (JSON), .saboteur/report.html (HTML)
+MEASURED exit=1 wall=67.56s rss_kb=414320

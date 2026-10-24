@@ -1,0 +1,9 @@
+W, [2026-10-24T11:53:35.177750 #23651]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+....................................................DIAG monday-check: true month=3 day=2
+..
+
+Finished in 7.79 seconds (files took 4.69 seconds to load)
+54 examples, 0 failures
+
+Coverage report generated for RSpec to /home/sandbox/verify/tree-2103/coverage.
+Line Coverage: 24.12% (1672 / 6933)

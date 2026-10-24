@@ -1,0 +1,81 @@
+=== BASELINE original 11:47:42 ===
+baseline: 54 examples, 0 failures
+=== MUTANT 380d564f2434c995 11:48:00 ===
+3c3
+<     HiddenStory.exists?(user_id: user.id, story_id: id)
+---
+>     true
+existing-5files: 46 examples, 0 failures
+probe: 8 examples, 3 failures
+  1) Story hide/save predicates (verification probe) PROBE-H2 unhidden story is not hidden
+  2) Story hide/save predicates (verification probe) PROBE-H3 hidden by another user is not hidden for user
+  3) Story hide/save predicates (verification probe) PROBE-H4 another story hidden by user does not hide this story
+reverted: 0 diff lines
+=== MUTANT 030338415f22872f 11:48:23 ===
+3c3
+<     HiddenStory.exists?(user_id: user.id, story_id: id)
+---
+>     false
+existing-5files: 46 examples, 0 failures
+probe: 8 examples, 1 failure
+  1) Story hide/save predicates (verification probe) PROBE-H1 hidden story is hidden for that user
+reverted: 0 diff lines
+=== MUTANT 48e53f1a3e940cd8 11:48:48 ===
+3c3
+<     HiddenStory.exists?(user_id: user.id, story_id: id)
+---
+>     HiddenStory.exists?(story_id: id)
+existing-5files: 46 examples, 0 failures
+probe: 8 examples, 1 failure
+  1) Story hide/save predicates (verification probe) PROBE-H3 hidden by another user is not hidden for user
+reverted: 0 diff lines
+=== MUTANT ce014587c8ab2093 11:49:14 ===
+3c3
+<     HiddenStory.exists?(user_id: user.id, story_id: id)
+---
+>     HiddenStory.exists?(user_id: user.id)
+existing-5files: 46 examples, 0 failures
+probe: 8 examples, 1 failure
+  1) Story hide/save predicates (verification probe) PROBE-H4 another story hidden by user does not hide this story
+reverted: 0 diff lines
+=== MUTANT f50093f348880e7f 11:49:37 ===
+11c11
+<     SavedStory.exists?(user_id: user.id, story_id: id)
+---
+>     true
+existing-5files: 46 examples, 0 failures
+probe: 8 examples, 3 failures
+  1) Story hide/save predicates (verification probe) PROBE-S2 unsaved story is not saved
+  2) Story hide/save predicates (verification probe) PROBE-S3 saved by another user is not saved for user
+  3) Story hide/save predicates (verification probe) PROBE-S4 another story saved by user does not save this story
+reverted: 0 diff lines
+=== MUTANT f5f54769759d3f8a 11:49:59 ===
+11c11
+<     SavedStory.exists?(user_id: user.id, story_id: id)
+---
+>     false
+existing-5files: 46 examples, 0 failures
+probe: 8 examples, 1 failure
+  1) Story hide/save predicates (verification probe) PROBE-S1 saved story is saved for that user
+reverted: 0 diff lines
+=== MUTANT 5988c535eefd7cbd 11:50:24 ===
+11c11
+<     SavedStory.exists?(user_id: user.id, story_id: id)
+---
+>     SavedStory.exists?(story_id: id)
+existing-5files: 46 examples, 0 failures
+probe: 8 examples, 1 failure
+  1) Story hide/save predicates (verification probe) PROBE-S3 saved by another user is not saved for user
+reverted: 0 diff lines
+=== MUTANT 77cce71ad8c3e450 11:50:48 ===
+11c11
+<     SavedStory.exists?(user_id: user.id, story_id: id)
+---
+>     SavedStory.exists?(user_id: user.id)
+existing-5files: 46 examples, 0 failures
+probe: 8 examples, 1 failure
+  1) Story hide/save predicates (verification probe) PROBE-S4 another story saved by user does not save this story
+reverted: 0 diff lines
+=== FINAL restored 11:51:12 ===
+final: 54 examples, 0 failures
+PROOF-2205-DONE

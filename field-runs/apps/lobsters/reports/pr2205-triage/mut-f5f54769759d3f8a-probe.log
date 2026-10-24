@@ -1,0 +1,20 @@
+W, [2026-10-24T11:50:20.382969 #23444]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+....F...
+
+Failures:
+
+  1) Story hide/save predicates (verification probe) PROBE-S1 saved story is saved for that user
+     Failure/Error: expect(story.is_saved_by_user?(user)).to eq true
+       Expected false to eq true.
+     # ./spec/models/story_hide_save_probe_spec.rb:28:in 'block (3 levels) in <top (required)>'
+
+Finished in 2.1 seconds (files took 5.22 seconds to load)
+8 examples, 1 failure
+
+Failed examples:
+
+rspec ./spec/models/story_hide_save_probe_spec.rb:26 # Story hide/save predicates (verification probe) PROBE-S1 saved story is saved for that user
+
+Coverage report generated for RSpec to /home/sandbox/verify/tree-2205/coverage.
+Line Coverage: 12.26% (911 / 7430)
+Stopped processing SimpleCov as a previous error not related to SimpleCov has been detected

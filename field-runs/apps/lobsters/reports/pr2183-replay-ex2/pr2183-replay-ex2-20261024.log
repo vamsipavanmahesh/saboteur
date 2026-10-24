@@ -1,0 +1,5 @@
+saboteur: warning: 185 uncommitted or untracked change(s) in the working tree: none inside the mutation scope, 184 outside it (2 tracked, 182 untracked), 1 saboteur setup file(s) (0 tracked, 1 untracked).
+  setup files: config/saboteur.rb
+  Mutants run your code and could alter or delete files; run on a clean, committed tree or a CI checkout.
+saboteur: no spec found for app/helpers/traffic_helper.rb (expected spec/helpers/traffic_helper_spec.rb), so nothing ran. Re-run the same command with one --test per existing spec path, or append --all to use the whole suite without changing the source scope. If the layout defeats the naming convention, map app/helpers/traffic_helper.rb by hand in config/saboteur_custom_map.rb (no entry covers it yet).
+MEASURED exit=2 wall=0.97s rss_kb=57076

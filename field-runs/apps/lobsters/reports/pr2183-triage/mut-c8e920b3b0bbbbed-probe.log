@@ -1,0 +1,20 @@
+W, [2026-10-24T11:59:37.830070 #24147]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+F.
+
+Failures:
+
+  1) TrafficHelper PROBE-T1 returns the stored intensity from the keystore
+     Failure/Error: expect(TrafficHelper.cached_current_intensity).to eq 7
+       Expected 0.5 to eq 7.
+     # ./spec/helpers/traffic_intensity_probe_spec.rb:8:in 'block (2 levels) in <top (required)>'
+
+Finished in 0.8031 seconds (files took 4.54 seconds to load)
+2 examples, 1 failure
+
+Failed examples:
+
+rspec ./spec/helpers/traffic_intensity_probe_spec.rb:6 # TrafficHelper PROBE-T1 returns the stored intensity from the keystore
+
+Coverage report generated for RSpec to /home/sandbox/verify/tree-2183/coverage.
+Line Coverage: 8.94% (674 / 7540)
+Stopped processing SimpleCov as a previous error not related to SimpleCov has been detected

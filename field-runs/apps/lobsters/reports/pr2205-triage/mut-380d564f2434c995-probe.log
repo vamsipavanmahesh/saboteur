@@ -1,0 +1,32 @@
+W, [2026-10-24T11:48:20.132637 #23268]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+.FFF....
+
+Failures:
+
+  1) Story hide/save predicates (verification probe) PROBE-H2 unhidden story is not hidden
+     Failure/Error: expect(story.is_hidden_by_user?(user)).to eq false
+       Expected true to eq false.
+     # ./spec/models/story_hide_save_probe_spec.rb:16:in 'block (3 levels) in <top (required)>'
+
+  2) Story hide/save predicates (verification probe) PROBE-H3 hidden by another user is not hidden for user
+     Failure/Error: expect(story.is_hidden_by_user?(user)).to eq false
+       Expected true to eq false.
+     # ./spec/models/story_hide_save_probe_spec.rb:20:in 'block (3 levels) in <top (required)>'
+
+  3) Story hide/save predicates (verification probe) PROBE-H4 another story hidden by user does not hide this story
+     Failure/Error: expect(story.is_hidden_by_user?(user)).to eq false
+       Expected true to eq false.
+     # ./spec/models/story_hide_save_probe_spec.rb:24:in 'block (3 levels) in <top (required)>'
+
+Finished in 1.9 seconds (files took 4.29 seconds to load)
+8 examples, 3 failures
+
+Failed examples:
+
+rspec ./spec/models/story_hide_save_probe_spec.rb:15 # Story hide/save predicates (verification probe) PROBE-H2 unhidden story is not hidden
+rspec ./spec/models/story_hide_save_probe_spec.rb:18 # Story hide/save predicates (verification probe) PROBE-H3 hidden by another user is not hidden for user
+rspec ./spec/models/story_hide_save_probe_spec.rb:22 # Story hide/save predicates (verification probe) PROBE-H4 another story hidden by user does not hide this story
+
+Coverage report generated for RSpec to /home/sandbox/verify/tree-2205/coverage.
+Line Coverage: 12.26% (911 / 7430)
+Stopped processing SimpleCov as a previous error not related to SimpleCov has been detected

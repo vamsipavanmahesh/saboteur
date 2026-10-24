@@ -1,0 +1,22 @@
+W, [2026-10-24T11:53:03.677338 #23607]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+DIAG monday-check: true month=3 day=2
+F.
+
+Failures:
+
+  1) TrafficHelper PROBE-N1 Casimir Pulaski Day logo on first Monday of March
+     Failure/Error: expect(logo).to include("Casimir_Pulaski_Day")
+       Expected nil to include .but it does not respond to `include?`.
+     # ./spec/helpers/novelty_logo_probe_spec.rb:10:in 'block (3 levels) in <top (required)>'
+     # ./spec/helpers/novelty_logo_probe_spec.rb:8:in 'block (2 levels) in <top (required)>'
+
+Finished in 0.93817 seconds (files took 5.04 seconds to load)
+2 examples, 1 failure
+
+Failed examples:
+
+rspec ./spec/helpers/novelty_logo_probe_spec.rb:5 # TrafficHelper PROBE-N1 Casimir Pulaski Day logo on first Monday of March
+
+Coverage report generated for RSpec to /home/sandbox/verify/tree-2103/coverage.
+Line Coverage: 8.67% (653 / 7530)
+Stopped processing SimpleCov as a previous error not related to SimpleCov has been detected
