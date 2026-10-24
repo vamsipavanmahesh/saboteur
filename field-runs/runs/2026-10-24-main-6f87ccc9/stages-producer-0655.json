@@ -1,0 +1,20 @@
+{
+  "app": "lobsters",
+  "pin": "407536444934ac7d78f4ce1c18f228e3891a8663",
+  "saboteur_version": "0.12.3",
+  "saboteur_sha": "6f87ccc98377bf0c23f3cf409006f0464c2aa67c",
+  "saboteur_gem_sha256": "7f5b8949bce9bda19a584c079631d3b76ad37e700935285b550b7bb1c30689fa",
+  "exclusions": [{"id": "EX-1", "file": "spec/features/user_administration_spec.rb", "mechanism": "saboteur c.rspec_args --exclude-pattern", "approved_by": "user 2026-10-24T06:52+05:30", "reason": "banning-email red on lobsters main at pin, independent of saboteur, untouched by selected PRs; likely related to lobsters #2263 (unproven)"}],
+  "stages": {
+    "environment": {"status": "done", "notes": "fresh runtime post-rebuild; identity in ENV.md; D-ENV-1 applied"},
+    "baseline": {"status": "done", "measurement": "reports/baseline2-postfix/measurement.json", "result": "913 ex, 1 failure (EX-1 file), exit 1, 41.93s"},
+    "documented_flow": {"status": "done", "notes": "gem from pinned build; generate+doctor+install green; D-FLOW-1 recorded"},
+    "map": {"status": "in_progress", "attempt1": "blocked exit 5 (baseline red, pre-EX-1), 49.66s, jobs=4 inherited - preserved", "attempt2": "running since 06:54 IST, --jobs 1, EX-1 active"},
+    "pr_replays": {"status": "pending", "note": "5 qualified PRs; trees bundling (ruby 4.0.0)"},
+    "parallelism": {"status": "pending"},
+    "determinism": {"status": "pending"},
+    "triage": {"status": "pending", "note": "fresh independent context, spawned by main later"},
+    "kills": {"status": "pending", "note": "with triage"}
+  },
+  "updated_at": "2026-10-24T06:55+05:30"
+}
