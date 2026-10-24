@@ -1,0 +1,17 @@
+{
+  "kind": "replay",
+  "status": null,
+  "command": "bundle exec saboteur run --since 01a8041f9447921c86c73f83c3385966e49a2879 --baseline-passes 1 --max-duration 10m --jobs 1 --verbose --test spec/controllers/inbox_controller_spec.rb --test spec/controllers/messages_controller_spec.rb --test spec/requests/mod/reparents_spec.rb --test spec/requests/mod_mails_spec.rb --test spec/requests/search_spec.rb --test spec/features/mod_domains_spec.rb --test spec/features/comment_spec.rb",
+  "started_at": "2026-10-24T12:09:35.736403+05:30",
+  "ended_at": "2026-10-24T12:11:10.442548+05:30",
+  "wall_seconds": 94.71,
+  "wall_seconds_monotonic_suspect": 94.71,
+  "exit_code": 1,
+  "peak_rss_kb": 415352,
+  "base_sha": null,
+  "head_sha": null,
+  "pr_url": null,
+  "saboteur_version": "0.12.3",
+  "saboteur_sha": "6f87ccc98377bf0c23f3cf409006f0464c2aa67c",
+  "evidence_paths": []
+}
