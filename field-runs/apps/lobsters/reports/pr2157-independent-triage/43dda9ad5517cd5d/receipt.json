@@ -1,0 +1,291 @@
+{
+  "id": "43dda9ad5517cd5d",
+  "classification": "real gap",
+  "original_sha256": "b95908c43d6d2071b7142759d57d1ffd9b2bec6a182fbdbc87b709c27abb7a5b",
+  "restored_sha256": "b95908c43d6d2071b7142759d57d1ffd9b2bec6a182fbdbc87b709c27abb7a5b",
+  "runs": [
+    {
+      "label": "existing-original",
+      "argv": [
+        "/tmp/kill2231/runtime/x64/bin/ruby",
+        "/tmp/kill2231/runtime/x64/bin/bundle",
+        "exec",
+        "rspec",
+        "./spec/requests/stories_spec.rb[1:5:1]",
+        "./spec/jobs/cache_page_job_spec.rb[1:1:2]",
+        "./spec/jobs/cache_page_job_spec.rb[1:1:3]",
+        "./spec/jobs/cache_page_job_spec.rb[1:1:1]",
+        "./spec/features/read_story_spec.rb[1:1:1]",
+        "./spec/features/read_story_spec.rb[1:5:1]",
+        "./spec/features/read_story_spec.rb[1:5:5]",
+        "./spec/requests/mod/stories_spec.rb[1:2:1]",
+        "./spec/requests/mod/stories_spec.rb[1:1:1]",
+        "--seed",
+        "20261024",
+        "--format",
+        "json",
+        "--out",
+        "/tmp/triage2157/evidence/43dda9ad5517cd5d/existing-original.json"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 7.473204659999965,
+      "summary": {
+        "duration": 2.984807215,
+        "example_count": 9,
+        "failure_count": 0,
+        "pending_count": 0,
+        "errors_outside_of_examples_count": 0
+      },
+      "examples": [
+        {
+          "id": "./spec/jobs/cache_page_job_spec.rb[1:1:3]",
+          "status": "passed",
+          "full_description": "CachePageJob#perform leaves dotfiles alone so it can't eat cache_page tempfiles",
+          "exception": null
+        },
+        {
+          "id": "./spec/jobs/cache_page_job_spec.rb[1:1:2]",
+          "status": "passed",
+          "full_description": "CachePageJob#perform sweeps cached copies at old slugs after a title edit",
+          "exception": null
+        },
+        {
+          "id": "./spec/jobs/cache_page_job_spec.rb[1:1:1]",
+          "status": "passed",
+          "full_description": "CachePageJob#perform writes the rendered page to the cache",
+          "exception": null
+        },
+        {
+          "id": "./spec/requests/stories_spec.rb[1:5:1]",
+          "status": "passed",
+          "full_description": "stories show displays a story",
+          "exception": null
+        },
+        {
+          "id": "./spec/requests/mod/stories_spec.rb[1:1:1]",
+          "status": "passed",
+          "full_description": "Mod::StoriesController mod editing a story edit the title and redirect to story",
+          "exception": null
+        },
+        {
+          "id": "./spec/requests/mod/stories_spec.rb[1:2:1]",
+          "status": "passed",
+          "full_description": "Mod::StoriesController mod deleting a story delete a story with moderation reason",
+          "exception": null
+        },
+        {
+          "id": "./spec/features/read_story_spec.rb[1:1:1]",
+          "status": "passed",
+          "full_description": "Reading Stories when logged out reading a story",
+          "exception": null
+        },
+        {
+          "id": "./spec/features/read_story_spec.rb[1:5:5]",
+          "status": "passed",
+          "full_description": "Reading Stories reading mod-deleted stories does not display saver links",
+          "exception": null
+        },
+        {
+          "id": "./spec/features/read_story_spec.rb[1:5:1]",
+          "status": "passed",
+          "full_description": "Reading Stories reading mod-deleted stories is visible to submitter",
+          "exception": null
+        }
+      ]
+    },
+    {
+      "label": "existing-mutant",
+      "argv": [
+        "/tmp/kill2231/runtime/x64/bin/ruby",
+        "/tmp/kill2231/runtime/x64/bin/bundle",
+        "exec",
+        "rspec",
+        "./spec/requests/stories_spec.rb[1:5:1]",
+        "./spec/jobs/cache_page_job_spec.rb[1:1:2]",
+        "./spec/jobs/cache_page_job_spec.rb[1:1:3]",
+        "./spec/jobs/cache_page_job_spec.rb[1:1:1]",
+        "./spec/features/read_story_spec.rb[1:1:1]",
+        "./spec/features/read_story_spec.rb[1:5:1]",
+        "./spec/features/read_story_spec.rb[1:5:5]",
+        "./spec/requests/mod/stories_spec.rb[1:2:1]",
+        "./spec/requests/mod/stories_spec.rb[1:1:1]",
+        "--seed",
+        "20261024",
+        "--format",
+        "json",
+        "--out",
+        "/tmp/triage2157/evidence/43dda9ad5517cd5d/existing-mutant.json"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 7.415032881000116,
+      "summary": {
+        "duration": 2.957029482,
+        "example_count": 9,
+        "failure_count": 0,
+        "pending_count": 0,
+        "errors_outside_of_examples_count": 0
+      },
+      "examples": [
+        {
+          "id": "./spec/jobs/cache_page_job_spec.rb[1:1:3]",
+          "status": "passed",
+          "full_description": "CachePageJob#perform leaves dotfiles alone so it can't eat cache_page tempfiles",
+          "exception": null
+        },
+        {
+          "id": "./spec/jobs/cache_page_job_spec.rb[1:1:2]",
+          "status": "passed",
+          "full_description": "CachePageJob#perform sweeps cached copies at old slugs after a title edit",
+          "exception": null
+        },
+        {
+          "id": "./spec/jobs/cache_page_job_spec.rb[1:1:1]",
+          "status": "passed",
+          "full_description": "CachePageJob#perform writes the rendered page to the cache",
+          "exception": null
+        },
+        {
+          "id": "./spec/requests/stories_spec.rb[1:5:1]",
+          "status": "passed",
+          "full_description": "stories show displays a story",
+          "exception": null
+        },
+        {
+          "id": "./spec/requests/mod/stories_spec.rb[1:1:1]",
+          "status": "passed",
+          "full_description": "Mod::StoriesController mod editing a story edit the title and redirect to story",
+          "exception": null
+        },
+        {
+          "id": "./spec/requests/mod/stories_spec.rb[1:2:1]",
+          "status": "passed",
+          "full_description": "Mod::StoriesController mod deleting a story delete a story with moderation reason",
+          "exception": null
+        },
+        {
+          "id": "./spec/features/read_story_spec.rb[1:1:1]",
+          "status": "passed",
+          "full_description": "Reading Stories when logged out reading a story",
+          "exception": null
+        },
+        {
+          "id": "./spec/features/read_story_spec.rb[1:5:5]",
+          "status": "passed",
+          "full_description": "Reading Stories reading mod-deleted stories does not display saver links",
+          "exception": null
+        },
+        {
+          "id": "./spec/features/read_story_spec.rb[1:5:1]",
+          "status": "passed",
+          "full_description": "Reading Stories reading mod-deleted stories is visible to submitter",
+          "exception": null
+        }
+      ]
+    },
+    {
+      "label": "new-original",
+      "argv": [
+        "/tmp/kill2231/runtime/x64/bin/ruby",
+        "/tmp/kill2231/runtime/x64/bin/bundle",
+        "exec",
+        "rspec",
+        "spec/requests/independent_pr2157_meta_spec.rb",
+        "--seed",
+        "20261024",
+        "--format",
+        "json",
+        "--out",
+        "/tmp/triage2157/evidence/43dda9ad5517cd5d/new-original.json"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 6.277961438000148,
+      "summary": {
+        "duration": 1.622751006,
+        "example_count": 1,
+        "failure_count": 0,
+        "pending_count": 0,
+        "errors_outside_of_examples_count": 0
+      },
+      "examples": [
+        {
+          "id": "./spec/requests/independent_pr2157_meta_spec.rb[1:1]",
+          "status": "passed",
+          "full_description": "Story HTML metadata contract includes the canonical image and local author metadata",
+          "exception": null
+        }
+      ]
+    },
+    {
+      "label": "new-mutant",
+      "argv": [
+        "/tmp/kill2231/runtime/x64/bin/ruby",
+        "/tmp/kill2231/runtime/x64/bin/bundle",
+        "exec",
+        "rspec",
+        "spec/requests/independent_pr2157_meta_spec.rb",
+        "--seed",
+        "20261024",
+        "--format",
+        "json",
+        "--out",
+        "/tmp/triage2157/evidence/43dda9ad5517cd5d/new-mutant.json"
+      ],
+      "exit_code": 1,
+      "wall_seconds": 5.961482882999917,
+      "summary": {
+        "duration": 1.776625161,
+        "example_count": 1,
+        "failure_count": 1,
+        "pending_count": 0,
+        "errors_outside_of_examples_count": 0
+      },
+      "examples": [
+        {
+          "id": "./spec/requests/independent_pr2157_meta_spec.rb[1:1]",
+          "status": "failed",
+          "full_description": "Story HTML metadata contract includes the canonical image and local author metadata",
+          "exception": {
+            "class": "RSpec::Expectations::ExpectationNotMetError",
+            "message": "Expected nil to eq \"http://localhost:3000/story_image/1xvd0w.png\".",
+            "backtrace": [
+              "./spec/requests/independent_pr2157_meta_spec.rb:8:in 'block (2 levels) in <top (required)>'"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "label": "new-restored",
+      "argv": [
+        "/tmp/kill2231/runtime/x64/bin/ruby",
+        "/tmp/kill2231/runtime/x64/bin/bundle",
+        "exec",
+        "rspec",
+        "spec/requests/independent_pr2157_meta_spec.rb",
+        "--seed",
+        "20261024",
+        "--format",
+        "json",
+        "--out",
+        "/tmp/triage2157/evidence/43dda9ad5517cd5d/new-restored.json"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 6.164064060999863,
+      "summary": {
+        "duration": 1.80889206,
+        "example_count": 1,
+        "failure_count": 0,
+        "pending_count": 0,
+        "errors_outside_of_examples_count": 0
+      },
+      "examples": [
+        {
+          "id": "./spec/requests/independent_pr2157_meta_spec.rb[1:1]",
+          "status": "passed",
+          "full_description": "Story HTML metadata contract includes the canonical image and local author metadata",
+          "exception": null
+        }
+      ]
+    }
+  ]
+}

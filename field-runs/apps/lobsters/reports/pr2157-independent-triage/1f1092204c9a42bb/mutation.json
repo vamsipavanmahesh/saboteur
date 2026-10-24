@@ -1,0 +1,57 @@
+{
+  "report": {
+    "id": "1f1092204c9a42bb",
+    "subject": "StoriesController#show",
+    "mutatorName": "pair_removal",
+    "replacement": " | ",
+    "location": {
+      "start": {
+        "line": 189,
+        "column": 12
+      },
+      "end": {
+        "line": 189,
+        "column": 32
+      }
+    },
+    "status": "Survived",
+    "static": false,
+    "classification": "effect",
+    "kind": "effect",
+    "confirmation": "confirmed",
+    "coveredBy": [
+      "9"
+    ],
+    "executed": [
+      "9",
+      "4",
+      "5",
+      "3",
+      "0",
+      "1",
+      "2",
+      "7",
+      "6"
+    ],
+    "duration": 1476,
+    "valueDiffered": null
+  },
+  "actual_edits": {
+    "id": "1f1092204c9a42bb",
+    "operator": "pair_removal",
+    "edits": [
+      {
+        "start_byte": 5853,
+        "end_byte": 5873,
+        "replacement": "",
+        "original": "property: \"og:image\""
+      },
+      {
+        "start_byte": 5873,
+        "end_byte": 5874,
+        "replacement": "",
+        "original": ","
+      }
+    ]
+  }
+}

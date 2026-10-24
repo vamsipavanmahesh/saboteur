@@ -1,0 +1,113 @@
+{
+  "id": "cc4cd6ceffdeeea4",
+  "classification": "genuine kill",
+  "original_sha256": "b95908c43d6d2071b7142759d57d1ffd9b2bec6a182fbdbc87b709c27abb7a5b",
+  "restored_sha256": "b95908c43d6d2071b7142759d57d1ffd9b2bec6a182fbdbc87b709c27abb7a5b",
+  "runs": [
+    {
+      "label": "original",
+      "argv": [
+        "/tmp/kill2231/runtime/x64/bin/ruby",
+        "/tmp/kill2231/runtime/x64/bin/bundle",
+        "exec",
+        "rspec",
+        "./spec/requests/stories_spec.rb[1:5:5]",
+        "--seed",
+        "20261024",
+        "--format",
+        "json",
+        "--out",
+        "/tmp/triage2157/evidence/cc4cd6ceffdeeea4/original.json"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 5.487257405000037,
+      "summary": {
+        "duration": 1.159658944,
+        "example_count": 1,
+        "failure_count": 0,
+        "pending_count": 0,
+        "errors_outside_of_examples_count": 0
+      },
+      "examples": [
+        {
+          "id": "./spec/requests/stories_spec.rb[1:5:5]",
+          "status": "passed",
+          "full_description": "stories show does not redirect json requests missing the title slug",
+          "exception": null
+        }
+      ]
+    },
+    {
+      "label": "mutant",
+      "argv": [
+        "/tmp/kill2231/runtime/x64/bin/ruby",
+        "/tmp/kill2231/runtime/x64/bin/bundle",
+        "exec",
+        "rspec",
+        "./spec/requests/stories_spec.rb[1:5:5]",
+        "--seed",
+        "20261024",
+        "--format",
+        "json",
+        "--out",
+        "/tmp/triage2157/evidence/cc4cd6ceffdeeea4/mutant.json"
+      ],
+      "exit_code": 1,
+      "wall_seconds": 6.308969787000024,
+      "summary": {
+        "duration": 1.733936675,
+        "example_count": 1,
+        "failure_count": 1,
+        "pending_count": 0,
+        "errors_outside_of_examples_count": 0
+      },
+      "examples": [
+        {
+          "id": "./spec/requests/stories_spec.rb[1:5:5]",
+          "status": "failed",
+          "full_description": "stories show does not redirect json requests missing the title slug",
+          "exception": {
+            "class": "RSpec::Expectations::ExpectationNotMetError",
+            "message": "expected the response to have status code 200 but it was 404",
+            "backtrace": [
+              "./spec/requests/stories_spec.rb:209:in 'block (3 levels) in <top (required)>'"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "label": "restored",
+      "argv": [
+        "/tmp/kill2231/runtime/x64/bin/ruby",
+        "/tmp/kill2231/runtime/x64/bin/bundle",
+        "exec",
+        "rspec",
+        "./spec/requests/stories_spec.rb[1:5:5]",
+        "--seed",
+        "20261024",
+        "--format",
+        "json",
+        "--out",
+        "/tmp/triage2157/evidence/cc4cd6ceffdeeea4/restored.json"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 5.495377720999841,
+      "summary": {
+        "duration": 0.991990835,
+        "example_count": 1,
+        "failure_count": 0,
+        "pending_count": 0,
+        "errors_outside_of_examples_count": 0
+      },
+      "examples": [
+        {
+          "id": "./spec/requests/stories_spec.rb[1:5:5]",
+          "status": "passed",
+          "full_description": "stories show does not redirect json requests missing the title slug",
+          "exception": null
+        }
+      ]
+    }
+  ]
+}

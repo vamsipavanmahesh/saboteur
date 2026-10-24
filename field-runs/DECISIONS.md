@@ -448,3 +448,11 @@ pointers are to files on this branch.
 - Ledger (explicit): STRICT-QUALIFIED = 2/45 (2231, 2204). QUALIFIED-WITH-DEVIATION = 0. Complete-evidence rows = 2/45. Descriptive row metrics unchanged: 2204 noise 0/3 = 0%, 3/3 real_gap, top finding 56ec2857eb8103bd (one finding group, story.rb:777); PR-cluster 95% N/A (<2 informative PRs); no per-app interval until the 15-row lobsters block completes.
 - Evidence: diffs read live from ruby/matrix and presidentbeef/brakeman; era lock c63fe92b0212003b9a25acf3c1d39fed5c2d8900d9d10947370f765a6b4c9950 (sha256 matches the fetched ed722e44 Gemfile.lock).
 - Reversibility: Assessment reopens if new evidence shows a load/execution path was missed.
+
+## D46 - 10:13 - PR 2157 row STRICT-QUALIFIED; ledger 3/45 strict
+
+- Decision: PR 2157 noise row is STRICT-QUALIFIED: 11 mutants (5 genuine kills: 2 assertion + 3 exception; 6 confirmed survivors all REAL GAP, one meta_tags finding group, mutant-level 6), row noise 0/6 = 0% descriptive, top finding 5cacdbc3d0bc508e REAL GAP (factual findings.order first). No environment deviation (era-original lock + additions only; pinned artifact byte-verified three ways).
+- Reason: Producer bridge confirmation (all 6 survivors "confirmed" in the report records) and the independent tester's raw triage align completely; every kill cause verified; provenance gaps closed earlier (binding chain + gapfix receipts).
+- Evidence: apps/lobsters/reports/pr2157-map-replay-c1/ (+ map-artifacts/, gapfix/), apps/lobsters/reports/pr2157-independent-triage/.
+- Ledger: STRICT-QUALIFIED = 3/45 (2231, 2204, 2157); QUALIFIED-WITH-DEVIATION = 0. No per-app interval or overall claim until the lobsters 15-row block completes.
+- Reversibility: Publication only; raws immutable.

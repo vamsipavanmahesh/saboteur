@@ -1,0 +1,57 @@
+{
+  "report": {
+    "id": "605c15816c32610f",
+    "subject": "StoriesController#show",
+    "mutatorName": "element_removal",
+    "replacement": " | ",
+    "location": {
+      "start": {
+        "line": 189,
+        "column": 11
+      },
+      "end": {
+        "line": 189,
+        "column": 82
+      }
+    },
+    "status": "Survived",
+    "static": false,
+    "classification": "effect",
+    "kind": "effect",
+    "confirmation": "confirmed",
+    "coveredBy": [
+      "9"
+    ],
+    "executed": [
+      "9",
+      "4",
+      "5",
+      "3",
+      "0",
+      "1",
+      "2",
+      "7",
+      "6"
+    ],
+    "duration": 1486,
+    "valueDiffered": null
+  },
+  "actual_edits": {
+    "id": "605c15816c32610f",
+    "operator": "element_removal",
+    "edits": [
+      {
+        "start_byte": 5852,
+        "end_byte": 5923,
+        "replacement": "",
+        "original": "{property: \"og:image\", content: Routes.story_image_or_logo_url(@story)}"
+      },
+      {
+        "start_byte": 5923,
+        "end_byte": 5924,
+        "replacement": "",
+        "original": ","
+      }
+    ]
+  }
+}

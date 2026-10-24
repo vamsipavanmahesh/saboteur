@@ -1,0 +1,44 @@
+{
+  "report": {
+    "id": "8eb0cb142d0a1d02",
+    "subject": "StoriesController#show",
+    "mutatorName": "argument_removal",
+    "replacement": "",
+    "location": {
+      "start": {
+        "line": 189,
+        "column": 74
+      },
+      "end": {
+        "line": 189,
+        "column": 80
+      }
+    },
+    "status": "Killed",
+    "static": false,
+    "statusReason": "crash: ArgumentError",
+    "killedBy": [
+      "9"
+    ],
+    "coveredBy": [
+      "9"
+    ],
+    "executed": [
+      "9"
+    ],
+    "duration": 558,
+    "valueDiffered": null
+  },
+  "actual_edits": {
+    "id": "8eb0cb142d0a1d02",
+    "operator": "argument_removal",
+    "edits": [
+      {
+        "start_byte": 5915,
+        "end_byte": 5921,
+        "replacement": "",
+        "original": "@story"
+      }
+    ]
+  }
+}

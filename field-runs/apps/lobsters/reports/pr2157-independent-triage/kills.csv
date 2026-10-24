@@ -1,0 +1,6 @@
+scenario,mutant_id,file_line,cause,evidence_path,issue_url
+pr2157,15108fd76959c185,app/controllers/stories_controller.rb:145,exception,15108fd76959c185/receipt.json,
+pr2157,ebd733eb8d8ee4b9,app/controllers/stories_controller.rb:145,exception,ebd733eb8d8ee4b9/receipt.json,
+pr2157,cc4cd6ceffdeeea4,app/controllers/stories_controller.rb:182,assertion failure,cc4cd6ceffdeeea4/receipt.json,
+pr2157,87223da944e9951b,app/controllers/stories_controller.rb:183,assertion failure,87223da944e9951b/receipt.json,
+pr2157,8eb0cb142d0a1d02,app/controllers/stories_controller.rb:189,exception,8eb0cb142d0a1d02/receipt.json,

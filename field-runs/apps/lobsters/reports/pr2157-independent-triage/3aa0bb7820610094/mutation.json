@@ -1,0 +1,51 @@
+{
+  "report": {
+    "id": "3aa0bb7820610094",
+    "subject": "StoriesController#show",
+    "mutatorName": "statement_removal",
+    "replacement": "nil",
+    "location": {
+      "start": {
+        "line": 184,
+        "column": 9
+      },
+      "end": {
+        "line": 191,
+        "column": 10
+      }
+    },
+    "status": "Survived",
+    "static": false,
+    "classification": "effect",
+    "kind": "effect",
+    "confirmation": "confirmed",
+    "coveredBy": [
+      "9"
+    ],
+    "executed": [
+      "9",
+      "4",
+      "5",
+      "3",
+      "0",
+      "1",
+      "2",
+      "7",
+      "6"
+    ],
+    "duration": 1466,
+    "valueDiffered": null
+  },
+  "actual_edits": {
+    "id": "3aa0bb7820610094",
+    "operator": "statement_removal",
+    "edits": [
+      {
+        "start_byte": 5518,
+        "end_byte": 6012,
+        "replacement": "nil",
+        "original": "@meta_tags = [\n          {property: \"og:type\", content: \"article\"},\n          {property: \"og:site_name\", content: Rails.application.name},\n          {property: \"og:title\", content: @story.title},\n          {property: \"og:description\", content: @story.comments_count.to_s + \" \" + \"comment\".pluralize(@story.comments_count)},\n          {property: \"og:image\", content: Routes.story_image_or_logo_url(@story)},\n          {property: \"article:author\", content: Routes.user_url(@story.user)}\n        ]"
+      }
+    ]
+  }
+}

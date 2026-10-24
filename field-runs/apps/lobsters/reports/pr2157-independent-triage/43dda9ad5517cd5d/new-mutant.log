@@ -1,0 +1,4 @@
+Stopped processing SimpleCov as a previous error not related to SimpleCov has been detected
+W, [2026-10-24T10:08:37.069912 #5498]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+Coverage report generated for RSpec to /tmp/triage2157/app/coverage.
+Line Coverage: 15.2% (1099 / 7231)

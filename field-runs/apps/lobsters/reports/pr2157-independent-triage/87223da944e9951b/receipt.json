@@ -1,0 +1,113 @@
+{
+  "id": "87223da944e9951b",
+  "classification": "genuine kill",
+  "original_sha256": "b95908c43d6d2071b7142759d57d1ffd9b2bec6a182fbdbc87b709c27abb7a5b",
+  "restored_sha256": "b95908c43d6d2071b7142759d57d1ffd9b2bec6a182fbdbc87b709c27abb7a5b",
+  "runs": [
+    {
+      "label": "original",
+      "argv": [
+        "/tmp/kill2231/runtime/x64/bin/ruby",
+        "/tmp/kill2231/runtime/x64/bin/bundle",
+        "exec",
+        "rspec",
+        "./spec/requests/stories_spec.rb[1:5:1]",
+        "--seed",
+        "20261024",
+        "--format",
+        "json",
+        "--out",
+        "/tmp/triage2157/evidence/87223da944e9951b/original.json"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 6.445067330000029,
+      "summary": {
+        "duration": 1.835796101,
+        "example_count": 1,
+        "failure_count": 0,
+        "pending_count": 0,
+        "errors_outside_of_examples_count": 0
+      },
+      "examples": [
+        {
+          "id": "./spec/requests/stories_spec.rb[1:5:1]",
+          "status": "passed",
+          "full_description": "stories show displays a story",
+          "exception": null
+        }
+      ]
+    },
+    {
+      "label": "mutant",
+      "argv": [
+        "/tmp/kill2231/runtime/x64/bin/ruby",
+        "/tmp/kill2231/runtime/x64/bin/bundle",
+        "exec",
+        "rspec",
+        "./spec/requests/stories_spec.rb[1:5:1]",
+        "--seed",
+        "20261024",
+        "--format",
+        "json",
+        "--out",
+        "/tmp/triage2157/evidence/87223da944e9951b/mutant.json"
+      ],
+      "exit_code": 1,
+      "wall_seconds": 6.153008751000016,
+      "summary": {
+        "duration": 1.553848015,
+        "example_count": 1,
+        "failure_count": 1,
+        "pending_count": 0,
+        "errors_outside_of_examples_count": 0
+      },
+      "examples": [
+        {
+          "id": "./spec/requests/stories_spec.rb[1:5:1]",
+          "status": "failed",
+          "full_description": "stories show displays a story",
+          "exception": {
+            "class": "RSpec::Expectations::ExpectationNotMetError",
+            "message": "expected the response to have status code 200 but it was 404",
+            "backtrace": [
+              "./spec/requests/stories_spec.rb:184:in 'block (3 levels) in <top (required)>'"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "label": "restored",
+      "argv": [
+        "/tmp/kill2231/runtime/x64/bin/ruby",
+        "/tmp/kill2231/runtime/x64/bin/bundle",
+        "exec",
+        "rspec",
+        "./spec/requests/stories_spec.rb[1:5:1]",
+        "--seed",
+        "20261024",
+        "--format",
+        "json",
+        "--out",
+        "/tmp/triage2157/evidence/87223da944e9951b/restored.json"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 6.097897622000119,
+      "summary": {
+        "duration": 1.70871277,
+        "example_count": 1,
+        "failure_count": 0,
+        "pending_count": 0,
+        "errors_outside_of_examples_count": 0
+      },
+      "examples": [
+        {
+          "id": "./spec/requests/stories_spec.rb[1:5:1]",
+          "status": "passed",
+          "full_description": "stories show displays a story",
+          "exception": null
+        }
+      ]
+    }
+  ]
+}

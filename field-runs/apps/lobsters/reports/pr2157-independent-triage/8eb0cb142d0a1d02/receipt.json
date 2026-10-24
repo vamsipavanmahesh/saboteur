@@ -1,0 +1,121 @@
+{
+  "id": "8eb0cb142d0a1d02",
+  "classification": "genuine kill",
+  "original_sha256": "b95908c43d6d2071b7142759d57d1ffd9b2bec6a182fbdbc87b709c27abb7a5b",
+  "restored_sha256": "b95908c43d6d2071b7142759d57d1ffd9b2bec6a182fbdbc87b709c27abb7a5b",
+  "runs": [
+    {
+      "label": "original",
+      "argv": [
+        "/tmp/kill2231/runtime/x64/bin/ruby",
+        "/tmp/kill2231/runtime/x64/bin/bundle",
+        "exec",
+        "rspec",
+        "./spec/requests/stories_spec.rb[1:5:1]",
+        "--seed",
+        "20261024",
+        "--format",
+        "json",
+        "--out",
+        "/tmp/triage2157/evidence/8eb0cb142d0a1d02/original.json"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 5.9694543890000205,
+      "summary": {
+        "duration": 1.59820471,
+        "example_count": 1,
+        "failure_count": 0,
+        "pending_count": 0,
+        "errors_outside_of_examples_count": 0
+      },
+      "examples": [
+        {
+          "id": "./spec/requests/stories_spec.rb[1:5:1]",
+          "status": "passed",
+          "full_description": "stories show displays a story",
+          "exception": null
+        }
+      ]
+    },
+    {
+      "label": "mutant",
+      "argv": [
+        "/tmp/kill2231/runtime/x64/bin/ruby",
+        "/tmp/kill2231/runtime/x64/bin/bundle",
+        "exec",
+        "rspec",
+        "./spec/requests/stories_spec.rb[1:5:1]",
+        "--seed",
+        "20261024",
+        "--format",
+        "json",
+        "--out",
+        "/tmp/triage2157/evidence/8eb0cb142d0a1d02/mutant.json"
+      ],
+      "exit_code": 1,
+      "wall_seconds": 5.5304723179999655,
+      "summary": {
+        "duration": 1.089595638,
+        "example_count": 1,
+        "failure_count": 1,
+        "pending_count": 0,
+        "errors_outside_of_examples_count": 0
+      },
+      "examples": [
+        {
+          "id": "./spec/requests/stories_spec.rb[1:5:1]",
+          "status": "failed",
+          "full_description": "stories show displays a story",
+          "exception": {
+            "class": "ArgumentError",
+            "message": "wrong number of arguments (given 0, expected 1+)",
+            "backtrace": [
+              "./extras/routes.rb:44:in 'Routes.story_image_or_logo_url'",
+              "./app/controllers/stories_controller.rb:189:in 'block (2 levels) in StoriesController#show'",
+              "./app/controllers/stories_controller.rb:182:in 'StoriesController#show'",
+              "/tmp/kill2231/gems/gems/turbo-rails-2.0.17/lib/turbo-rails.rb:24:in 'Turbo.with_request_id'",
+              "/tmp/kill2231/gems/gems/turbo-rails-2.0.17/app/controllers/concerns/turbo/request_id_tracking.rb:10:in 'Turbo::RequestIdTracking#turbo_tracking_request_id'",
+              "/tmp/kill2231/gems/gems/sentry-rails-5.28.0/lib/sentry/rails/rescued_exception_interceptor.rb:11:in 'Sentry::Rails::RescuedExceptionInterceptor#call'",
+              "./config/initializers/reject_spoofed_ips.rb:14:in 'RejectSpoofedIps#call'",
+              "/tmp/kill2231/gems/gems/request_store-1.7.0/lib/request_store/middleware.rb:19:in 'RequestStore::Middleware#call'",
+              "./spec/requests/stories_spec.rb:182:in 'block (3 levels) in <top (required)>'"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "label": "restored",
+      "argv": [
+        "/tmp/kill2231/runtime/x64/bin/ruby",
+        "/tmp/kill2231/runtime/x64/bin/bundle",
+        "exec",
+        "rspec",
+        "./spec/requests/stories_spec.rb[1:5:1]",
+        "--seed",
+        "20261024",
+        "--format",
+        "json",
+        "--out",
+        "/tmp/triage2157/evidence/8eb0cb142d0a1d02/restored.json"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 6.024116835999848,
+      "summary": {
+        "duration": 1.685233273,
+        "example_count": 1,
+        "failure_count": 0,
+        "pending_count": 0,
+        "errors_outside_of_examples_count": 0
+      },
+      "examples": [
+        {
+          "id": "./spec/requests/stories_spec.rb[1:5:1]",
+          "status": "passed",
+          "full_description": "stories show displays a story",
+          "exception": null
+        }
+      ]
+    }
+  ]
+}

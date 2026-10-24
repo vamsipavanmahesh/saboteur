@@ -1,0 +1,32 @@
+--- a/app/controllers/stories_controller.rb
++++ b/app/controllers/stories_controller.rb
+@@ -179,28 +179,7 @@
+ 
+     @title = @story.title
+ 
+-    respond_to do |format|
+-      format.html {
+-        @meta_tags = [
+-          {property: "og:type", content: "article"},
+-          {property: "og:site_name", content: Rails.application.name},
+-          {property: "og:title", content: @story.title},
+-          {property: "og:description", content: @story.comments_count.to_s + " " + "comment".pluralize(@story.comments_count)},
+-          {property: "og:image", content: Routes.story_image_or_logo_url(@story)},
+-          {property: "article:author", content: Routes.user_url(@story.user)}
+-        ]
+-        @meta_tags << {property: "article:author", content: "https://#{@story.user.mastodon_instance}/@#{@story.user.mastodon_username}"} if @story.user.mastodon_username.present?
+-
+-        load_user_votes
+-
+-        @merged_stories = [@story, @story.merged_stories.not_deleted(@user).mod_single_preload?(@user).for_presentation.includes(:votes)].flatten
+-        render action: "show"
+-      }
+-      format.json {
+-        @comments = @comments.includes(:parent_comment)
+-        render json: @story.as_json(with_comments: @comments)
+-      }
+-    end
++    nil
+   end
+ 
+   def undelete

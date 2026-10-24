@@ -1,0 +1,119 @@
+{
+  "id": "ebd733eb8d8ee4b9",
+  "classification": "genuine kill",
+  "original_sha256": "b95908c43d6d2071b7142759d57d1ffd9b2bec6a182fbdbc87b709c27abb7a5b",
+  "restored_sha256": "b95908c43d6d2071b7142759d57d1ffd9b2bec6a182fbdbc87b709c27abb7a5b",
+  "runs": [
+    {
+      "label": "original",
+      "argv": [
+        "/tmp/kill2231/runtime/x64/bin/ruby",
+        "/tmp/kill2231/runtime/x64/bin/bundle",
+        "exec",
+        "rspec",
+        "./spec/requests/stories_spec.rb[1:5:2]",
+        "--seed",
+        "20261024",
+        "--format",
+        "json",
+        "--out",
+        "/tmp/triage2157/evidence/ebd733eb8d8ee4b9/original.json"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 5.477343198999961,
+      "summary": {
+        "duration": 1.028345,
+        "example_count": 1,
+        "failure_count": 0,
+        "pending_count": 0,
+        "errors_outside_of_examples_count": 0
+      },
+      "examples": [
+        {
+          "id": "./spec/requests/stories_spec.rb[1:5:2]",
+          "status": "passed",
+          "full_description": "stories show redirects /s/short_id to include title slug",
+          "exception": null
+        }
+      ]
+    },
+    {
+      "label": "mutant",
+      "argv": [
+        "/tmp/kill2231/runtime/x64/bin/ruby",
+        "/tmp/kill2231/runtime/x64/bin/bundle",
+        "exec",
+        "rspec",
+        "./spec/requests/stories_spec.rb[1:5:2]",
+        "--seed",
+        "20261024",
+        "--format",
+        "json",
+        "--out",
+        "/tmp/triage2157/evidence/ebd733eb8d8ee4b9/mutant.json"
+      ],
+      "exit_code": 1,
+      "wall_seconds": 5.2899953619999,
+      "summary": {
+        "duration": 0.831435175,
+        "example_count": 1,
+        "failure_count": 1,
+        "pending_count": 0,
+        "errors_outside_of_examples_count": 0
+      },
+      "examples": [
+        {
+          "id": "./spec/requests/stories_spec.rb[1:5:2]",
+          "status": "failed",
+          "full_description": "stories show redirects /s/short_id to include title slug",
+          "exception": {
+            "class": "RuntimeError",
+            "message": "",
+            "backtrace": [
+              "./app/controllers/stories_controller.rb:145:in 'StoriesController#show'",
+              "/tmp/kill2231/gems/gems/turbo-rails-2.0.17/lib/turbo-rails.rb:24:in 'Turbo.with_request_id'",
+              "/tmp/kill2231/gems/gems/turbo-rails-2.0.17/app/controllers/concerns/turbo/request_id_tracking.rb:10:in 'Turbo::RequestIdTracking#turbo_tracking_request_id'",
+              "/tmp/kill2231/gems/gems/sentry-rails-5.28.0/lib/sentry/rails/rescued_exception_interceptor.rb:11:in 'Sentry::Rails::RescuedExceptionInterceptor#call'",
+              "./config/initializers/reject_spoofed_ips.rb:14:in 'RejectSpoofedIps#call'",
+              "/tmp/kill2231/gems/gems/request_store-1.7.0/lib/request_store/middleware.rb:19:in 'RequestStore::Middleware#call'",
+              "./spec/requests/stories_spec.rb:189:in 'block (3 levels) in <top (required)>'"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "label": "restored",
+      "argv": [
+        "/tmp/kill2231/runtime/x64/bin/ruby",
+        "/tmp/kill2231/runtime/x64/bin/bundle",
+        "exec",
+        "rspec",
+        "./spec/requests/stories_spec.rb[1:5:2]",
+        "--seed",
+        "20261024",
+        "--format",
+        "json",
+        "--out",
+        "/tmp/triage2157/evidence/ebd733eb8d8ee4b9/restored.json"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 5.399924362999855,
+      "summary": {
+        "duration": 1.032489875,
+        "example_count": 1,
+        "failure_count": 0,
+        "pending_count": 0,
+        "errors_outside_of_examples_count": 0
+      },
+      "examples": [
+        {
+          "id": "./spec/requests/stories_spec.rb[1:5:2]",
+          "status": "passed",
+          "full_description": "stories show redirects /s/short_id to include title slug",
+          "exception": null
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,64 @@
+diff --git a/Gemfile b/Gemfile
+index 18f12f28..6173e2f2 100644
+--- a/Gemfile
++++ b/Gemfile
+@@ -82,3 +82,6 @@ group :test, :development do
+   gem "vcr"
+   gem "webmock" # used to support vcr
+ end
++
++gem "fiddle"
++gem "saboteur", "= 0.12.3"
+diff --git a/Gemfile.lock b/Gemfile.lock
+index 46b41a57..b0cdad79 100644
+--- a/Gemfile.lock
++++ b/Gemfile.lock
+@@ -147,6 +147,7 @@ GEM
+       i18n (>= 1.8.11, < 2)
+     ffi (1.17.4-arm64-darwin)
+     ffi (1.17.4-x86_64-linux-gnu)
++    fiddle (1.1.8)
+     flamegraph (0.9.5)
+     foreman (0.88.1)
+     fugit (1.11.1)
+@@ -380,6 +381,8 @@ GEM
+     ruby-vips (2.3.0)
+       ffi (~> 1.12)
+       logger
++    saboteur (0.12.3)
++      prism (>= 1.2, < 2)
+     securerandom (0.4.1)
+     sentry-rails (5.28.0)
+       railties (>= 5.0)
+@@ -490,6 +493,7 @@ DEPENDENCIES
+   debug
+   factory_bot_rails
+   faker
++  fiddle
+   flamegraph
+   foreman
+   htmlentities
+@@ -516,6 +520,7 @@ DEPENDENCIES
+   rqrcode
+   rspec-rails
+   ruby-vips
++  saboteur (= 0.12.3)
+   sentry-rails
+   silencer
+   simplecov
+@@ -589,6 +594,7 @@ CHECKSUMS
+   faker (3.5.1) sha256=1ad1fbea279d882f486059c23fe3ddb816ccd1d7052c05a45014b4450d859bfc
+   ffi (1.17.4-arm64-darwin) sha256=19071aaf1419251b0a46852abf960e77330a3b334d13a4ab51d58b31a937001b
+   ffi (1.17.4-x86_64-linux-gnu) sha256=9d3db14c2eae074b382fa9c083fe95aec6e0a1451da249eab096c34002bc752d
++  fiddle (1.1.8)
+   flamegraph (0.9.5) sha256=a683020637ffa0e14a72640fa41babf14d926bfeaed87e31907cfd06ab2de8dc
+   foreman (0.88.1) sha256=59c022125b6a328a2ce63da8d70b731f5dd13519e8d9a4184c696538088ea00a
+   fugit (1.11.1) sha256=e89485e7be22226d8e9c6da411664d0660284b4b1c08cacb540f505907869868
+@@ -677,6 +683,7 @@ CHECKSUMS
+   ruby-progressbar (1.13.0) sha256=80fc9c47a9b640d6834e0dc7b3c94c9df37f08cb072b7761e4a71e22cff29b33
+   ruby-rc4 (0.1.5) sha256=00cc40a39d20b53f5459e7ea006a92cf584e9bc275e2a6f7aa1515510e896c03
+   ruby-vips (2.3.0) sha256=e685ec02c13969912debbd98019e50492e12989282da5f37d05f5471442f5374
++  saboteur (0.12.3)
+   securerandom (0.4.1) sha256=cc5193d414a4341b6e225f0cb4446aceca8e50d5e1888743fac16987638ea0b1
+   sentry-rails (5.28.0) sha256=a0cbba7ce86312172db9d1b3c39c5302de07e446e7df3f68e4f4b1d240a91fc2
+   sentry-ruby (5.28.0) sha256=745c1db3b85c765993dfeb941830aeafff82d85330cd953410c7f37197b0bd99

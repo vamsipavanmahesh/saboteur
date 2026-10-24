@@ -1,0 +1,46 @@
+{
+  "report": {
+    "id": "87223da944e9951b",
+    "subject": "StoriesController#show",
+    "mutatorName": "statement_removal",
+    "replacement": "nil",
+    "location": {
+      "start": {
+        "line": 183,
+        "column": 7
+      },
+      "end": {
+        "line": 198,
+        "column": 8
+      }
+    },
+    "status": "Killed",
+    "static": false,
+    "statusReason": "assertion",
+    "killedBy": [
+      "9"
+    ],
+    "coveredBy": [
+      "13",
+      "9"
+    ],
+    "executed": [
+      "13",
+      "9"
+    ],
+    "duration": 1487,
+    "valueDiffered": null
+  },
+  "actual_edits": {
+    "id": "87223da944e9951b",
+    "operator": "statement_removal",
+    "edits": [
+      {
+        "start_byte": 5496,
+        "end_byte": 6402,
+        "replacement": "nil",
+        "original": "format.html {\n        @meta_tags = [\n          {property: \"og:type\", content: \"article\"},\n          {property: \"og:site_name\", content: Rails.application.name},\n          {property: \"og:title\", content: @story.title},\n          {property: \"og:description\", content: @story.comments_count.to_s + \" \" + \"comment\".pluralize(@story.comments_count)},\n          {property: \"og:image\", content: Routes.story_image_or_logo_url(@story)},\n          {property: \"article:author\", content: Routes.user_url(@story.user)}\n        ]\n        @meta_tags << {property: \"article:author\", content: \"https://#{@story.user.mastodon_instance}/@#{@story.user.mastodon_username}\"} if @story.user.mastodon_username.present?\n\n        load_user_votes\n\n        @merged_stories = [@story, @story.merged_stories.not_deleted(@user).mod_single_preload?(@user).for_presentation.includes(:votes)].flatten\n        render action: \"show\"\n      }"
+      }
+    ]
+  }
+}

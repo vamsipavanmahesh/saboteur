@@ -1,0 +1,7 @@
+scenario,mutant_id,file_line,classification,evidence_path
+pr2157,3aa0bb7820610094,app/controllers/stories_controller.rb:184,real gap,3aa0bb7820610094/receipt.json
+pr2157,43dda9ad5517cd5d,app/controllers/stories_controller.rb:189,real gap,43dda9ad5517cd5d/receipt.json
+pr2157,1f1092204c9a42bb,app/controllers/stories_controller.rb:189,real gap,1f1092204c9a42bb/receipt.json
+pr2157,bea8f4593231093a,app/controllers/stories_controller.rb:189,real gap,bea8f4593231093a/receipt.json
+pr2157,605c15816c32610f,app/controllers/stories_controller.rb:189,real gap,605c15816c32610f/receipt.json
+pr2157,5cacdbc3d0bc508e,app/controllers/stories_controller.rb:190,real gap,5cacdbc3d0bc508e/receipt.json

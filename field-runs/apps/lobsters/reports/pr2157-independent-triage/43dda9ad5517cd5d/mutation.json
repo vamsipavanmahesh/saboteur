@@ -1,0 +1,51 @@
+{
+  "report": {
+    "id": "43dda9ad5517cd5d",
+    "subject": "StoriesController#show",
+    "mutatorName": "literal_string",
+    "replacement": "\"\"",
+    "location": {
+      "start": {
+        "line": 189,
+        "column": 22
+      },
+      "end": {
+        "line": 189,
+        "column": 32
+      }
+    },
+    "status": "Survived",
+    "static": false,
+    "classification": "result unchecked",
+    "kind": "result unchecked",
+    "confirmation": "confirmed",
+    "coveredBy": [
+      "9"
+    ],
+    "executed": [
+      "9",
+      "4",
+      "5",
+      "3",
+      "0",
+      "1",
+      "2",
+      "7",
+      "6"
+    ],
+    "duration": 1458,
+    "valueDiffered": null
+  },
+  "actual_edits": {
+    "id": "43dda9ad5517cd5d",
+    "operator": "literal_string",
+    "edits": [
+      {
+        "start_byte": 5863,
+        "end_byte": 5873,
+        "replacement": "\"\"",
+        "original": "\"og:image\""
+      }
+    ]
+  }
+}

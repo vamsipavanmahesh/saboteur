@@ -1,0 +1,158 @@
+[
+  {
+    "id": "15108fd76959c185",
+    "operator": "body_nil",
+    "edits": [
+      {
+        "start_byte": 4060,
+        "end_byte": 6556,
+        "replacement": "nil",
+        "original": "@story ||= Story.where(short_id: params[:id]).first!\n    if @story.merged_into_story\n      respond_to do |format|\n        format.html {\n          flash[:success] = \"\\\"#{@story.title}\\\" has been merged into this story.\"\n          return redirect_to Routes.title_path @story.merged_into_story, anchor: @story.header_anchor\n        }\n        format.json {\n          return redirect_to(story_path(@story.merged_into_story, format: :json))\n        }\n      end\n    end\n\n    if @story.is_gone?\n      @moderation = Moderation\n        .where(story: @story, comment: nil)\n        .where(\"action LIKE '%deleted story%'\")\n        .order(id: :desc)\n        .first\n    end\n    if !@story.can_be_seen_by_user?(@user)\n      respond_to do |format|\n        format.html { return render action: \"_missing\", status: 404, locals: {story: @story, moderation: @moderation} }\n        format.json { raise ActiveRecord::RecordNotFound }\n      end\n    end\n\n    # canonicalize on title_path for html (json is ok with just short_id)\n    if request.format.html? && params[:title].to_s != @story.title_as_slug\n      return redirect_to(Routes.title_path(@story))\n    end\n\n    @comments = Comment.story_threads(@story).for_presentation.load_async\n    @read_by_notifications = @user ? Comment.where(story_id: [@story.id] + @story.merged_stories.pluck(:id)).where(id: @user.notifications.read.of_comments) : []\n\n    @title = @story.title\n\n    respond_to do |format|\n      format.html {\n        @meta_tags = [\n          {property: \"og:type\", content: \"article\"},\n          {property: \"og:site_name\", content: Rails.application.name},\n          {property: \"og:title\", content: @story.title},\n          {property: \"og:description\", content: @story.comments_count.to_s + \" \" + \"comment\".pluralize(@story.comments_count)},\n          {property: \"og:image\", content: Routes.story_image_or_logo_url(@story)},\n          {property: \"article:author\", content: Routes.user_url(@story.user)}\n        ]\n        @meta_tags << {property: \"article:author\", content: \"https://#{@story.user.mastodon_instance}/@#{@story.user.mastodon_username}\"} if @story.user.mastodon_username.present?\n\n        load_user_votes\n\n        @merged_stories = [@story, @story.merged_stories.not_deleted(@user).mod_single_preload?(@user).for_presentation.includes(:votes)].flatten\n        render action: \"show\"\n      }\n      format.json {\n        @comments = @comments.includes(:parent_comment)\n        render json: @story.as_json(with_comments: @comments)\n      }\n    end"
+      }
+    ]
+  },
+  {
+    "id": "ebd733eb8d8ee4b9",
+    "operator": "body_raise",
+    "edits": [
+      {
+        "start_byte": 4060,
+        "end_byte": 6556,
+        "replacement": "raise",
+        "original": "@story ||= Story.where(short_id: params[:id]).first!\n    if @story.merged_into_story\n      respond_to do |format|\n        format.html {\n          flash[:success] = \"\\\"#{@story.title}\\\" has been merged into this story.\"\n          return redirect_to Routes.title_path @story.merged_into_story, anchor: @story.header_anchor\n        }\n        format.json {\n          return redirect_to(story_path(@story.merged_into_story, format: :json))\n        }\n      end\n    end\n\n    if @story.is_gone?\n      @moderation = Moderation\n        .where(story: @story, comment: nil)\n        .where(\"action LIKE '%deleted story%'\")\n        .order(id: :desc)\n        .first\n    end\n    if !@story.can_be_seen_by_user?(@user)\n      respond_to do |format|\n        format.html { return render action: \"_missing\", status: 404, locals: {story: @story, moderation: @moderation} }\n        format.json { raise ActiveRecord::RecordNotFound }\n      end\n    end\n\n    # canonicalize on title_path for html (json is ok with just short_id)\n    if request.format.html? && params[:title].to_s != @story.title_as_slug\n      return redirect_to(Routes.title_path(@story))\n    end\n\n    @comments = Comment.story_threads(@story).for_presentation.load_async\n    @read_by_notifications = @user ? Comment.where(story_id: [@story.id] + @story.merged_stories.pluck(:id)).where(id: @user.notifications.read.of_comments) : []\n\n    @title = @story.title\n\n    respond_to do |format|\n      format.html {\n        @meta_tags = [\n          {property: \"og:type\", content: \"article\"},\n          {property: \"og:site_name\", content: Rails.application.name},\n          {property: \"og:title\", content: @story.title},\n          {property: \"og:description\", content: @story.comments_count.to_s + \" \" + \"comment\".pluralize(@story.comments_count)},\n          {property: \"og:image\", content: Routes.story_image_or_logo_url(@story)},\n          {property: \"article:author\", content: Routes.user_url(@story.user)}\n        ]\n        @meta_tags << {property: \"article:author\", content: \"https://#{@story.user.mastodon_instance}/@#{@story.user.mastodon_username}\"} if @story.user.mastodon_username.present?\n\n        load_user_votes\n\n        @merged_stories = [@story, @story.merged_stories.not_deleted(@user).mod_single_preload?(@user).for_presentation.includes(:votes)].flatten\n        render action: \"show\"\n      }\n      format.json {\n        @comments = @comments.includes(:parent_comment)\n        render json: @story.as_json(with_comments: @comments)\n      }\n    end"
+      }
+    ]
+  },
+  {
+    "id": "cc4cd6ceffdeeea4",
+    "operator": "statement_removal",
+    "edits": [
+      {
+        "start_byte": 5467,
+        "end_byte": 6556,
+        "replacement": "nil",
+        "original": "respond_to do |format|\n      format.html {\n        @meta_tags = [\n          {property: \"og:type\", content: \"article\"},\n          {property: \"og:site_name\", content: Rails.application.name},\n          {property: \"og:title\", content: @story.title},\n          {property: \"og:description\", content: @story.comments_count.to_s + \" \" + \"comment\".pluralize(@story.comments_count)},\n          {property: \"og:image\", content: Routes.story_image_or_logo_url(@story)},\n          {property: \"article:author\", content: Routes.user_url(@story.user)}\n        ]\n        @meta_tags << {property: \"article:author\", content: \"https://#{@story.user.mastodon_instance}/@#{@story.user.mastodon_username}\"} if @story.user.mastodon_username.present?\n\n        load_user_votes\n\n        @merged_stories = [@story, @story.merged_stories.not_deleted(@user).mod_single_preload?(@user).for_presentation.includes(:votes)].flatten\n        render action: \"show\"\n      }\n      format.json {\n        @comments = @comments.includes(:parent_comment)\n        render json: @story.as_json(with_comments: @comments)\n      }\n    end"
+      }
+    ]
+  },
+  {
+    "id": "87223da944e9951b",
+    "operator": "statement_removal",
+    "edits": [
+      {
+        "start_byte": 5496,
+        "end_byte": 6402,
+        "replacement": "nil",
+        "original": "format.html {\n        @meta_tags = [\n          {property: \"og:type\", content: \"article\"},\n          {property: \"og:site_name\", content: Rails.application.name},\n          {property: \"og:title\", content: @story.title},\n          {property: \"og:description\", content: @story.comments_count.to_s + \" \" + \"comment\".pluralize(@story.comments_count)},\n          {property: \"og:image\", content: Routes.story_image_or_logo_url(@story)},\n          {property: \"article:author\", content: Routes.user_url(@story.user)}\n        ]\n        @meta_tags << {property: \"article:author\", content: \"https://#{@story.user.mastodon_instance}/@#{@story.user.mastodon_username}\"} if @story.user.mastodon_username.present?\n\n        load_user_votes\n\n        @merged_stories = [@story, @story.merged_stories.not_deleted(@user).mod_single_preload?(@user).for_presentation.includes(:votes)].flatten\n        render action: \"show\"\n      }"
+      }
+    ]
+  },
+  {
+    "id": "3aa0bb7820610094",
+    "operator": "statement_removal",
+    "edits": [
+      {
+        "start_byte": 5518,
+        "end_byte": 6012,
+        "replacement": "nil",
+        "original": "@meta_tags = [\n          {property: \"og:type\", content: \"article\"},\n          {property: \"og:site_name\", content: Rails.application.name},\n          {property: \"og:title\", content: @story.title},\n          {property: \"og:description\", content: @story.comments_count.to_s + \" \" + \"comment\".pluralize(@story.comments_count)},\n          {property: \"og:image\", content: Routes.story_image_or_logo_url(@story)},\n          {property: \"article:author\", content: Routes.user_url(@story.user)}\n        ]"
+      }
+    ]
+  },
+  {
+    "id": "43dda9ad5517cd5d",
+    "operator": "literal_string",
+    "edits": [
+      {
+        "start_byte": 5863,
+        "end_byte": 5873,
+        "replacement": "\"\"",
+        "original": "\"og:image\""
+      }
+    ]
+  },
+  {
+    "id": "8eb0cb142d0a1d02",
+    "operator": "argument_removal",
+    "edits": [
+      {
+        "start_byte": 5915,
+        "end_byte": 5921,
+        "replacement": "",
+        "original": "@story"
+      }
+    ]
+  },
+  {
+    "id": "1f1092204c9a42bb",
+    "operator": "pair_removal",
+    "edits": [
+      {
+        "start_byte": 5853,
+        "end_byte": 5873,
+        "replacement": "",
+        "original": "property: \"og:image\""
+      },
+      {
+        "start_byte": 5873,
+        "end_byte": 5874,
+        "replacement": "",
+        "original": ","
+      }
+    ]
+  },
+  {
+    "id": "bea8f4593231093a",
+    "operator": "pair_removal",
+    "edits": [
+      {
+        "start_byte": 5875,
+        "end_byte": 5922,
+        "replacement": "",
+        "original": "content: Routes.story_image_or_logo_url(@story)"
+      },
+      {
+        "start_byte": 5873,
+        "end_byte": 5874,
+        "replacement": "",
+        "original": ","
+      }
+    ]
+  },
+  {
+    "id": "605c15816c32610f",
+    "operator": "element_removal",
+    "edits": [
+      {
+        "start_byte": 5852,
+        "end_byte": 5923,
+        "replacement": "",
+        "original": "{property: \"og:image\", content: Routes.story_image_or_logo_url(@story)}"
+      },
+      {
+        "start_byte": 5923,
+        "end_byte": 5924,
+        "replacement": "",
+        "original": ","
+      }
+    ]
+  },
+  {
+    "id": "5cacdbc3d0bc508e",
+    "operator": "element_removal",
+    "edits": [
+      {
+        "start_byte": 5935,
+        "end_byte": 6002,
+        "replacement": "",
+        "original": "{property: \"article:author\", content: Routes.user_url(@story.user)}"
+      },
+      {
+        "start_byte": 5923,
+        "end_byte": 5924,
+        "replacement": "",
+        "original": ","
+      }
+    ]
+  }
+]

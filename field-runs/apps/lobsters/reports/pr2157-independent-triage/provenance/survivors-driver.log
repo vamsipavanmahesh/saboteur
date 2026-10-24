@@ -1,0 +1,3 @@
+3aa0bb7820610094 [('existing-original', 0, 9), ('existing-mutant', 0, 9), ('new-original', 0, 1), ('new-mutant', 1, 1), ('new-restored', 0, 1)]
+43dda9ad5517cd5d [('existing-original', 0, 9), ('existing-mutant', 0, 9), ('new-original', 0, 1), ('new-mutant', 1, 1), ('new-restored', 0, 1)]
+1f1092204c9a42bb [('existing-original', 0, 9), ('existing-mutant', 0, 9), ('new-original', 0, 1), ('new-mutant', 1, 1), ('new-restored', 0, 1)]

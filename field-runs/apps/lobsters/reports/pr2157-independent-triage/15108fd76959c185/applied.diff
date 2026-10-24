@@ -1,0 +1,69 @@
+--- a/app/controllers/stories_controller.rb
++++ b/app/controllers/stories_controller.rb
+@@ -142,65 +142,7 @@
+ 
+   def show
+     # @story was already loaded by track_story_reads for logged-in users
+-    @story ||= Story.where(short_id: params[:id]).first!
+-    if @story.merged_into_story
+-      respond_to do |format|
+-        format.html {
+-          flash[:success] = "\"#{@story.title}\" has been merged into this story."
+-          return redirect_to Routes.title_path @story.merged_into_story, anchor: @story.header_anchor
+-        }
+-        format.json {
+-          return redirect_to(story_path(@story.merged_into_story, format: :json))
+-        }
+-      end
+-    end
+-
+-    if @story.is_gone?
+-      @moderation = Moderation
+-        .where(story: @story, comment: nil)
+-        .where("action LIKE '%deleted story%'")
+-        .order(id: :desc)
+-        .first
+-    end
+-    if !@story.can_be_seen_by_user?(@user)
+-      respond_to do |format|
+-        format.html { return render action: "_missing", status: 404, locals: {story: @story, moderation: @moderation} }
+-        format.json { raise ActiveRecord::RecordNotFound }
+-      end
+-    end
+-
+-    # canonicalize on title_path for html (json is ok with just short_id)
+-    if request.format.html? && params[:title].to_s != @story.title_as_slug
+-      return redirect_to(Routes.title_path(@story))
+-    end
+-
+-    @comments = Comment.story_threads(@story).for_presentation.load_async
+-    @read_by_notifications = @user ? Comment.where(story_id: [@story.id] + @story.merged_stories.pluck(:id)).where(id: @user.notifications.read.of_comments) : []
+-
+-    @title = @story.title
+-
+-    respond_to do |format|
+-      format.html {
+-        @meta_tags = [
+-          {property: "og:type", content: "article"},
+-          {property: "og:site_name", content: Rails.application.name},
+-          {property: "og:title", content: @story.title},
+-          {property: "og:description", content: @story.comments_count.to_s + " " + "comment".pluralize(@story.comments_count)},
+-          {property: "og:image", content: Routes.story_image_or_logo_url(@story)},
+-          {property: "article:author", content: Routes.user_url(@story.user)}
+-        ]
+-        @meta_tags << {property: "article:author", content: "https://#{@story.user.mastodon_instance}/@#{@story.user.mastodon_username}"} if @story.user.mastodon_username.present?
+-
+-        load_user_votes
+-
+-        @merged_stories = [@story, @story.merged_stories.not_deleted(@user).mod_single_preload?(@user).for_presentation.includes(:votes)].flatten
+-        render action: "show"
+-      }
+-      format.json {
+-        @comments = @comments.includes(:parent_comment)
+-        render json: @story.as_json(with_comments: @comments)
+-      }
+-    end
++    nil
+   end
+ 
+   def undelete
