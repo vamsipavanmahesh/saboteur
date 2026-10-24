@@ -463,3 +463,10 @@ pointers are to files on this branch.
 - Reason: Evidence closes every load-bearing gate except environment receipting for the producer tree; holding the row entirely would waste valid triage, hiding the gap would violate the lock-preservation rule.
 - Ledger: STRICT = 3/45 (2231, 2204, 2157); WITH-DEVIATION = 1/45 (2156); complete evidence = 4/45.
 - Reversibility: Publication only; upgrade on backfill receipt.
+
+## D48 - 10:26 - 2156 lock backfill verified; row STRICT-QUALIFIED; ledger 4/45 strict, 0 deviation
+
+- Decision: The 2156 bounded-lock backfill closes D47's remaining gap (merger-verified additions-only diff from full bytes; bounded lock byte-identical to 2157's verified bounded lock). PR 2156 is STRICT-QUALIFIED.
+- Ledger: STRICT-QUALIFIED = 4/45 (2231, 2204, 2157, 2156); QUALIFIED-WITH-DEVIATION = 0; complete evidence = 4/45. No per-app interval until the lobsters 15-row block completes.
+- Evidence: apps/lobsters/reports/pr2156-map-replay-c1/lockbackfill/.
+- Reversibility: Publication only.
