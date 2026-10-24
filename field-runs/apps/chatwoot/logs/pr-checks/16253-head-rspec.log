@@ -22,4 +22,3 @@ enum :sender_name_type, {friendly: 0, professional: 1}
 
 Finished in 0.64228 seconds (files took 3.22 seconds to load)
 3 examples, 0 failures
-

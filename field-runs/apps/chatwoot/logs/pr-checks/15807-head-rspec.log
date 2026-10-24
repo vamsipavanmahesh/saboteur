@@ -82,4 +82,3 @@ enum :status, {sent: 0, delivered: 1, read: 2, failed: 3}
 
 Finished in 2.1 seconds (files took 3.26 seconds to load)
 23 examples, 0 failures
-

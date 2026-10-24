@@ -356,4 +356,3 @@ Saboteur crashes, hangs, exit 70 and contradictory mutation output remain unknow
 ### Next decision
 
 This bounded attempt is stopped, not automatically resumed. A new execution window after a verified release would be needed to complete the unstarted stages and independent verification. No additional run or infrastructure commitment is implied by this report.
-

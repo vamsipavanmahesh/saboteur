@@ -67,7 +67,7 @@ LoadError:
 # /home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/rubygems.rb:303:in 'Kernel#load'
 # /home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/rubygems.rb:303:in 'Gem.activate_and_load_bin_path'
 # /home/sandbox/field-runs/ruby/ruby-4.0.0/bin/bundle:25:in '<main>'
-# 
+#
 #   Showing full backtrace because every line was filtered out.
 #   See docs for RSpec::Configuration#backtrace_exclusion_patterns and
 #   RSpec::Configuration#backtrace_inclusion_patterns for more information.
