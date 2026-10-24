@@ -483,7 +483,7 @@ pointers are to files on this branch.
 
 - Date: 2026-10-24.
 - Scope: lobsters rows for PRs 2172, 2183, 2197 only. Not applicable to any other row or app. The 15 selected PRs are preserved (no replacement, no skip).
-- Decision: Exclude spec/css_widely_available_spec.rb from the whole-suite baseline/map/mutation runs of exactly these three rows. Era application code, CSS, and lockfile are preserved byte-for-byte; only the spec file is omitted from execution (14 examples). All three rows are classified QUALIFIED-WITH-DEVIATION, deviation = suite completeness; "whole existing suite" is never used unqualified for these rows.
+- Decision: Exclude spec/css_widely_available_spec.rb from the whole-suite baseline/map/mutation runs of exactly these three rows. Era application code, CSS, and lockfile are preserved byte-for-byte; only the spec file is omitted from execution (14 examples). All three rows are PLANNED deviation-tier (suite completeness) pending their actual runs and admission - none is qualified yet; "whole existing suite" is never used unqualified for these rows.
 - Why (source-proven causality, NOT external database drift):
   - The failing assertion concerns app/assets/stylesheets/application.css:296 ("word-break: break-word").
   - That line was added by PR 2196's merge commit 1251ff78fe9d1aa8b6197f399b8889f402dc09d0 (2026-09-14T00:48:23Z) and removed 37 minutes later by direct commit e2ef864fc8dbe2a4885d7dac911ef3b7565088be (01:25:58Z, "word-break deprecated in favor of overflow-wrap #2196").
@@ -493,3 +493,4 @@ pointers are to files on this branch.
 - Preserved evidence: The original PR 2172 baseline attempt (exit 5, no mutants, spec red on both head and base) remains published as an invalid attempt with head/base failure receipts.
 - Verification required in each affected row packet: effective exclusion as-run; omitted-example count (14 expected); head/base tree digests unchanged apart from the exclusion mechanism; row-specific coverage check of the exclusion; explicit deviation-tier labeling.
 - Reversibility: Publication only.
+- Correction (2026-10-24 11:14 IST): this entry initially said "classified QUALIFIED-WITH-DEVIATION"; corrected to planned-tier-pending-admission. Completed-row ledger unchanged: 5 strict-qualified (2231, 2204, 2157, 2156, 2171), 0 completed deviation rows, 2172 invalid attempt preserved, 9 rows not executed.
