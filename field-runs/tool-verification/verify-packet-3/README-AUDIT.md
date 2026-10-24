@@ -5,6 +5,7 @@ Question (user review item 3, 11:21 IST): is the accepted crash kill 21af923ed19
 Gate evidence (original PASS / mutant FAIL / isolated rerun, same full ID):
 1. Original code, spec/models/search_spec.rb in isolation: 33 examples, 0 failures, exit=0 (isolation-original-search.log).
 2. Mutant 21af923ed1980e24, same spec in isolation: 33 examples, 33 failures + 1 error outside examples, exit=1 (isolation-mutant-search.log). Every failure is ActiveRecord::RecordInvalid "Validation failed: Story is no longer accepting comments." raised at search_spec.rb:41 (comment-creating setup).
+4. Restored tree (mutation reverted via git checkout, verified clean): 33 examples, 0 failures, exit=0 (isolation-original-postrevert-search.log). Full three-leg gate closed: original PASS / mutant FAIL / restored PASS, in isolation.
 3. Engine isolated rerun (--id 21af923ed1980e24 --since 8f1b5006... --test spec/models/search_spec.rb --jobs 1): 1/1 killed, exit 0, 25.3s (rerun log + report JSON: status Killed, statusReason "crash: ActiveRecord::RecordInvalid", killedBy 33/33 test indices).
 
 Cause attribution (from the report's own diff): boolean_logic on Story#is_gone? (story.rb:777) collapses `is_deleted? || (user.is_banned? && score < 0 && is_moderated == false)` to `is_deleted? || (is_moderated == false)`. Under the mutant, unmoderated fixture stories become "gone", so comment creation raises RecordInvalid in test setup. The failure is a direct consequence of the mutated predicate on the mutated tree only - the unchanged tree passes the same spec 33/0.
