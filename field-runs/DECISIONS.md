@@ -322,3 +322,15 @@ pointers are to files on this branch.
   exact differing key not derivable from published raws - worker
   reconciles settings and reruns; no selected-spec fallback.
   identity-proof.txt mutants=0 extraction corrected (actual 4).
+
+## D30 - 08:43 - Bug-replay classification addendum adopted
+- Decision: field-runs/BUG-CLASSIFICATION.md is the study-wide
+  classification contract (candidate/verification/replay separation;
+  no Ruby filter on candidates; regression witness required; ERB/JS/
+  config mapping inspected; pure-addition = causal investigation
+  before mapping_limited; Ruby-line flag rate named, non-Ruby N/A;
+  required ledger fields; all counts provisional).
+- Impact: HE's "unmappable" cases reopen for ERB blame and
+  regression work per this contract; consistent denominators across
+  lobsters, chatwoot, human-essentials; no zero-mutant fabrication,
+  no auto-exclusion.
