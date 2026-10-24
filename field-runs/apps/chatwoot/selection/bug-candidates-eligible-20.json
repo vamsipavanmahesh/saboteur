@@ -1,0 +1,433 @@
+[
+ {
+  "number": 16092,
+  "title": "fix: prevent multiple bot providers on an inbox",
+  "merged_at": "2026-10-24T00:31:57Z",
+  "signals": [
+   "fix-title"
+  ],
+  "commit": null,
+  "files_touched": null,
+  "eligibility": "eligible"
+ },
+ {
+  "number": 16385,
+  "title": "fix(deps): bump crass to 1.0.8",
+  "merged_at": "2026-10-24T00:06:55Z",
+  "signals": [
+   "fix-title"
+  ],
+  "commit": null,
+  "files_touched": null,
+  "eligibility": "eligible"
+ },
+ {
+  "number": 16374,
+  "title": "fix: hide feature announcements for accounts in their first 3 days",
+  "merged_at": "2026-10-23T16:52:50Z",
+  "signals": [
+   "fix-title"
+  ],
+  "commit": null,
+  "files_touched": null,
+  "eligibility": "eligible"
+ },
+ {
+  "number": 15761,
+  "title": "fix: prevent duplicate Help Center article creation",
+  "merged_at": "2026-10-23T11:07:05Z",
+  "signals": [
+   "fix-title"
+  ],
+  "commit": null,
+  "files_touched": null,
+  "eligibility": "eligible"
+ },
+ {
+  "number": 16247,
+  "title": "fix(voice): verify twilio webhook signatures",
+  "merged_at": "2026-10-23T09:37:39Z",
+  "signals": [
+   "fix-title"
+  ],
+  "commit": null,
+  "files_touched": null,
+  "eligibility": "eligible"
+ },
+ {
+  "number": 16094,
+  "title": "chore: Share Jev quotas across AI classification calls",
+  "merged_at": "2026-10-23T09:30:42Z",
+  "signals": [
+   "test-added-code"
+  ],
+  "commit": "463bf9ddb8175aab8e3dc36d124e62b5c89a928a",
+  "files_touched": 13,
+  "source_types": [
+   "app",
+   "enterprise",
+   "spec"
+  ],
+  "code_files": [
+   "app/controllers/api/v1/accounts/conversations/suggestions_controller.rb",
+   "app/javascript/dashboard/i18n/locale/en/report.json",
+   "app/javascript/dashboard/routes/dashboard/settings/reports/monitors/specs/MonitorUsageWarning.spec.js",
+   "app/services/captain/automation_condition_service.rb",
+   "app/services/captain/jev_client.rb",
+   "enterprise/app/controllers/enterprise/api/v1/accounts/conversations/suggestions_controller.rb",
+   "enterprise/app/services/conversation_monitors/decision_service.rb",
+   "enterprise/app/services/conversation_monitors/usage.rb",
+   "enterprise/lib/custom_exceptions/jev_quota_error.rb",
+   "enterprise/lib/enterprise/captain/automation_condition_service.rb",
+   "enterprise/lib/enterprise/captain/jev_client.rb"
+  ],
+  "eligibility": "eligible"
+ },
+ {
+  "number": 16358,
+  "title": "fix(voice): generate announcements through chat audio",
+  "merged_at": "2026-10-23T08:38:03Z",
+  "signals": [
+   "fix-title"
+  ],
+  "commit": null,
+  "files_touched": null,
+  "eligibility": "eligible"
+ },
+ {
+  "number": 16208,
+  "title": "feat(copilot): propose changes behind an approval card",
+  "merged_at": "2026-10-22T14:36:09Z",
+  "signals": [
+   "test-added-code"
+  ],
+  "commit": "cf60e459c911aac4342cbcd95dd36b4dca45db62",
+  "files_touched": 36,
+  "source_types": [
+   "app",
+   "config",
+   "db",
+   "enterprise",
+   "lib",
+   "spec"
+  ],
+  "code_files": [
+   "app/javascript/dashboard/api/captain/copilotRuns.js",
+   "app/javascript/dashboard/components-next/copilot/Copilot.vue",
+   "app/javascript/dashboard/components-next/copilot/CopilotApprovalMessage.vue",
+   "app/javascript/dashboard/helper/actionCable.js",
+   "app/javascript/dashboard/i18n/locale/en/integrations.json",
+   "app/javascript/dashboard/store/captain/copilotMessages.js",
+   "config/locales/en.yml",
+   "config/routes.rb",
+   "db/migrate/20261009170254_create_copilot_action_items.rb",
+   "db/schema.rb",
+   "enterprise/app/controllers/api/v1/accounts/captain/copilot_runs_controller.rb",
+   "enterprise/app/jobs/captain/copilot/action_job.rb",
+   "enterprise/app/jobs/captain/copilot/approval_expiry_job.rb",
+   "enterprise/app/jobs/captain/copilot/background_run_job.rb",
+   "enterprise/app/jobs/captain/copilot/recover_runs_job.rb",
+   "enterprise/app/jobs/captain/copilot/review_job.rb",
+   "enterprise/app/jobs/captain/copilot/turn_job.rb",
+   "enterprise/app/listeners/enterprise/action_cable_listener.rb",
+   "enterprise/app/models/concerns/copilot_run_progress.rb",
+   "enterprise/app/models/copilot_action_item.rb",
+   "enterprise/app/models/copilot_message.rb",
+   "enterprise/app/models/copilot_run.rb",
+   "enterprise/app/models/copilot_run/action.rb",
+   "enterprise/app/models/copilot_run/collection.rb",
+   "enterprise/app/models/copilot_run/review.rb",
+   "enterprise/app/models/copilot_run/turn.rb",
+   "enterprise/app/services/captain/copilot/actions.rb",
+   "enterprise/app/services/captain/copilot/actions/add_labels.rb",
+   "enterprise/app/services/captain/copilot/actions/base_action.rb",
+   "enterprise/app/services/captain/copilot/turn_service.rb",
+   "enterprise/app/services/captain/tools/copilot/act_service.rb",
+   "enterprise/app/views/api/v1/models/captain/_copilot_message.json.jbuilder",
+   "enterprise/lib/captain/copilot/lease_expired_error.rb",
+   "enterprise/lib/captain/prompts/copilot_workflows.liquid",
+   "lib/events/types.rb"
+  ],
+  "eligibility": "eligible"
+ },
+ {
+  "number": 16093,
+  "title": "feat(copilot): add durable read-only workflow building blocks",
+  "merged_at": "2026-10-22T13:58:30Z",
+  "signals": [
+   "test-added-code"
+  ],
+  "commit": "427e97d04221f1ec0cc9b2e4f8c148afd4bae491",
+  "files_touched": 65,
+  "source_types": [
+   "app",
+   "config",
+   "db",
+   "enterprise",
+   "lib",
+   "spec"
+  ],
+  "code_files": [
+   "app/javascript/dashboard/components-next/copilot/Copilot.vue",
+   "app/javascript/dashboard/components-next/copilot/CopilotAssistantMessage.vue",
+   "app/javascript/dashboard/components-next/copilot/specs/CopilotAssistantMessage.spec.js",
+   "app/javascript/dashboard/components/copilot/CopilotContainer.spec.js",
+   "app/javascript/dashboard/components/copilot/CopilotContainer.vue",
+   "app/javascript/dashboard/featureFlags.js",
+   "app/javascript/dashboard/store/captain/copilotMessages.js",
+   "config/features.yml",
+   "config/llm.yml",
+   "config/locales/en.yml",
+   "db/migrate/20261009094528_create_copilot_runs.rb",
+   "db/schema.rb",
+   "enterprise/app/helpers/captain/chat_generation_recorder.rb",
+   "enterprise/app/jobs/captain/copilot/leased_job.rb",
+   "enterprise/app/jobs/captain/copilot/recover_runs_job.rb",
+   "enterprise/app/jobs/captain/copilot/review_job.rb",
+   "enterprise/app/jobs/captain/copilot/turn_job.rb",
+   "enterprise/app/jobs/enterprise/trigger_scheduled_items_job.rb",
+   "enterprise/app/models/copilot_message.rb",
+   "enterprise/app/models/copilot_review_finding.rb",
+   "enterprise/app/models/copilot_run.rb",
+   "enterprise/app/models/copilot_run/collection.rb",
+   "enterprise/app/models/copilot_run/review.rb",
+   "enterprise/app/models/copilot_run/turn.rb",
+   "enterprise/app/models/copilot_thread.rb",
+   "enterprise/app/models/copilot_tool_call.rb",
+   "enterprise/app/models/enterprise/concerns/contact.rb",
+   "enterprise/app/models/enterprise/concerns/conversation.rb",
+   "enterprise/app/models/enterprise/concerns/message.rb",
+   "enterprise/app/services/captain/copilot/collection_service.rb",
+   "enterprise/app/services/captain/copilot/readable_messages.rb",
+   "enterprise/app/services/captain/copilot/resources.rb",
+   "enterprise/app/services/captain/copilot/resources/base_resource.rb",
+   "enterprise/app/services/captain/copilot/resources/contacts.rb",
+   "enterprise/app/services/captain/copilot/resources/conversations.rb",
+   "enterprise/app/services/captain/copilot/resources/messages.rb",
+   "enterprise/app/services/captain/copilot/result_table.rb",
+   "enterprise/app/services/captain/copilot/review_service.rb",
+   "enterprise/app/services/captain/copilot/screening_service.rb",
+   "enterprise/app/services/captain/copilot/tracing.rb",
+   "enterprise/app/services/captain/copilot/turn_service.rb",
+   "enterprise/app/services/captain/copilot/turn_transcript.rb",
+   "enterprise/app/services/captain/tools/copilot/continue_review_service.rb",
+   "enterprise/app/services/captain/tools/copilot/display_service.rb",
+   "enterprise/app/services/captain/tools/copilot/get_conversation_service.rb",
+   "enterprise/app/services/captain/tools/copilot/get_data_service.rb",
+   "enterprise/app/services/captain/tools/copilot/review_conversations_service.rb",
+   "enterprise/app/services/captain/tools/copilot/workflow_tool.rb",
+   "enterprise/config/premium_features.yml",
+   "enterprise/lib/captain/copilot/background_run_pending.rb"
+  ],
+  "eligibility": "eligible"
+ },
+ {
+  "number": 16266,
+  "title": "feat(captain): move GPT-4 series and legacy transcription to GPT-6 Luna and gpt-transcribe",
+  "merged_at": "2026-10-22T11:43:08Z",
+  "signals": [
+   "test-added-code"
+  ],
+  "commit": "12955f13ab52b11ef4a398a02b37672e537b5cc3",
+  "files_touched": 49,
+  "source_types": [
+   ".gitignore",
+   "app",
+   "config",
+   "db",
+   "enterprise",
+   "lib",
+   "spec"
+  ],
+  "code_files": [
+   ".gitignore",
+   "app/jobs/migration/replace_retired_captain_models_job.rb",
+   "app/models/concerns/captain_featurable.rb",
+   "config/installation_config.yml",
+   "config/llm.yml",
+   "db/migrate/20261015063804_replace_retired_captain_models.rb",
+   "enterprise/app/models/enterprise/concerns/article.rb",
+   "enterprise/app/services/captain/copilot/chat_service.rb",
+   "enterprise/app/services/captain/llm/help_center_curation_service.rb",
+   "enterprise/app/services/captain/llm/paginated_faq_generator_service.rb",
+   "enterprise/app/services/captain/llm/system_prompts_service.rb",
+   "enterprise/app/services/captain/llm/widget_tagline_service.rb",
+   "enterprise/app/services/llm/legacy_base_open_ai_service.rb",
+   "enterprise/lib/captain/prompts/assistant_overview_summary.liquid",
+   "enterprise/lib/captain/prompts/conversation_completion.liquid",
+   "lib/captain/base_task_service.rb",
+   "lib/captain/follow_up_service.rb",
+   "lib/integrations/llm_base_service.rb",
+   "lib/integrations/llm_instrumentation_completion_helpers.rb",
+   "lib/integrations/openai/openai_prompts/tone_rewrite.liquid",
+   "lib/llm/config.rb",
+   "lib/llm/feature_router.rb",
+   "lib/llm/models.rb",
+   "lib/llm_constants.rb",
+   "lib/tasks/llm_models.rake",
+   "lib/tasks/ruby_llm.rake"
+  ],
+  "eligibility": "eligible"
+ },
+ {
+  "number": 16329,
+  "title": "feat(voice): apply business hours to incoming calls",
+  "merged_at": "2026-10-22T08:54:54Z",
+  "signals": [
+   "test-added-code"
+  ],
+  "commit": "50ff77d41fddcff0ed29c10c9019b7c929c95eb3",
+  "files_touched": 31,
+  "source_types": [
+   "app",
+   "config",
+   "enterprise",
+   "spec"
+  ],
+  "code_files": [
+   "app/controllers/api/v1/accounts/inboxes_controller.rb",
+   "app/javascript/dashboard/api/inboxes.js",
+   "app/javascript/dashboard/components-next/message/bubbles/VoiceCall.vue",
+   "app/javascript/dashboard/components-next/message/constants.js",
+   "app/javascript/dashboard/i18n/locale/en/conversation.json",
+   "app/javascript/dashboard/i18n/locale/en/inboxMgmt.json",
+   "app/javascript/dashboard/routes/dashboard/settings/inbox/settingsPage/CallBusinessHoursSettings.vue",
+   "app/javascript/dashboard/routes/dashboard/settings/inbox/settingsPage/VoiceConfigurationPage.vue",
+   "app/javascript/dashboard/routes/dashboard/settings/inbox/settingsPage/specs/CallBusinessHoursSettings.spec.js",
+   "app/javascript/dashboard/store/modules/inboxes.js",
+   "app/views/api/v1/models/_inbox.json.jbuilder",
+   "config/llm.yml",
+   "config/locales/en.yml",
+   "config/routes.rb",
+   "enterprise/app/controllers/api/v1/accounts/inboxes/call_business_hours_controller.rb",
+   "enterprise/app/controllers/enterprise/api/v1/accounts/inboxes_controller.rb",
+   "enterprise/app/controllers/twilio/voice_controller.rb",
+   "enterprise/app/helpers/twilio/voice_helper.rb",
+   "enterprise/app/models/call.rb",
+   "enterprise/app/models/enterprise/channel/twilio_sms.rb",
+   "enterprise/app/models/enterprise/concerns/inbox.rb",
+   "enterprise/app/services/llm/legacy_base_open_ai_service.rb",
+   "enterprise/app/services/llm/text_to_speech_service.rb",
+   "enterprise/app/services/voice/business_hours_settings_service.rb",
+   "enterprise/app/services/voice/inbound_call_builder.rb",
+   "enterprise/app/views/twilio/voice/out_of_hours.xml.builder"
+  ],
+  "eligibility": "eligible"
+ },
+ {
+  "number": 16350,
+  "title": "chore: Stop setting session cookie on public pages (Fixes #2683)",
+  "merged_at": "2026-10-22T00:56:28Z",
+  "signals": [
+   "fix-title",
+   "linked-issue"
+  ],
+  "commit": null,
+  "files_touched": null,
+  "eligibility": "eligible"
+ },
+ {
+  "number": 16240,
+  "title": "feat: support an IdP metadata URL for SAML",
+  "merged_at": "2026-10-21T13:56:45Z",
+  "signals": [
+   "linked-issue"
+  ],
+  "commit": null,
+  "files_touched": null,
+  "eligibility": "eligible"
+ },
+ {
+  "number": 16281,
+  "title": "fix(whatsapp): recover stalled campaigns without repeating sends",
+  "merged_at": "2026-10-21T11:45:30Z",
+  "signals": [
+   "fix-title"
+  ],
+  "commit": null,
+  "files_touched": null,
+  "eligibility": "eligible"
+ },
+ {
+  "number": 16328,
+  "title": "fix(voice): accept incoming twilio calls with withheld caller IDs",
+  "merged_at": "2026-10-21T06:29:05Z",
+  "signals": [
+   "fix-title"
+  ],
+  "commit": null,
+  "files_touched": null,
+  "eligibility": "eligible"
+ },
+ {
+  "number": 16200,
+  "title": "fix: clarify self-hosted assignment policy enablement",
+  "merged_at": "2026-10-21T05:11:03Z",
+  "signals": [
+   "fix-title"
+  ],
+  "commit": null,
+  "files_touched": null,
+  "eligibility": "eligible"
+ },
+ {
+  "number": 16327,
+  "title": "fix: harden account-scoped user responses",
+  "merged_at": "2026-10-20T08:48:25Z",
+  "signals": [
+   "fix-title"
+  ],
+  "commit": null,
+  "files_touched": null,
+  "eligibility": "eligible"
+ },
+ {
+  "number": 15594,
+  "title": "feat: preserve help center context across locale switches",
+  "merged_at": "2026-10-20T06:13:27Z",
+  "signals": [
+   "test-added-code"
+  ],
+  "commit": "f0039f26682ee4d79f5bd0bb3bef89c94e55904f",
+  "files_touched": 14,
+  "source_types": [
+   "AGENTS.md",
+   "app",
+   "spec"
+  ],
+  "code_files": [
+   "app/controllers/public/api/v1/portals/articles_controller.rb",
+   "app/controllers/public/api/v1/portals/categories_controller.rb",
+   "app/javascript/portal/portalHelpers.js",
+   "app/javascript/portal/specs/portal.spec.js",
+   "app/models/article.rb",
+   "app/models/category.rb",
+   "app/views/public/api/v1/portals/_header.html.erb",
+   "app/views/public/api/v1/portals/_mobile_menu.html.erb",
+   "app/views/public/api/v1/portals/documentation_layout/_topbar.html.erb"
+  ],
+  "eligibility": "eligible"
+ },
+ {
+  "number": 16185,
+  "title": "fix: fall back to SQL search on OpenSearch errors",
+  "merged_at": "2026-10-20T06:05:45Z",
+  "signals": [
+   "fix-title"
+  ],
+  "commit": null,
+  "files_touched": null,
+  "eligibility": "eligible"
+ },
+ {
+  "number": 16326,
+  "title": "fix: send auto-translated templates in email inboxes",
+  "merged_at": "2026-10-20T01:35:58Z",
+  "signals": [
+   "fix-title"
+  ],
+  "commit": null,
+  "files_touched": null,
+  "eligibility": "eligible"
+ }
+]
