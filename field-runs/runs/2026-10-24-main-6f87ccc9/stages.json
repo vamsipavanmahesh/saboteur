@@ -1,51 +1,67 @@
 {
-  "snapshot": "2026-10-24T06:49:00+05:30",
-  "saboteur_sha": "6f87ccc98377bf0c23f3cf409006f0464c2aa67c",
+  "app": "lobsters",
+  "pin": "407536444934ac7d78f4ce1c18f228e3891a8663",
   "saboteur_version": "0.12.3",
-  "app_sha": "407536444934ac7d78f4ce1c18f228e3891a8663",
+  "saboteur_sha": "6f87ccc98377bf0c23f3cf409006f0464c2aa67c",
+  "saboteur_gem_sha256": "7f5b8949bce9bda19a584c079631d3b76ad37e700935285b550b7bb1c30689fa",
+  "exclusions": [
+    {
+      "id": "EX-1",
+      "file": "spec/features/user_administration_spec.rb",
+      "mechanism": "saboteur c.rspec_args --exclude-pattern",
+      "approved_by": "user 2026-10-24T06:52+05:30",
+      "reason": "banning-email red on lobsters main at pin, independent of saboteur, untouched by selected PRs; likely related to lobsters #2263 (unproven)"
+    }
+  ],
   "stages": {
+    "environment": {
+      "status": "done",
+      "notes": "fresh runtime post-rebuild; identity in ENV.md; D-ENV-1 applied"
+    },
+    "baseline": {
+      "status": "done",
+      "measurement": "reports/baseline-postfix/measurement.json",
+      "result": "913 ex, 1 failure (EX-1 file), exit 1, 41.93s"
+    },
     "documented_flow": {
       "status": "partial",
-      "reason": "Generator preceded built-gem flow; literal install skipped existing workflow files; fresh unchanged flow not proven"
+      "notes": "Command checks complete; fresh unchanged install not demonstrated. Generator preceded built-artifact flow; literal install idempotently skipped existing workflows. D-FLOW-1 documented."
     },
     "map": {
-      "status": "blocked",
-      "exit_code": 5,
-      "wall_seconds": 49.66,
-      "peak_rss_kb": 426384,
-      "reason": "First baseline check failed; no mutants started; raw log preserved; CGI setup then corrected, banning-email failure remains",
-      "next_state": "Execution resumed by assigned runner after approval; no new result received in this append"
+      "status": "partly",
+      "detail": "Map2 cache built749subjects/908tests with three908/0 pass logs; extra whole-project mutation phase stopped117/11984, exit130, no aggregate score. Contended by serial PR-bundle loop. Original reported502.41s vs timestamp-derived1213.27s retained separately; cause unknown, no stall mechanism/timeout effect established. Map3 uncontended boundary-stopped build:749subjects/908tests,295.52s total through boundary, exit130, RSS506204KiB; clock samples align. Total is not pure coverage-phase duration."
     },
     "pr_replays": {
-      "status": "not_started",
-      "reason": "Map blocked; five fresh PR bundle readiness logs record Ruby4.0.9 vs Gemfile4.0.0 mismatch. No actual replay or readiness success."
+      "status": "commands_complete_qualification_partial",
+      "results": {
+        "2231": "4/4 killed 100% exit 0 wall 35.85s",
+        "2204": "22 mutants 19k/3s 86.4% exit 1 wall 62.65s (survivors story.rb:777 x3)",
+        "2156": "7 mutants 6k/1s 85.7% exit 1 wall 25.54s (survivor settings_controller.rb:51)",
+        "2090": "7/7 killed 100% exit 0 wall 45.9s",
+        "2182": "0 mutants (deletion-only diff) score n/a exit 0 wall 10.73s"
+      },
+      "note": "all --jobs 1 serial, own ruby 4.0.0 per tree, saboteur pr preset vs first-parent base; structured fake-kill check clean on every report.json; rejectedKills=0 everywhere; four nonzero replays and one zero-mutant. Initial selected-spec flow is not full-CI-equivalent; supported base-map restore only for2204/2156. Four survivors remain unconfirmed.",
+      "v2_base_map": {
+        "status": "done (survivor rows only)",
+        "detail": "Corrected CI base-cache flow for the 2 survivor rows: base whole-suite maps built at base SHAs (2204: key 76ba0df9 851ex/0fail; 2156: key 37d91f04 859ex/0fail), supported 3-artifact restore into head trees (pointer consumption path, prefix inputs git-verified identical), replays rerun. Scores/survivor counts UNCHANGED (2204 19k/3s, 2156 6k/1s). Scoped finding (observed on both): base-map restoration leaves survivors on PR-edited lines unconfirmed - saboteur fallback 'stay counted'. #2231/#2090/#2182 remain scoped/unconfirmed originals, not claimed full-CI-equivalent."
+      }
     },
     "parallelism": {
-      "status": "not_started"
+      "status": "done",
+      "detail": "#2204 jobs2 exit1 wall31.72s vs first serial62.65s; repeat32.49s.22IDs/status/killedBy identical; one observed timing pair, no general speed claim. Producer trace observed worker2 primary/cache/queue/rack_attack SQLite copies during repeat, absent afterward; supports creation/cleanup, not absence of cross-contamination."
     },
     "determinism": {
-      "status": "not_started"
+      "status": "done",
+      "detail": "Three2204serial runs,22IDs each, zero status/killedBy diffs across pairs. JSON gap field absent in this schema: N/A. Text survivor boundary blocks/digests/hints independently matched across the three logs. Three observations, not a general determinism proof."
     },
-    "independent_triage": {
-      "status": "not_started"
+    "triage": {
+      "status": "in_progress",
+      "note": "Fresh independent survivor classification and existing-suite checks ongoing. Four killability demonstrations alone do not establish existing-suite survivors or real gaps."
     },
-    "kill_verification": {
-      "status": "not_started"
+    "kills": {
+      "status": "in_progress",
+      "note": "Seeded10-kill sample reruns recorded; individual cause/dependency-equivalence proof under qualification. Earlier runs warn Bundler not loaded; corrected verification awaited."
     }
   },
-  "raw_completeness_append_at": "2026-10-24T06:52:00+05:30",
-  "scope_updated_at": "2026-10-24T06:52:04+05:30",
-  "exclusion": {
-    "approved": true,
-    "path": "spec/features/user_administration_spec.rb",
-    "mechanism": "rspec_args",
-    "scope": "field run only",
-    "app_file_edits": false,
-    "reason": "banning-email test independently red at40753644; not touched by selected PRs",
-    "issue2263_relation": "unverified"
-  },
-  "future_jobs": {
-    "serial": 1,
-    "parallel_comparison": 2
-  }
+  "updated_at": "2026-10-24T07:56:00+05:30"
 }

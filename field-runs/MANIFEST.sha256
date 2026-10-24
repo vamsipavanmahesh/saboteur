@@ -344,7 +344,7 @@ d3cc8ed709fe73a8476582b05a4cf240e5aca139af633dc12786c22ba7178cd5  runs/2026-10-2
 354f354b6b7d3cdd0c847a3d041f2728f8a7ea91626fefbbfcabc015324f0642  runs/2026-10-24-main-6f87ccc9/APPEND-0652.md
 d134c2ad5ffd449669c68341c0141d9bc6e31b6dcce4e7a527dc7e9da30d6d4d  runs/2026-10-24-main-6f87ccc9/APPEND-0655.md
 f784975ab0ff85e60371c52e4369a73bffb6c3f8e4daf43697398a16a3679c4a  runs/2026-10-24-main-6f87ccc9/ENV-producer-0655.md
-6ddf2bc12cd38fce96b039ab9a348fa4e48ec2679681b793629042e91ccd9302  runs/2026-10-24-main-6f87ccc9/ENV.md
+ed8d942c9bce36a31bfc63923ee26c04e73b83feac309df412c931ba76773dc4  runs/2026-10-24-main-6f87ccc9/ENV.md
 883cbd0224a76c8512345ab2da254a0b91f0cd278a97d18b13f0d8bd5cb81634  runs/2026-10-24-main-6f87ccc9/README.md
 ea6dfcb9ce8cef476d31ea20434e4372c1d1226537da21ae152d8167d0b5ccbc  runs/2026-10-24-main-6f87ccc9/artifacts/build-identity-inspection.txt
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  runs/2026-10-24-main-6f87ccc9/artifacts/payload-diff-lib-exe.EMPTY-means-identical.txt
@@ -381,7 +381,7 @@ afd51d6bae0b57c8ce51751f779e5f48f09489bb351f99482409d81395e4fa9b  runs/2026-10-2
 eeb471257e39c7d9ee57845e7f93355f54dbf94d7281e0ae1d3b248b4d976f99  runs/2026-10-24-main-6f87ccc9/reports/map/measurement.original.json
 34eeaf92592cdd643840a888dfac1c1b47dbbfc1b24fa281bb2a98150fd6f224  runs/2026-10-24-main-6f87ccc9/reports/saboteur-install/measurement.json
 cb3bcd21679972db12cbcba2542e29492011ef9cf6061406599a3c8232d325aa  runs/2026-10-24-main-6f87ccc9/stages-producer-0655.json
-97a9ef824ef810209e4325cce2a9624ab9a019887e0ddf5dde6b3ff85a8132db  runs/2026-10-24-main-6f87ccc9/stages.json
+ba92aa957c0476f4ddee5a266cca2a45f816415822b938db2f40e0cbdd6fb22e  runs/2026-10-24-main-6f87ccc9/stages.json
 97b73a3d183cd3ceda73e4e8df4882ce401190b9330d90ecc7e12a9745620faf  script/measure.py
 dadb13b78dc70aad96675d259318146009cb18def6f6966aee4dc5935a2d8691  script/report.css
 0c4c00d3dca94748e33a34c3d499838234ba57ab0d9ffc5e21aaae485089e392  script/summarize.rb
