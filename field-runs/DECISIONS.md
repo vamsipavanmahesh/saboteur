@@ -359,3 +359,11 @@ pointers are to files on this branch.
 - Evidence: field-runs/noise/human-essentials/BUG-LEDGER-V3-CUTOFF-INVARIANCE.md - full recompute of the 20 HE line-map raws: classification invariant for any cutoff in (2026-03-13, 2026-05-29]; 13-old/7-pending holds exactly.
 - Impact: HE bug ledger v3 temporal classification qualified as audited (13 B2-old, 7 pending-regression) with the #5171/doc-line/spec-line caveats recorded; lobsters and chatwoot bug lanes use the same frozen boundary at blame time.
 - Reversibility: Definition confirmation; raw raws preserved for recompute under any cutoff.
+
+## D34 - 08:55 - Verifier forecast corrected to observed stage; no cause claimed
+
+- Decision: Record the verifier's corrected schedule from observed progress, superseding the 08:45 and 09:10-09:15 forecasts: PR 2204 inclusive (no-EX1) replay measured at 425/861 examples, pace ~47 examples/min at 08:54; first 2204 result ~09:15, 2156 ~09:40, remaining reruns ~09:50, full corrected packet ~09:55 (all uncertain, stage-based).
+- Reason: The earlier forecasts were estimates; the correction is grounded in the observed example counter and pace. The worker's resource-contention hypothesis is UNPROVEN - the box's own load average is ~1; main has requested quota/process-stage evidence before any restart or reordering. No cause is recorded here.
+- Evidence: verifier progress report 08:54 (425/861, ~47 examples/min); box load observation.
+- Impact: No publication or qualification waits on the stale 09:10-09:15 packet expectation; canary raws for 2231 remain the gating evidence for noise-row execution. The user has been told no noise row is qualified yet.
+- Reversibility: Forecast record only; further corrections append new entries.
