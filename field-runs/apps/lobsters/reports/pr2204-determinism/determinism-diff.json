@@ -1,0 +1,26 @@
+{
+  "stage": "determinism",
+  "pr": 2204,
+  "runs": [
+    "pr2204-replay",
+    "pr2204-det1",
+    "pr2204-det2"
+  ],
+  "mutant_counts": [
+    22,
+    22,
+    22
+  ],
+  "diffs": {
+    "orig_vs_det1": [],
+    "orig_vs_det2": [],
+    "det1_vs_det2": []
+  },
+  "fields_compared": [
+    "id",
+    "status",
+    "killedBy"
+  ],
+  "gap": "all 22 mutant ids identical across 3 runs",
+  "verdict": "IDENTICAL"
+}
