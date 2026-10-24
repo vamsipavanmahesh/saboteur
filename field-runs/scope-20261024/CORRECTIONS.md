@@ -11,3 +11,7 @@
 Item 4 above said #15761 changes JavaScript only. That is wrong. The merged diff changes three files: two Vue files (`ArticleEditor.vue`, `PortalsArticlesNewPage.vue`) and `app/models/article.rb` (+9/-1), where `ensure_article_slug` now adds a random suffix and a length cap to the slug. The earlier inventory already listed 1 Ruby file for this PR, and I misread it. #15761 therefore has a CE Ruby change and is not a JavaScript-only case. Whether it is a verified bug fix, and what its witness would be, are not established: no witness was run, and the earlier note that no pre-fix spec was found was a filename search only. The Chatwoot selection is unchanged (research proposals for a different list are not adopted here), and no native bug result is claimed.
 
 Also corrected from that item: Chatwoot #16385 changes only `Gemfile.lock` (a gem version bump). That is a source fact about the diff and says nothing about whether it fixes a vulnerability; it has no app source lines to blame or mutate.
+
+## Correction 3 (appended 2026-10-24)
+
+Correction 2 gave `app/models/article.rb` for Chatwoot #15761 as +9/-1. `git diff --numstat` on the merged diff gives 8 added and 1 removed lines (+8/-1); the "9" in the `--stat` view was the sum of both counts. The file, the change and the other statements in Correction 2 stand.
