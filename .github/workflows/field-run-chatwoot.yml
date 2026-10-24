@@ -139,6 +139,12 @@ jobs:
         working-directory: chatwoot
         run: pnpm i --frozen-lockfile 2>&1 | tee ../receipts/pnpm.log | tail -3
 
+      - name: CE strip (enterprise + spec/enterprise, mirrors run_foss_spec.yml@98a9ed71; D6/D35)
+        working-directory: chatwoot
+        run: |
+          rm -rf enterprise spec/enterprise
+          echo "CE_STRIP enterprise=$([ -d enterprise ] && echo PRESENT || echo ABSENT) spec_enterprise=$([ -d spec/enterprise ] && echo PRESENT || echo ABSENT)" | tee -a ../receipts/env.env
+
       - name: Database create + schema load (UTF8 forced)
         working-directory: chatwoot
         run: |
