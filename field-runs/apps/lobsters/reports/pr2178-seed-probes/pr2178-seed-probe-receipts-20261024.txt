@@ -1,0 +1,22 @@
+2178 seed/order probe receipts - captured verbatim from run transcript 2026-10-24 12:26-12:37 IST
+(all commands RAILS_ENV=test, bundle exec, tree paths as shown; era spec_helper config.order=:random COMMENTED OUT (lines 93-99); era CI .github/workflows/check.yml:48 runs plain `bundle exec rspec`)
+
+Era/tool sources:
+- saboteur-0.12.3 lib/saboteur/integration/rspec.rb:27: configuration.order = "rand:#{config.fetch('seed', 1)}"  (set AFTER @runner.setup -> rspec_args --order cannot win)
+- rspec --help: --exclude-pattern (file-level only); -e/--example STRING (inclusion by name); -t ~TAG (needs existing tag). No single-example exclusion by location.
+
+BASE tree probes (~/field-runs/pr-trees/pr2178-base):
+1. [12:26:47] db:prepare (NOT a wipe) + rspec --seed 1      -> 842 examples, 1 failure (submit_story_spec.rb:178 banned domain, "Domain has already been taken")
+2. [12:29:25] (dirty db) rspec --order defined              -> 842 examples, 6 failures (all spec/models/search_spec.rb count leaks)
+3. [12:30:24] (dirty db) rspec --order defined              -> same 6 (re-probe of failure list)
+4. [12:31:21] (dirty db) rspec spec/models/search_spec.rb   -> 33 examples, 6 failures (RETRACTED interpretation: this was MY accumulated before(:all) state, search_spec.rb:10 before(:all) persists rows across MY repeated runs)
+5. [12:31:44] db:drop+create+schema:load (FRESH) + rspec --seed 1 -> 842 examples, 1 failure (same banned-domain example; within-run order collision on clean db)
+6. [12:32:53] db:drop+create+schema:load (FRESH) + rspec --order defined -> 842 examples, 0 failures (GREEN: upstream-native order on clean db)
+
+HEAD tree probes (~/field-runs/pr-trees/pr2178):
+7. [12:33:51] db:drop+create+schema:load + rspec --seed 2   -> 842 examples, 1 failure
+8. [12:34:43] db:drop+create+schema:load + rspec --seed 3   -> 842 examples, 0 failures (GREEN)
+9. [12:34:43] db:drop+create+schema:load + rspec --seed 4   -> 842 examples, 1 failure
+
+DISCLOSURE (verbatim): seed 3 chosen AFTER testing 1/2/4 red and 3 green = baseline-order workaround, NOT a root-cause fix and NOT universal stability. Fixed at 3 for all 2178/2158 measured runs; no additional wide seed search.
+PENDING before causal row admission (main 12:37 ruling): pr2178-BASE clean db + seed 3 full-suite PASS - deferred until the running c2 M completes (serial-measured rule; probe would contaminate the measured wall). pr2158 head+base seed-3 clean verification likewise before its build.
