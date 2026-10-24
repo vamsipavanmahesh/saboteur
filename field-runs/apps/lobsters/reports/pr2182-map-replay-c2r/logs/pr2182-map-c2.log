@@ -1,0 +1,19 @@
+RUNNER headmap3.sh sha256=1420263653c537087efb2fe75311f67cbbd1aa21398645aeb9c1f8efcc097181 attempt=c2 tree=pr2182 head=afd505e45084f7c9fd504ae8968886eee102c961 started=2026-10-24T11:27:46+05:30
+PGID=31124
+T0=1792821466
+LOCK sha256=6b3775bd1acb0353b3a8d8b564ce18072d6f4a9a8b654d0d79138a4469da2e5b
+BUNDLE_LIST sha256=37a247735b6ba6067c6402ad9d811bbe2e77c8c4378c8d4d58f8140bf6ce7ef4
+SABOTEUR_BIN 0.12.3
+saboteur: warning: 186 uncommitted or untracked change(s) in the working tree: none inside the mutation scope, 185 outside it (2 tracked, 183 untracked), 1 saboteur setup file(s) (0 tracked, 1 untracked).
+  setup files: config/saboteur.rb
+  Mutants run your code and could alter or delete files; run on a clean, committed tree or a CI checkout.
+saboteur: Operators: operator_assignment, condition_negation, range, body_nil, body_true, body_false, body_raise, comparison, arithmetic, boolean_logic, condition_true, condition_false, negation_removal, literal_number, or_assign, and_assign, safe_navigation, statement_removal, filter_replacement, copy_replacement, literal_string, literal_boolean, argument_swap, argument_removal, pair_removal, element_removal, endpoint_replacement, chain_removal, method_swap, operand_replacement, interpolation_removal, jump_value, rescue_removal, ensure_removal, when_removal, unary_removal, regex_replacement
+saboteur: loading the application
+saboteur: SimpleCov.start ignored for this run (saboteur needs Ruby's Coverage itself)
+saboteur: running the loaded suite unscoped: 864 examples in 104 spec files; 3 full passes (2 baseline checks + 1 coverage map build).
+saboteur: checking the unchanged suite twice (seed 1)
+W, [2026-10-24T11:27:53.324088 #31145]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+saboteur: baseline check 1: 30 s elapsed, 600/864 examples (69 %), about 14 s left
+saboteur: baseline check 1 took 37 s; about 74 s left for the remaining 1 full pass and the coverage map build at that rate
+MEASURED exit=130 wall=49.2s rss_kb=474724
+HEADMAP_pr2182_c2_EXIT=130 ended=2026-10-24T11:28:37+05:30

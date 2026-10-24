@@ -543,3 +543,11 @@ Merger-verified against the GitHub API (selection-v3 PRs; Gemfile.lock AND Gemfi
 
 All windows within the ~2-week rule; every snapshot head is itself a mainline merge commit. Per-row records carry snapshot SHA, map key, lock + Gemfile blobs, and actual confirmation test IDs; drift disclosure and the D54-amendment proof terms apply identically. Gate: NO map run until the fixed-pin doctor's two-pass gate actually passes; the doctor is running at decision time with no verdict yet.
 - Reversibility: publication only.
+
+## D56 - PR 2182 admitted: first snapshot-reuse row, zero-mutant with disclosed coverage hole (2026-10-24 11:33 IST)
+
+- 2182 STRICT-QUALIFIED under the D54 protocol: snapshot copy hash-verified against the merger's own published 2171 coverage (c379bc36...), parent-verified --since, settings 240ea092, bounded lock 6b3775bd. R: 0 subjects / 0 mutants / exit 0 / 11.42s.
+- Row type: zero-mutant (deletion-only change - comment + .includes scope chain in story.rb). Score N/A; noise 0/0 UNDEFINED; recorded as a selection/operator-coverage hole (deletions are not mutation-covered), NOT as coverage success; 2182 has no out-of-scope files.
+- Ledger: completed 6/45 (2231, 2204, 2157, 2156, 2171, 2182), all strict; survivors/gaps unchanged (10 survivors, 3 gaps); invalid attempts 2172 c1 + 2182 c1/c2 on record, none counted.
+- Timing record: valid row cost = 11.42s R-only with snapshot cost amortized at the 2171 row; c1 643.98s (invalid setup) and c2 49.2s (owned stop) recorded as wasted/invalid, never compared as apples.
+- Reversibility: publication only.
