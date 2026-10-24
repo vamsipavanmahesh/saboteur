@@ -1,0 +1,36 @@
+/home/sandbox/bundle/ruby/3.4.0/gems/delayed_job-4.1.13/lib/delayed/worker.rb:9: warning: /home/sandbox/ruby343/lib/ruby/3.4.0/benchmark.rb was loaded from the standard library, but will no longer be part of the default gems starting from Ruby 3.5.0.
+You can add benchmark to your Gemfile or gemspec to silence this warning.
+Also please contact the author of delayed_job-4.1.13 to request adding benchmark into its gemspec.
+Ruby: ruby 3.4.3 (2025-04-14 revision d0b7e5b6a0) +PRISM [x86_64-linux]
+Environment: no bundler/appraisal problems detected
+Coverage: suspended during boot (saboteur starts it for the coverage map)
+require: ./config/environment (found)
+Custom map: none (optional)
+saboteur: SimpleCov.start ignored for this run (saboteur needs Ruby's Coverage itself)
+DEPRECATION WARNING: `config.active_support.to_time_preserves_timezone` is deprecated and will be removed in Rails 8.2 (called from <top (required)> at /home/sandbox/trees/he-5723-era/config/environment.rb:5)
+WARNING: Shared example group 'reported reminder and deadline dates' has been previously defined at:
+  /home/sandbox/trees/he-5723-era/spec/support/deadline_day_fields_shared_example.rb:77
+...and you are now defining it at:
+  /home/sandbox/trees/he-5723-era/spec/support/deadline_day_fields_shared_example.rb:77
+The new definition will overwrite the original one.
+WARNING: Shared example group 'reported reminder and deadline dates' has been previously defined at:
+  /home/sandbox/trees/he-5723-era/spec/support/deadline_day_fields_shared_example.rb:77
+...and you are now defining it at:
+  /home/sandbox/trees/he-5723-era/spec/support/deadline_day_fields_shared_example.rb:77
+The new definition will overwrite the original one.
+Integration: rspec (loaded)
+Rails: enabled
+Database: primary (host /tmp/pgsock)
+SimpleCov: present; start suppressed for this process
+/home/sandbox/bundle/ruby/3.4.0/gems/saboteur-0.12.3/lib/saboteur/execution/fiddle_loader.rb:28: warning: /home/sandbox/ruby343/lib/ruby/3.4.0/fiddle.rb was loaded from the standard library, but will no longer be part of the default gems starting from Ruby 3.5.0.
+You can add fiddle to your Gemfile or gemspec to silence this warning.
+Also please contact the author of saboteur-0.12.3 to request adding fiddle into its gemspec.
+Sandbox: this kernel's Landlock ABI is 2 but ABI 3 (Linux 6.2+) is needed to restrict truncate(); children would run with the hazard guard and canary only
+saboteur: baseline run 1 stopped: exceeded deadline
+MEASURED exit=3 wall=311.04s rss_kb=861284
+m Ruby 3.5.0.
+You can add fiddle to your Gemfile or gemspec to silence this warning.
+Also please contact the author of saboteur-0.12.3 to request adding fiddle into its gemspec.
+Sandbox: this kernel's Landlock ABI is 2 but ABI 3 (Linux 6.2+) is needed to restrict truncate(); children would run with the hazard guard and canary only
+saboteur: baseline run 1 stopped: exceeded deadline
+MEASURED exit=3 wall=311.04s rss_kb=861284

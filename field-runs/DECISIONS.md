@@ -397,3 +397,10 @@ pointers are to files on this branch.
 - Reason: Merger audit of the raw packet found every gate met; the producer's prose-only packet was rejected as evidence earlier and is superseded.
 - Evidence: apps/lobsters/reports/pr2231-crash-kill-verification/ (README-AUDIT.md + PUBLISHED-MANIFEST.sha256; artifact gem referenced at runs/2026-10-24-main-6f87ccc9/artifacts/, hash re-verified).
 - Reversibility: Publication only; raws immutable.
+
+## D39 - 09:41 - HE doctor attempt 1 contaminated (registry gem); kept as env-timing sample only; pin fix verified in shape, receipt gaps listed
+
+- Decision: The first HE doctor run (08:55-09:35 IST, exit 3, 300s deadline) used registry saboteur 0.12.3, not the pin (unchecked vendored-copy failure + bundle install without --local). It is published as a correction + incident with the raw retained as an environment-timing sample ONLY. No HE baseline/map/replay/count exists. The fixed route (vendored artifact 57ac8099 + bundle install --local, claimed 0-path payload diff) is accepted in shape; the payload-diff command + both roots (or installed-vs-artifact sha256 lists) and ruby -v are required receipts before the fixed doctor run, because the same-GEM_HOME reinstall-skip mode would leave registry bytes in place undetected by bundler's own output.
+- Reason: Registry 0.12.3 differs from the pin in 18 lib files; any timing or behavior under it is not attributable to the pinned tool.
+- Evidence: noise/human-essentials/doctor-20261024-0941/ (RAWS.sha256).
+- Reversibility: Publication only; raws immutable.

@@ -1,0 +1,8 @@
+Fetching gem metadata from https://rubygems.org/........
+Resolving dependencies...
+Fetching saboteur 0.12.3
+Installing saboteur 0.12.3
+Bundle complete! 94 Gemfile dependencies, 275 gems now installed.
+Bundled gems are installed into `/home/sandbox/bundle`
+5 installed gems you directly depend on are looking for funding.
+  Run `bundle fund` for details
