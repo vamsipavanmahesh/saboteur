@@ -33,7 +33,7 @@ LoadError:
 # /home/sandbox/local/ruby/lib/ruby/gems/3.4.0/gems/bundler-2.5.16/exe/bundle:20:in '<top (required)>'
 # /home/sandbox/local/ruby/bin/bundle:25:in 'Kernel#load'
 # /home/sandbox/local/ruby/bin/bundle:25:in '<main>'
-# 
+#
 #   Showing full backtrace because every line was filtered out.
 #   See docs for RSpec::Configuration#backtrace_exclusion_patterns and
 #   RSpec::Configuration#backtrace_inclusion_patterns for more information.
@@ -42,4 +42,3 @@ No examples found.
 
 Finished in 0.00003 seconds (files took 0.6306 seconds to load)
 0 examples, 0 failures, 1 error occurred outside of examples
-

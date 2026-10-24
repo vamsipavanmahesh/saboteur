@@ -97,4 +97,3 @@ enum :status, {draft: 0, published: 1, archived: 2}
 
 Finished in 5.98 seconds (files took 3.39 seconds to load)
 37 examples, 0 failures
-

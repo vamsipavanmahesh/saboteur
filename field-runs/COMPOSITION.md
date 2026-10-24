@@ -11,3 +11,5 @@ Published replay instructions distinguish grouped provisioning recipes from lite
 Memory measurements are method-dependent: Lobsters uses peak child RSS from RUSAGE_CHILDREN; Chatwoot and Solidus sample the RSpec process and direct children, not all descendants or database services. Neither approach gives whole-machine memory cost. Sampled maxima can miss peaks. Timing methods and RSpec example duration are separate and must not be interchanged.
 
 The report generator was independently checked with synthetic fixtures and actual baseline inputs. This verifies evidence-tool behavior, not saboteur compatibility, complete PR coverage, app setup equivalence or mutation verdict correctness. No triage outcome exists without raw versioned mutation reports.
+
+Publication normalization: 26 raw logs and REPORT.md carried trailing blank lines at EOF, and four RSpec comment lines carried a trailing space; the repository diff-check gate rejects both. The committed text files are whitespace-normalized views with the exact original bytes preserved alongside as .gz files; NORMALIZATION.md carries the per-file original/view sha256 mapping. No numeric or prose content changed.

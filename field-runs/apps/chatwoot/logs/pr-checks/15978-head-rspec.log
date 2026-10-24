@@ -98,4 +98,3 @@ enum :assignment_order, {round_robin: 0}
 
 Finished in 4.22 seconds (files took 3.23 seconds to load)
 23 examples, 0 failures
-

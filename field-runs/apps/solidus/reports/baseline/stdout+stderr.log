@@ -120,4 +120,3 @@ rspec ./spec/models/spree/concerns/active_storage_adapter/attachment_spec.rb:8 #
 rspec ./spec/models/spree/concerns/active_storage_adapter/attachment_spec.rb:28 # Spree::ActiveStorageAdapter::Attachment#variant converts to resize_to_fill when definition ends with ^
 
 Randomized with seed 49450
-
