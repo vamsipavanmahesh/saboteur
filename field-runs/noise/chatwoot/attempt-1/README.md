@@ -22,3 +22,13 @@ landlock ABI 2 limitation, serial default) are in
 ../PRODUCER-DECISIONS.md and must ride with every chatwoot packet.
 Fake-kill check: no score files in this packet; prose mentions of
 excluded specs are not score evidence.
+
+## Status change 08:26 IST - QUALIFIED -> PROVISIONAL
+
+Study-lead ruling 08:26: no 15-PR population stays qualified until
+the lead's own audit receipts pass; the git-log-#N freeze method is
+under author audit and the execution queue is halted pending a live
+API merged_at population cross-check. The merger's live-API
+verification above (window enumeration, file lists, skips - all
+PASS) remains on record, but the selection is PROVISIONAL, not the
+confirmed metric selection, until the lead's receipts clear it.

@@ -198,3 +198,14 @@ pointers are to files on this branch.
   user-sourced rules, not only on delegated resolution. Published
   caveats in decision-sources/README.md and the bug-1 RESOLUTION
   file revised; raws byte-preserved.
+
+## D21 - 08:26 - Chatwoot selection downgraded to PROVISIONAL
+- Decision: no noise-15 population is qualified until the study
+  lead's own audit receipts pass; chatwoot attempt-1 README amended
+  QUALIFIED -> PROVISIONAL. The merger's live-API verification
+  (all PASS) stays on record but does not alone qualify.
+- Reason: author audit found the git-log-#N freeze method invalid;
+  a live API merged_at population cross-check is required before
+  any expensive maps.
+- Impact: chatwoot and human-essentials queues stay halted;
+  lobsters attempt-2 remains invalid pending attempt-3.
