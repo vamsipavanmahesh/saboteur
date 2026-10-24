@@ -218,3 +218,26 @@ pointers are to files on this branch.
   rests on the merger's live-API proof, not on pending external
   receipts. Below-window zero-ruby rows not itemized by the worker
   are recorded as informational-only.
+
+## D23 - 08:28 - Lobsters noise-15 selection QUALIFIED (attempt 3)
+- Decision: adopt noise/lobsters/attempt-3/ as the lobsters metric
+  selection: exhaustive 95/95 enumeration, zero in-window
+  omissions, order verified live as merged_at DESC, merge SHAs
+  match. Selected: 2231, 2157, 2156, 2171, 2172, 2183, 2197, 2182,
+  2175, 2103, 2205, 2174, 2204, 2178, 2158.
+- Corrections recorded: the merger's 08:23 order was not a strict
+  sort (worker order correct); 2182 app/lib count is 2 not 1; 2078
+  count divergence is a diff-base difference, both bases recorded.
+- Impact: replay queue proceeds; practical-reuse execution order is
+  logged separately from selection rank and is not metric bias
+  since all 15 are included.
+
+## D24 - 08:28 - EX-1 scoped to red trees only; 2204/2156 v2 maps superseded
+- Decision: targeted user_administration spec is GREEN at the 2204
+  and 2156 base trees (5/0), so EX-1 must not apply there; the v2
+  EX-1 base maps are superseded (preserved, labeled not
+  full-era-suite); corrective no-EX1 replays queued. EX-1 remains
+  valid only at the pin tree where the spec is red.
+- Impact: no published row may claim whole-era-suite coverage from
+  v2 maps; earlier v2 survivor rows keep their unconfirmed status
+  and gain this coverage-gap label.

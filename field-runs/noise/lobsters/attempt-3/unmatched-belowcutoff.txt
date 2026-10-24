@@ -1,0 +1,2 @@
+32 PRs merged <= 2026-07-06 (all below the 15th-eligible cutoff 2026-07-18); commit SHA not resolved by timestamp correlation; not evaluated for file counts; no selection impact:
+2125,2122,2105,2104,2091,2079,2074,2065,2059,2058,2057,2056,2055,2048,2047,2044,2038,2037,2035,2033,2030,2029,2028,2026,2025,2024,2022,2020,2019,2012,1982,1962
