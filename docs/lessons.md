@@ -443,3 +443,23 @@ review-to-checks loop in [agents/review-to-checks.md](agents/review-to-checks.md
   reproduction plus a gate run on the fix (run 39930740816: 8 cases, 6
   pass, exactly the two frozen expectation reds; the repeated controlled
   break then added exactly the predicted third red).
+
+## 21. A field-run window went to preparation for a release that did not exist
+
+- Class: process gap (a missing required input treated as a wait, not a
+  stop).
+- What happened: a field-evidence task pinned saboteur to the upcoming
+  0.13.0 release and spent its window preparing app environments while
+  the release was still in progress. The window closed with saboteur
+  never run against any app; the report that reached the maintainer was
+  honest about it, but the goal - measured runs - was never reachable
+  within the window.
+- Root cause: plan. A required input (the release) was missing from the
+  start, and the task consumed its timebox on preparation instead of
+  stopping to ask for the input or a re-scope.
+- Prevented by: the missing-input rule in AGENTS.md ("Run discipline"):
+  if a required input is missing - a release, a SHA, credentials, a
+  decision - stop within 15 minutes and ask; do not spend a timebox on
+  work that cannot reach the goal. The re-scope the task needed (pin
+  current main, record the SHA, build the gem from it) is what the
+  15-minute ask would have produced.
