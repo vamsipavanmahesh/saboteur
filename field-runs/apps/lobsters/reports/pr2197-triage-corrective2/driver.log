@@ -1,0 +1,138 @@
+=== BASELINE original 12:13:58 ===
+baseline: 48 examples, 0 failures
+=== MUTANT 265ba36e379f861c 12:14:10 ===
+ 1 file changed, 1 deletion(-)
+existing-7files: 39 examples, 0 failures
+probe: 9 examples, 1 failure
+  1) page titles (verification probe) PROBE-I1 inbox/all renders the Inbox title
+reverted: 0 diff lines
+=== MUTANT 8ff5c5c19270c92b 12:14:29 ===
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+existing-7files: 39 examples, 0 failures
+probe: 9 examples, 1 failure
+  1) page titles (verification probe) PROBE-I1 inbox/all renders the Inbox title
+reverted: 0 diff lines
+=== MUTANT 45122517a7ddc0c8 12:14:49 ===
+ 1 file changed, 2 deletions(-)
+existing-7files: 39 examples, 0 failures
+probe: 9 examples, 1 failure
+  1) page titles (verification probe) PROBE-D1 domains/edit renders the Edit Domain title
+reverted: 0 diff lines
+=== MUTANT 9a31f624b2f1c8d4 12:15:09 ===
+ 1 file changed, 1 deletion(-)
+existing-7files: 39 examples, 0 failures
+probe: 9 examples, 1 failure
+  1) page titles (verification probe) PROBE-D1 domains/edit renders the Edit Domain title
+reverted: 0 diff lines
+=== MUTANT a0cee31e8852087b 12:15:28 ===
+ 1 file changed, 1 deletion(-)
+existing-7files: 39 examples, 0 failures
+probe: 9 examples, 1 failure
+  1) page titles (verification probe) PROBE-D2 domains/edit suppresses the title h1
+reverted: 0 diff lines
+=== MUTANT f480c446a09839fa 12:15:48 ===
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+existing-7files: 39 examples, 0 failures
+probe: 9 examples, 1 failure
+  1) page titles (verification probe) PROBE-D2 domains/edit suppresses the title h1
+reverted: 0 diff lines
+=== MUTANT f98739566ebb7713 12:16:07 ===
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+existing-7files: 39 examples, 0 failures
+probe: 9 examples, 1 failure
+  1) page titles (verification probe) PROBE-D1 domains/edit renders the Edit Domain title
+reverted: 0 diff lines
+=== MUTANT d3ef739e94f76ceb 12:16:27 ===
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+existing-7files: 39 examples, 0 failures
+probe: 9 examples, 1 failure
+  1) page titles (verification probe) PROBE-D1 domains/edit renders the Edit Domain title
+reverted: 0 diff lines
+=== MUTANT ee7636cfd988297a 12:16:47 ===
+ 1 file changed, 2 deletions(-)
+existing-7files: 39 examples, 0 failures
+probe: 9 examples, 1 failure
+  1) page titles (verification probe) PROBE-R1 reparents/new renders the Reparent title
+reverted: 0 diff lines
+=== MUTANT 16ca5c211943b17d 12:17:07 ===
+ 1 file changed, 1 deletion(-)
+existing-7files: 39 examples, 0 failures
+probe: 9 examples, 1 failure
+  1) page titles (verification probe) PROBE-R1 reparents/new renders the Reparent title
+reverted: 0 diff lines
+=== MUTANT 7628a88b22719ecf 12:17:27 ===
+ 1 file changed, 1 deletion(-)
+existing-7files: 39 examples, 0 failures
+probe: 9 examples, 1 failure
+  1) page titles (verification probe) PROBE-R2 reparents/new suppresses the title h1
+reverted: 0 diff lines
+=== MUTANT 6384cf5436c30d89 12:17:47 ===
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+existing-7files: 39 examples, 0 failures
+probe: 9 examples, 1 failure
+  1) page titles (verification probe) PROBE-R2 reparents/new suppresses the title h1
+reverted: 0 diff lines
+=== MUTANT 111b8e283f0397ea 12:18:06 ===
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+existing-7files: 39 examples, 0 failures
+probe: 9 examples, 1 failure
+  1) page titles (verification probe) PROBE-R1 reparents/new renders the Reparent title
+reverted: 0 diff lines
+=== MUTANT aa15cc2fbfadb177 12:18:26 ===
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+existing-7files: 39 examples, 0 failures
+probe: 9 examples, 1 failure
+  1) page titles (verification probe) PROBE-R1 reparents/new renders the Reparent title
+reverted: 0 diff lines
+=== MUTANT 85a0d301c72ae598 12:18:46 ===
+ 1 file changed, 1 deletion(-)
+existing-7files: 39 examples, 0 failures
+probe: 9 examples, 1 failure
+  1) page titles (verification probe) PROBE-M1 mod_mails renders the ModMail title
+reverted: 0 diff lines
+=== MUTANT cac125b5b23f254f 12:19:06 ===
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+existing-7files: 39 examples, 0 failures
+probe: 9 examples, 1 failure
+  1) page titles (verification probe) PROBE-M1 mod_mails renders the ModMail title
+reverted: 0 diff lines
+=== MUTANT 82e793cd9460447c 12:19:25 ===
+ 1 file changed, 1 deletion(-)
+existing-7files: 39 examples, 0 failures
+probe: 9 examples, 1 failure
+  1) page titles (verification probe) PROBE-SE1 settings renders the Settings title
+reverted: 0 diff lines
+=== MUTANT f55b6ebc7e08c7bf 12:19:45 ===
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+existing-7files: 39 examples, 0 failures
+probe: 9 examples, 1 failure
+  1) page titles (verification probe) PROBE-SE1 settings renders the Settings title
+reverted: 0 diff lines
+=== MUTANT 7a2eb67c33630d46 12:20:04 ===
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+existing-7files: 39 examples, 0 failures
+probe: 9 examples, 1 failure
+  1) page titles (verification probe) PROBE-S2 search without what does not render the Search results title
+reverted: 0 diff lines
+=== MUTANT 721be5b96d2f1bf9 12:20:23 ===
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+existing-7files: 39 examples, 0 failures
+probe: 9 examples, 1 failure
+  1) page titles (verification probe) PROBE-S1 search with what renders the Search results title
+reverted: 0 diff lines
+=== MUTANT b3c29e6d9b83c93b 12:20:43 ===
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+existing-7files: 39 examples, 0 failures
+probe: 9 examples, 2 failures
+  1) page titles (verification probe) PROBE-S1 search with what renders the Search results title
+  2) page titles (verification probe) PROBE-S2 search without what does not render the Search results title
+reverted: 0 diff lines
+=== MUTANT d1902dce1d6c0bed 12:21:02 ===
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+existing-7files: 39 examples, 0 failures
+probe: 9 examples, 1 failure
+  1) page titles (verification probe) PROBE-S1 search with what renders the Search results title
+reverted: 0 diff lines
+=== FINAL restored 12:21:21 ===
+final: 48 examples, 0 failures
+PROOF-2197-DONE

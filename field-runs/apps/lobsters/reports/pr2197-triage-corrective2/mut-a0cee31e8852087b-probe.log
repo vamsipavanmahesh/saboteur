@@ -1,0 +1,20 @@
+W, [2026-10-24T12:15:44.099056 #24671]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+......F..
+
+Failures:
+
+  1) page titles (verification probe) PROBE-D2 domains/edit suppresses the title h1
+     Failure/Error: expect(response.body.scan(/<h1/).size).to eq 1 # layout h1 suppressed; view h1 only
+       Expected 2 to eq 1.
+     # ./spec/requests/titles_probe_spec.rb:47:in 'block (2 levels) in <top (required)>'
+
+Finished in 2.81 seconds (files took 4.23 seconds to load)
+9 examples, 1 failure
+
+Failed examples:
+
+rspec ./spec/requests/titles_probe_spec.rb:44 # page titles (verification probe) PROBE-D2 domains/edit suppresses the title h1
+
+Coverage report generated for RSpec to /home/sandbox/verify/tree-2197/coverage.
+Line Coverage: 19.51% (1389 / 7118)
+Stopped processing SimpleCov as a previous error not related to SimpleCov has been detected
