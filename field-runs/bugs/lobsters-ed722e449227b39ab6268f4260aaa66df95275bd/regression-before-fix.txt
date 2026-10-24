@@ -1,0 +1,22 @@
+W, [2026-10-24T08:14:00.593849 #17791]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+Run options: include {full_description: /\#is_gone\?/}
+....F
+
+Failures:
+
+  1) Story#is_gone? when the story is not deleted returns true when the story was removed by heavy flagging of banned user
+     Failure/Error: expect(result).to be true
+       Expected false to equal true.
+     # ./spec/models/story_spec.rb:516:in 'block (4 levels) in <top (required)>'
+
+Finished in 0.7281 seconds (files took 4.47 seconds to load)
+5 examples, 1 failure
+
+Failed examples:
+
+rspec ./spec/models/story_spec.rb:510 # Story#is_gone? when the story is not deleted returns true when the story was removed by heavy flagging of banned user
+
+Coverage report generated for RSpec to /home/sandbox/field-runs/pr-trees/pr2204-base/coverage.
+Line Coverage: 9.14% (693 / 7579)
+Stopped processing SimpleCov as a previous error not related to SimpleCov has been detected
+BEFORE_EXIT=1
