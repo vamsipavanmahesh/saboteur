@@ -1,0 +1,27 @@
+{
+  "kind": "map",
+  "status": "partly",
+  "command": "bundle exec saboteur run --all --verbose --jobs 1 --html /home/sandbox/field-runs/saboteur-field-runs/apps/lobsters/reports/map2/map.html --json /home/sandbox/field-runs/saboteur-field-runs/apps/lobsters/reports/map2/map.stryker.json",
+  "started_at": "2026-10-24T06:54:33.870067+05:30",
+  "ended_at": "2026-10-24T07:14:47.142527+05:30",
+  "wall_seconds": 502.41,
+  "exit_code": 130,
+  "peak_rss_kb": 501664,
+  "base_sha": "407536444934ac7d78f4ce1c18f228e3891a8663",
+  "head_sha": "407536444934ac7d78f4ce1c18f228e3891a8663",
+  "pr_url": null,
+  "saboteur_version": "0.12.3",
+  "saboteur_sha": "6f87ccc98377bf0c23f3cf409006f0464c2aa67c",
+  "evidence_paths": [
+    "logs/map2-20261024-0654.log",
+    "lobsters/.saboteur/coverage-b6e0e06cd380370b5ea5edebe76e559c2f870f2f68c82ce0e33738f8a9479ccc.json",
+    "lobsters/.saboteur/whole-suite-map-v2",
+    "lobsters/.saboteur/baseline-1.log",
+    "lobsters/.saboteur/baseline-2.log",
+    "lobsters/.saboteur/coverage-build.log"
+  ],
+  "truncation": "Whole-suite map BUILT and cached 07:12 (908 ex, 0 failures, 749 subjects/908 tests; build green). Whole-project mutation phase (11984 mutants) intentionally interrupted at 117/11984 by field decision 07:14 (main 07:14:40 approval): ETA grew 194m23s->251m52s vs 09:46 deadline; remaining window reserved for PR replays. Partial verdicts preserved raw in log as TRUNCATED - INVALID for aggregate; no score reported. exit_code 130 = SIGINT field stop, not a saboteur verdict.",
+  "exclusions": [
+    "EX-1 spec/features/user_administration_spec.rb via c.rspec_args --exclude-pattern (user-approved 06:52)"
+  ]
+}
