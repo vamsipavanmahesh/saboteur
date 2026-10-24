@@ -1,0 +1,10 @@
++ timeout 600 bundle exec rspec spec/models/zz_independent_verification_is_gone_boundary_spec.rb
+W, [2026-10-24T09:47:26.766742 #18664]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+..
+
+Finished in 0.86418 seconds (files took 4.51 seconds to load)
+2 examples, 0 failures
+
+Coverage report generated for RSpec to /home/sandbox/verify/tree-2204/coverage.
+Line Coverage: 9.14% (693 / 7579)
+exit=0

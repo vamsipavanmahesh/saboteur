@@ -1,0 +1,73 @@
++ timeout 3000 bundle exec saboteur run --config config/saboteur-inclusive.rb --since 9a773eac0b49fd86b16585ad503de9a51919c496 --all --jobs 1 --baseline-passes 1 --max-duration 3600 --seed 1 --verbose --json /home/sandbox/verify/out/2156/report-confirm-all-inclusive.json
+saboteur: warning: 5 uncommitted or untracked change(s) in the working tree: none inside the mutation scope, 4 outside it (3 tracked, 1 untracked), 1 saboteur setup file(s) (0 tracked, 1 untracked).
+  setup files: config/saboteur-inclusive.rb
+  Mutants run your code and could alter or delete files; run on a clean, committed tree or a CI checkout.
+saboteur: Operators: operator_assignment, condition_negation, range, body_nil, body_true, body_false, body_raise, comparison, arithmetic, boolean_logic, condition_true, condition_false, negation_removal, literal_number, or_assign, and_assign, safe_navigation, statement_removal, filter_replacement, copy_replacement, literal_string, literal_boolean, argument_swap, argument_removal, pair_removal, element_removal, endpoint_replacement, chain_removal, method_swap, operand_replacement, interpolation_removal, jump_value, rescue_removal, ensure_removal, when_removal, unary_removal, regex_replacement
+saboteur: loading the application
+saboteur: SimpleCov.start ignored for this run (saboteur needs Ruby's Coverage itself)
+W, [2026-10-24T09:16:58.680336 #17815]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+saboteur: running the loaded suite unscoped: 865 examples in 105 spec files; 2 full passes (1 baseline check + 1 coverage map build).
+saboteur: checking the unchanged suite once (seed 1); order stability between passes is not checked (baseline_passes: 1)
+saboteur: baseline check 1: 30 s elapsed, 425/865 examples (49 %), about 32 s left
+saboteur: baseline check 1 took 46 s; about 46 s left for the coverage map build at that rate
+saboteur: coverage cache miss: input files changed since the last map: 1 edited, 1 removed (Gemfile.lock, spec/controllers/zz_independent_verification_settings_no_rename_spec.rb); settings, Ruby or saboteur version changed; the map build runs the whole suite once; --test narrows the specs the build runs
+saboteur: building coverage map (runs the whole suite once)
+saboteur: building coverage map: 30 s elapsed, 25/865 examples (2 %), about 1015 s left
+saboteur: building coverage map: 60 s elapsed, 125/865 examples (14 %), about 358 s left
+saboteur: building coverage map: 91 s elapsed, 225/865 examples (26 %), about 258 s left
+saboteur: building coverage map: 121 s elapsed, 325/865 examples (37 %), about 201 s left
+saboteur: building coverage map: 151 s elapsed, 425/865 examples (49 %), about 157 s left
+saboteur: building coverage map: 181 s elapsed, 525/865 examples (60 %), about 118 s left
+saboteur: building coverage map: 212 s elapsed, 625/865 examples (72 %), about 82 s left
+saboteur: building coverage map: 242 s elapsed, 750/865 examples (86 %), about 38 s left
+saboteur: 1 subject, 865 tests in coverage map
+.:killed S:survived T:timeout E:error s:skipped L:resource limit
+saboteur: SettingsController#update  ...S...
+...S...  7/7 (100%)
+
+saboteur: survivors unconfirmed: no whole-suite coverage map; run `saboteur run --all` to build one
+Survivors (1) - changes your tests did not catch
+
+1. app/controllers/settings_controller.rb:51 SettingsController#update [branch · #1 of 1 block]
+  the covering specs pass without pinning this branch
+   44 def update
+   45     @edit_user = @user.clone
+   46 
+      ...
+   50       if @edit_user.update(user_params)
+-  51         if @edit_user.username_previously_changed?
++  51         if true   condition_true · 84a2b3ca16355339
+                 ^^^^
+   52           Username.rename!(
+      ...
+   67     render action: "index"
+   68   end
+  why it matters: no test observes this change
+  changed line: app/controllers/settings_controller.rb:51
+  covering list is this run's selection only; run `saboteur run --all`
+
+warning: running the loaded suite unscoped: 865 examples in 105 spec files; 2 full passes (1 baseline check + 1 coverage map build).
+warning: 3 other thread(s) alive at fork time; they do not run in children: DEBUGGER__::SESSION@server (the debug gem's remote-console server: what it does in children depends on RUBY_DEBUG_FORK_MODE - with parent no debugger runs in children; with child or both (the gem's default) the debugger activates in children and can pause or interfere with supervised mutation runs. For an unattended run, do not start the remote debugger at all: drop RUBY_DEBUG_OPEN or require "debug" without :open), /home/sandbox/verify/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/rack-mini-profiler-4.0.0/lib/mini_profiler/storage/file_store.rb:85:in 'Kernel#sleep', AR Pool Reaper (ActiveRecord's connection-pool reaper: expected harmless when children reconnect the database after fork (rails mode does) - it only maintains the parent's pool); a thread that does not run in a child cannot do background work a mutant's test may rely on (a pool reaper, a flusher), so results can differ when one is left behind
+warning: sandbox is on but this kernel's Landlock ABI is 2 but ABI 3 (Linux 6.2+) is needed to restrict truncate(); children run with the hazard guard and canary only
+saboteur 0.12.3: 1 subject, 7 mutants, wall 344.01 s, seed 1 (repeat with --seed 1)
+Score: 85.7% (6/7 killed, tested subjects) (assertion 57.1 %, crash 28.6 %) (killed+timeout)/(killed+survived+timeout); errors, resource limits and skips excluded
+score without whole-body mutants 80.0 % (assertion 60.0 %, crash 20.0 %) (5 mutants); whole-body mutants alone 100.0 % (2)
+mean time per executed mutant 1.649 s
+kills rejected by unchanged-method check: 0
+kills: 4 by a failed assertion, 2 by a crash (RuntimeError 1, ArgumentError 1)
+crash kills by operator: body_raise 1 of 1, pair_removal 1 of 1
+saboteur: 6 killed, 1 survived in 5m44s - score 85.7%
+✗ exit 1 - 1 survivor
+
+Next steps:
+  replay one survivor: saboteur run --id 84a2b3ca16355339 --config config/saboteur-inclusive.rb --since 9a773eac0b49fd86b16585ad503de9a51919c496 --test spec/controllers/settings_controller_spec.rb --test spec/requests/settings_spec.rb --jobs 1 --baseline-passes 1 --max-duration 3600.0 --seed 1
+  accept an equivalent one: add to your ignore file
+    (c.ignore_file, default config/saboteur_ignore.rb):
+    Saboteur.ignore do |i|
+      i.mutation "84a2b3ca16355339", subject: "SettingsController#update", reason: "why it is equivalent"
+    end
+  let an agent close the gaps: saboteur run --agent, with the same options
+speed footer: done in 344.0s - baseline 46.4s · map 273.8s · mutants 13.7s (jobs=1)
+
+Reports: /home/sandbox/verify/out/2156/report-confirm-all-inclusive.json (JSON), .saboteur/report.html (HTML)
+exit=1

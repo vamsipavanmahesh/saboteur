@@ -411,3 +411,17 @@ pointers are to files on this branch.
 - Reason: R's executed set includes search_spec examples unreachable from the 81-test scoped selection; the only source of that coverage is M's whole-suite map. Base parent verified independently via the GitHub API (merge ed722e44's sole parent = 8f1b5006).
 - Evidence: apps/lobsters/reports/pr2204-canary-c1/ (README-AUDIT.md); survivor/HIT scope separation and the two-scope UNRESOLVED-vs-confirmed distinction recorded there.
 - Reversibility: Publication only; raws immutable.
+
+## D41 - 09:49 - "--since X --all" runs all tests but writes no whole-marked pointer; 2156 partial qualified with survivor UNCONFIRMED; D37 semantics corrected
+
+- Decision: The verifier's inclusive runs (2204, 2156) executed all tests with no whole-suite-map-v2 pointer; survivors from such runs are UNCONFIRMED candidates by the tool's own declaration. 2156 (7 mutants: 6K 1S 0 rejected, 865 examples, no EX-1, base parent API-verified) is published as a qualified partial with survivor 84a2b3ca16355339 unconfirmed pending a pointer-bearing bridge or per-ID proof. D37's 2204 packet carries the semantic correction (numbers unchanged; no survivor semantics were exercised there). The 2204-c1 canary's mechanism proof (pointer present) is the only whole-confirmed survivor evidence so far.
+- Reason: Running all tests and having whole-marked pointer coverage are different tool states; only the pointer enables survivor confirmation (#1063) and whole-suite presentation (C1).
+- Evidence: apps/lobsters/reports/pr2156-confirm-all-inclusive/; pr2204-confirm-all-inclusive/README.md correction; tool-verification/2026-10-24-verifier-lock-receipt.txt (verifier lane 4-tree additions-only lock proof; path-source runtime caveat retained).
+- Reversibility: Publication only; raws immutable.
+
+## D42 - 09:49 - HE selection v3 + bug ledger v5 QUALIFIED (one unresolved mapping); v2 superseded and preserved
+
+- Decision: HE noise-15 (unchanged, boundary-clean) and bug-20 (common ANY-3: +5723/5709/5602/5604, -5685/5633/5681/5674 by rank push-out, 5693 invalidated -> 5689 backfill) are qualified. 5709 stays in the population as unresolved_mapping (API merge_sha names PR #5719's merge - stack conflation), not excluded, not backfilled past 20. Ledger v5: 12 B2-old / 7 pending-witness / 1 unresolved / 0 verified bugs / 0 denominators. Corrected script set approved (watch4 byte-identical to the reviewed reference; owned-PID observers; fail-closed pin/artifact gates; jobs=1; real exit codes; aware datetimes).
+- Reason: Merger-independent population arithmetic + live-API spot checks + ledger count verification all matched; the v1/v2 contaminations (diff-tree -m; mixed-offset string dates) are documented and preserved as superseded, not deleted.
+- Evidence: noise/human-essentials/attempt-3/ (README-AUDIT.md).
+- Reversibility: Publication only; raws immutable.
