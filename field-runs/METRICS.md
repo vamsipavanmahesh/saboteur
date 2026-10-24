@@ -1,3 +1,5 @@
+<!-- Revision 2026-10-24 11:21 IST (user directive): the noise unit changes from one surviving mutant to one GAP - a group of survivors sharing a statement or behavior. Per-gap is primary and feeds the noise rate and its interval; per-mutant is still reported as secondary. This header supersedes only the unit sentence under "Noise and triage"; every other term below stands. Records produced under the per-mutant unit remain valid: gap counts are derived by grouping the stored per-mutant triage records, and both units are published side by side. -->
+
 <!-- Provenance: methodology contract authored by the study lead and handed to the merger lane 2026-10-24 08:22 IST. Adopted verbatim; it supersedes and extends the 08:21 metric summary previously in this file (decision D3/D7 in DECISIONS.md). This is a method document, NOT results; no study rate is available until the stored records are verified. -->
 
 # Field-study metric contract
@@ -6,7 +8,8 @@ Decision snapshot: October24,2026,08:22IST. Counts are produced from stored reco
 
 ## Noise and triage
 
-Unit: one unique unignored surviving mutant per app/PR/report run designated as authoritative. Do not count repeats, parallel runs, or earlier superseded reports twice. Preserve all raw reports. Four resolved classes: real_gap, equivalent, false_survivor, environment_noise. Unresolved stays unresolved, not noise and not real_gap.
+Unit (SUPERSEDED 2026-10-24 11:21 IST, kept for provenance): one unique unignored surviving mutant per app/PR/report run designated as authoritative.
+Unit (CURRENT): one GAP - a group of unique unignored survivors sharing a statement or behavior - per app/PR/report run designated as authoritative. Noise numerator and denominator are counted in gaps: numerator = gaps whose members are all resolved as equivalent/false_survivor/environment_noise (mixed or unresolved membership keeps the gap unresolved); denominator = all resolved gaps. Per-mutant counts (the superseded unit) are reported alongside as secondary descriptive values, including the same empty-denominator rule (0/0 => null/N/A, never 0%). The PR-cluster bootstrap pools gap counts per PR row; the supplemental Wilson interval remains per-mutant descriptive only. Do not count repeats, parallel runs, or earlier superseded reports twice. Preserve all raw reports. Four resolved classes: real_gap, equivalent, false_survivor, environment_noise. Unresolved stays unresolved, not noise and not real_gap.
 
 Noise numerator = equivalent + false_survivor + environment_noise. Denominator = all independently resolved survivors. Always report total survivors, resolved and unresolved, triage coverage, four class counts, and the per-PR counts. Empty denominator => null/N/A, never0%.
 
