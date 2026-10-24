@@ -29,3 +29,24 @@ a candidate requirement; candidates without fixed Ruby lines
 resolve to UNMAPPABLE. 5743/5695 entered via linked-issue only -
 their retention as unmappable is consistent with that rule, not a
 contradiction.
+
+## Amendment 08:42 IST - bug-candidate classification tightened (study-lead ruling)
+
+- The bug-20 candidate rule is the user's literal three signals with
+  NO file-type filter (the app/lib-Ruby requirement belongs to the
+  NOISE selection only). 5743/5695 (linked-issue signal, .erb-only
+  diffs) are ELIGIBLE CANDIDATES, not filter errors.
+- "unmappable_no_fixed_lines" requires actual no-mapping proof over
+  ALL fixed lines, including .erb: the worker must blame the actual
+  fixed ERB lines. If an introducing commit maps, the candidate
+  goes to replay triage; a fix outside mutation scope is an
+  out_of_scope MISS (a user-listed MISS reason) with evidence, not
+  "unmappable". For 5681 the +6/-0 pure-addition diff (merger
+  live-verified) supports genuine no-old-coordinate-lines
+  unmappable. 5743/5695 reclassification is PENDING that blame
+  work.
+- Linked issues must be verified as actual bug reports (not feature
+  requests) before bug qualification; candidate population and the
+  verified-bug denominator stay separate. "2 eligible" is not
+  final: both chains await regression FAIL/PASS plus fixed-line
+  intersection evidence.

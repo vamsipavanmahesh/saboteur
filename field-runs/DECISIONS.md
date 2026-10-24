@@ -303,3 +303,22 @@ pointers are to files on this branch.
   whole-suite-map replay; the restore failure is a recorded
   finding. Kills are tool verdicts; cause classes pending
   independent proof (D12).
+
+## D28a - 08:42 - Bug-candidate classification corrected
+- Amendment to D28: candidates enter by the literal three signals
+  with no file-type filter (5743/5695 are eligible candidates);
+  "unmappable" requires actual no-mapping proof across ALL fixed
+  lines incl. .erb, else replay triage with out_of_scope MISS as
+  the expected evidence-backed outcome; linked issues must be
+  verified actual bug reports; candidate population and verified
+  denominator stay separate; "2 eligible" not final.
+
+## D29a - 08:42 - 2231 v2 kills PROVISIONAL; cache-miss rule
+- Amendment to D29: the 4 kills / 0 survivors are PROVISIONAL and
+  do not qualify the 2231 noise row (map created, not consumed).
+  Rule: any cache-miss row is rejected as a full-BASE-protocol row.
+  Miss mechanism diagnosed from pinned source (settings digest over
+  integration/require/rspec_args/rails/tests/coverage_recorder);
+  exact differing key not derivable from published raws - worker
+  reconciles settings and reruns; no selected-spec fallback.
+  identity-proof.txt mutants=0 extraction corrected (actual 4).

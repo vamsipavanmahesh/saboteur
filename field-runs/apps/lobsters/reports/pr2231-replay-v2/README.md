@@ -34,3 +34,31 @@ first-parent diff), 2078 below-cutoff divergence recorded.
 SELECTION-RULE-v3.md, noise-ledger-v3.csv, pr2231-base-map log and
 basemapwatch log in the received packet are byte-identical to
 already-published files and are referenced, not duplicated.
+
+## Amendment 08:42 IST - PROVISIONAL status + extraction correction + miss diagnosis
+
+- The 4 kills / 0 survivors are PROVISIONAL: they do not qualify the
+  expanded-noise 2231 row, because the restored whole-suite base map
+  (741 subjects / 882 tests) was created but NOT consumed. Any
+  future cache-miss row is rejected as a full-BASE-protocol row; no
+  selected-spec fallback counts.
+- Correction of a derived extraction: identity-proof.txt claims
+  "report.json: mutants=0 killed=" - wrong extraction; the actual
+  report.json files[].mutants has 4 mutants (all Killed, killedBy
+  specs 0/0/7/7). Original file preserved; this note is the
+  correction.
+- Cache-miss mechanism (merger's read of pinned source 6f87ccc9):
+  the cache key binds key_files (mutation-scope + integration
+  test_files + suite files + lockfiles) and a settings digest over
+  CACHE_INPUTS = integration, require, rspec_args, rails, tests,
+  coverage_recorder (coverage_store.rb:18,164-168); the miss note's
+  "settings, Ruby or saboteur version changed" class means the
+  stored snapshot's settings or runtime digest differed
+  (coverage_miss_note.rb:81-84), i.e. one of those six config
+  values (or the Ruby/gem identity) differed between the base-map
+  run and the replay. WHICH key differed is not derivable from the
+  published raws; the worker must produce the replay-side miss note
+  detail, reconcile settings (no flag drift between map build and
+  replay), and rerun. The 2204/2156 restores hitting while 2231
+  misses is consistent with a settings/config difference, not a
+  file-digest one.
