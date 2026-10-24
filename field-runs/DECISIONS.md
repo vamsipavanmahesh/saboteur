@@ -367,3 +367,11 @@ pointers are to files on this branch.
 - Evidence: verifier progress report 08:54 (425/861, ~47 examples/min); box load observation.
 - Impact: No publication or qualification waits on the stale 09:10-09:15 packet expectation; canary raws for 2231 remain the gating evidence for noise-row execution. The user has been told no noise row is qualified yet.
 - Reversibility: Forecast record only; further corrections append new entries.
+
+## D35 - 09:13 - Executed bytes verified as the pin; lock checksum deviation contained
+
+- Decision: The canary M/R pair proceeds with the as-run Gemfile.lock FROZEN (no mid-pair edits); the executed gem (7f5b8949) is proven byte-identical to pin 6f87ccc9 (tool-verification/2026-10-24-executed-gem-vs-pin.md: 238/238 files identical, 0 missing). The lock's stale registry checksum (234ee503) is a documented reproducibility caveat, fixed only after run R via bundler against the isolated local artifact source (no manual hash edit).
+- Reason: Lock content is a cache key input; mid-pair correction would invalidate the map provenance and waste the running map. Executed bytes, not lock text, are authoritative for what ran (user's 06:46 build-from-pin instruction).
+- Evidence: byte-level diff result above; worker's 09:12 tree-audit packet (vendored == installed artifact).
+- Impact: Canary provenance closed on the artifact question; the lock checksum fix is scheduled before the general 15-row stage, whose rows then record the corrected lock sha256. No app-repo Gemfile/Gemfile.lock changes leave the evidence branch (instrumentation diff is field-run-local, never a product PR).
+- Reversibility: Lock fix is a normal bundler regeneration; pre-fix rows keep their executed-byte proof.
