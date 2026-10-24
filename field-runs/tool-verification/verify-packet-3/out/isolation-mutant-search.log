@@ -1,0 +1,385 @@
+W, [2026-10-24T11:23:24.123523 #21763]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+An error occurred in an `after(:context)` hook.
+Failure/Error: @comments.each(&:destroy!)
+
+NoMethodError:
+  undefined method 'each' for nil
+# ./spec/models/search_spec.rb:60:in 'block (2 levels) in <top (required)>'
+
+
+Failures:
+
+  1) Search returns nothing when initialized empty
+     Failure/Error: 
+       create(:comment, comment: "comment0",
+         story_id: @multi_tag.id,
+         user_id: @bob.id),
+
+     ActiveRecord::RecordInvalid:
+       Validation failed: Story is no longer accepting comments.
+     # ./spec/models/search_spec.rb:41:in 'block (2 levels) in <top (required)>'
+
+  2) Search doesn't permit sql injection
+     Failure/Error: 
+       create(:comment, comment: "comment0",
+         story_id: @multi_tag.id,
+         user_id: @bob.id),
+
+     ActiveRecord::RecordInvalid:
+       Validation failed: Story is no longer accepting comments.
+     # ./spec/models/search_spec.rb:41:in 'block (2 levels) in <top (required)>'
+
+  3) Search doesn't error on odd real searches with punctuation
+     Failure/Error: 
+       create(:comment, comment: "comment0",
+         story_id: @multi_tag.id,
+         user_id: @bob.id),
+
+     ActiveRecord::RecordInvalid:
+       Validation failed: Story is no longer accepting comments.
+     # ./spec/models/search_spec.rb:41:in 'block (2 levels) in <top (required)>'
+
+  4) Search can search titles for stories
+     Failure/Error: 
+       create(:comment, comment: "comment0",
+         story_id: @multi_tag.id,
+         user_id: @bob.id),
+
+     ActiveRecord::RecordInvalid:
+       Validation failed: Story is no longer accepting comments.
+     # ./spec/models/search_spec.rb:41:in 'block (2 levels) in <top (required)>'
+
+  5) Search can search for multitagged stories
+     Failure/Error: 
+       create(:comment, comment: "comment0",
+         story_id: @multi_tag.id,
+         user_id: @bob.id),
+
+     ActiveRecord::RecordInvalid:
+       Validation failed: Story is no longer accepting comments.
+     # ./spec/models/search_spec.rb:41:in 'block (2 levels) in <top (required)>'
+
+  6) Search can search for stories by domain
+     Failure/Error: 
+       create(:comment, comment: "comment0",
+         story_id: @multi_tag.id,
+         user_id: @bob.id),
+
+     ActiveRecord::RecordInvalid:
+       Validation failed: Story is no longer accepting comments.
+     # ./spec/models/search_spec.rb:41:in 'block (2 levels) in <top (required)>'
+
+  7) Search can search for stories by submitter
+     Failure/Error: 
+       create(:comment, comment: "comment0",
+         story_id: @multi_tag.id,
+         user_id: @bob.id),
+
+     ActiveRecord::RecordInvalid:
+       Validation failed: Story is no longer accepting comments.
+     # ./spec/models/search_spec.rb:41:in 'block (2 levels) in <top (required)>'
+
+  8) Search can search for stories by tag
+     Failure/Error: 
+       create(:comment, comment: "comment0",
+         story_id: @multi_tag.id,
+         user_id: @bob.id),
+
+     ActiveRecord::RecordInvalid:
+       Validation failed: Story is no longer accepting comments.
+     # ./spec/models/search_spec.rb:41:in 'block (2 levels) in <top (required)>'
+
+  9) Search should return only stories with both tags if multiple tags are present
+     Failure/Error: 
+       create(:comment, comment: "comment0",
+         story_id: @multi_tag.id,
+         user_id: @bob.id),
+
+     ActiveRecord::RecordInvalid:
+       Validation failed: Story is no longer accepting comments.
+     # ./spec/models/search_spec.rb:41:in 'block (2 levels) in <top (required)>'
+
+  10) Search can search for stories with only tags
+      Failure/Error: 
+        create(:comment, comment: "comment0",
+          story_id: @multi_tag.id,
+          user_id: @bob.id),
+
+      ActiveRecord::RecordInvalid:
+        Validation failed: Story is no longer accepting comments.
+      # ./spec/models/search_spec.rb:41:in 'block (2 levels) in <top (required)>'
+
+  11) Search can search for stories by title
+      Failure/Error: 
+        create(:comment, comment: "comment0",
+          story_id: @multi_tag.id,
+          user_id: @bob.id),
+
+      ActiveRecord::RecordInvalid:
+        Validation failed: Story is no longer accepting comments.
+      # ./spec/models/search_spec.rb:41:in 'block (2 levels) in <top (required)>'
+
+  12) Search does not issue a title search for short words
+      Failure/Error: 
+        create(:comment, comment: "comment0",
+          story_id: @multi_tag.id,
+          user_id: @bob.id),
+
+      ActiveRecord::RecordInvalid:
+        Validation failed: Story is no longer accepting comments.
+      # ./spec/models/search_spec.rb:41:in 'block (2 levels) in <top (required)>'
+
+  13) Search can search for stories by title with multiple words
+      Failure/Error: 
+        create(:comment, comment: "comment0",
+          story_id: @multi_tag.id,
+          user_id: @bob.id),
+
+      ActiveRecord::RecordInvalid:
+        Validation failed: Story is no longer accepting comments.
+      # ./spec/models/search_spec.rb:41:in 'block (2 levels) in <top (required)>'
+
+  14) Search can search for stories by url
+      Failure/Error: 
+        create(:comment, comment: "comment0",
+          story_id: @multi_tag.id,
+          user_id: @bob.id),
+
+      ActiveRecord::RecordInvalid:
+        Validation failed: Story is no longer accepting comments.
+      # ./spec/models/search_spec.rb:41:in 'block (2 levels) in <top (required)>'
+
+  15) Search can search for stories ordering by relevance
+      Failure/Error: 
+        create(:comment, comment: "comment0",
+          story_id: @multi_tag.id,
+          user_id: @bob.id),
+
+      ActiveRecord::RecordInvalid:
+        Validation failed: Story is no longer accepting comments.
+      # ./spec/models/search_spec.rb:41:in 'block (2 levels) in <top (required)>'
+
+  16) Search can search for comments
+      Failure/Error: 
+        create(:comment, comment: "comment0",
+          story_id: @multi_tag.id,
+          user_id: @bob.id),
+
+      ActiveRecord::RecordInvalid:
+        Validation failed: Story is no longer accepting comments.
+      # ./spec/models/search_spec.rb:41:in 'block (2 levels) in <top (required)>'
+
+  17) Search can search for comments with a quoted term
+      Failure/Error: 
+        create(:comment, comment: "comment0",
+          story_id: @multi_tag.id,
+          user_id: @bob.id),
+
+      ActiveRecord::RecordInvalid:
+        Validation failed: Story is no longer accepting comments.
+      # ./spec/models/search_spec.rb:41:in 'block (2 levels) in <top (required)>'
+
+  18) Search can search multi-word terms
+      Failure/Error: 
+        create(:comment, comment: "comment0",
+          story_id: @multi_tag.id,
+          user_id: @bob.id),
+
+      ActiveRecord::RecordInvalid:
+        Validation failed: Story is no longer accepting comments.
+      # ./spec/models/search_spec.rb:41:in 'block (2 levels) in <top (required)>'
+
+  19) Search can search multi-word requiring all terms in order, not an OR search
+      Failure/Error: 
+        create(:comment, comment: "comment0",
+          story_id: @multi_tag.id,
+          user_id: @bob.id),
+
+      ActiveRecord::RecordInvalid:
+        Validation failed: Story is no longer accepting comments.
+      # ./spec/models/search_spec.rb:41:in 'block (2 levels) in <top (required)>'
+
+  20) Search prevents SQL injection in multi-word quoted searches
+      Failure/Error: 
+        create(:comment, comment: "comment0",
+          story_id: @multi_tag.id,
+          user_id: @bob.id),
+
+      ActiveRecord::RecordInvalid:
+        Validation failed: Story is no longer accepting comments.
+      # ./spec/models/search_spec.rb:41:in 'block (2 levels) in <top (required)>'
+
+  21) Search can search for comments by tag
+      Failure/Error: 
+        create(:comment, comment: "comment0",
+          story_id: @multi_tag.id,
+          user_id: @bob.id),
+
+      ActiveRecord::RecordInvalid:
+        Validation failed: Story is no longer accepting comments.
+      # ./spec/models/search_spec.rb:41:in 'block (2 levels) in <top (required)>'
+
+  22) Search can search for comments with only tags
+      Failure/Error: 
+        create(:comment, comment: "comment0",
+          story_id: @multi_tag.id,
+          user_id: @bob.id),
+
+      ActiveRecord::RecordInvalid:
+        Validation failed: Story is no longer accepting comments.
+      # ./spec/models/search_spec.rb:41:in 'block (2 levels) in <top (required)>'
+
+  23) Search should only return comments matching all tags if multiple are present
+      Failure/Error: 
+        create(:comment, comment: "comment0",
+          story_id: @multi_tag.id,
+          user_id: @bob.id),
+
+      ActiveRecord::RecordInvalid:
+        Validation failed: Story is no longer accepting comments.
+      # ./spec/models/search_spec.rb:41:in 'block (2 levels) in <top (required)>'
+
+  24) Search should only return comments with stories in domain if domain present
+      Failure/Error: 
+        create(:comment, comment: "comment0",
+          story_id: @multi_tag.id,
+          user_id: @bob.id),
+
+      ActiveRecord::RecordInvalid:
+        Validation failed: Story is no longer accepting comments.
+      # ./spec/models/search_spec.rb:41:in 'block (2 levels) in <top (required)>'
+
+  25) Search can search for comments by url
+      Failure/Error: 
+        create(:comment, comment: "comment0",
+          story_id: @multi_tag.id,
+          user_id: @bob.id),
+
+      ActiveRecord::RecordInvalid:
+        Validation failed: Story is no longer accepting comments.
+      # ./spec/models/search_spec.rb:41:in 'block (2 levels) in <top (required)>'
+
+  26) Search can search for comments by story title
+      Failure/Error: 
+        create(:comment, comment: "comment0",
+          story_id: @multi_tag.id,
+          user_id: @bob.id),
+
+      ActiveRecord::RecordInvalid:
+        Validation failed: Story is no longer accepting comments.
+      # ./spec/models/search_spec.rb:41:in 'block (2 levels) in <top (required)>'
+
+  27) Search can search for comments by story submitter
+      Failure/Error: 
+        create(:comment, comment: "comment0",
+          story_id: @multi_tag.id,
+          user_id: @bob.id),
+
+      ActiveRecord::RecordInvalid:
+        Validation failed: Story is no longer accepting comments.
+      # ./spec/models/search_spec.rb:41:in 'block (2 levels) in <top (required)>'
+
+  28) Search can search for comments by commenter
+      Failure/Error: 
+        create(:comment, comment: "comment0",
+          story_id: @multi_tag.id,
+          user_id: @bob.id),
+
+      ActiveRecord::RecordInvalid:
+        Validation failed: Story is no longer accepting comments.
+      # ./spec/models/search_spec.rb:41:in 'block (2 levels) in <top (required)>'
+
+  29) Search can search for comments ordering by relevance
+      Failure/Error: 
+        create(:comment, comment: "comment0",
+          story_id: @multi_tag.id,
+          user_id: @bob.id),
+
+      ActiveRecord::RecordInvalid:
+        Validation failed: Story is no longer accepting comments.
+      # ./spec/models/search_spec.rb:41:in 'block (2 levels) in <top (required)>'
+
+  30) Search#flatten_title flattens multiword searches to single sql term
+      Failure/Error: 
+        create(:comment, comment: "comment0",
+          story_id: @multi_tag.id,
+          user_id: @bob.id),
+
+      ActiveRecord::RecordInvalid:
+        Validation failed: Story is no longer accepting comments.
+      # ./spec/models/search_spec.rb:41:in 'block (2 levels) in <top (required)>'
+
+  31) Search#flatten_title doesn't permit sql injection
+      Failure/Error: 
+        create(:comment, comment: "comment0",
+          story_id: @multi_tag.id,
+          user_id: @bob.id),
+
+      ActiveRecord::RecordInvalid:
+        Validation failed: Story is no longer accepting comments.
+      # ./spec/models/search_spec.rb:41:in 'block (2 levels) in <top (required)>'
+
+  32) Search#strip_operators doesn't permit sql injection
+      Failure/Error: 
+        create(:comment, comment: "comment0",
+          story_id: @multi_tag.id,
+          user_id: @bob.id),
+
+      ActiveRecord::RecordInvalid:
+        Validation failed: Story is no longer accepting comments.
+      # ./spec/models/search_spec.rb:41:in 'block (2 levels) in <top (required)>'
+
+  33) Search#strip_short_terms removes short words that mariadb would ignore
+      Failure/Error: 
+        create(:comment, comment: "comment0",
+          story_id: @multi_tag.id,
+          user_id: @bob.id),
+
+      ActiveRecord::RecordInvalid:
+        Validation failed: Story is no longer accepting comments.
+      # ./spec/models/search_spec.rb:41:in 'block (2 levels) in <top (required)>'
+
+Finished in 2.2 seconds (files took 4.51 seconds to load)
+33 examples, 33 failures, 1 error occurred outside of examples
+
+Failed examples:
+
+rspec ./spec/models/search_spec.rb:67 # Search returns nothing when initialized empty
+rspec ./spec/models/search_spec.rb:78 # Search doesn't permit sql injection
+rspec ./spec/models/search_spec.rb:127 # Search doesn't error on odd real searches with punctuation
+rspec ./spec/models/search_spec.rb:141 # Search can search titles for stories
+rspec ./spec/models/search_spec.rb:148 # Search can search for multitagged stories
+rspec ./spec/models/search_spec.rb:155 # Search can search for stories by domain
+rspec ./spec/models/search_spec.rb:170 # Search can search for stories by submitter
+rspec ./spec/models/search_spec.rb:177 # Search can search for stories by tag
+rspec ./spec/models/search_spec.rb:189 # Search should return only stories with both tags if multiple tags are present
+rspec ./spec/models/search_spec.rb:195 # Search can search for stories with only tags
+rspec ./spec/models/search_spec.rb:201 # Search can search for stories by title
+rspec ./spec/models/search_spec.rb:208 # Search does not issue a title search for short words
+rspec ./spec/models/search_spec.rb:215 # Search can search for stories by title with multiple words
+rspec ./spec/models/search_spec.rb:222 # Search can search for stories by url
+rspec ./spec/models/search_spec.rb:229 # Search can search for stories ordering by relevance
+rspec ./spec/models/search_spec.rb:236 # Search can search for comments
+rspec ./spec/models/search_spec.rb:242 # Search can search for comments with a quoted term
+rspec ./spec/models/search_spec.rb:247 # Search can search multi-word terms
+rspec ./spec/models/search_spec.rb:252 # Search can search multi-word requiring all terms in order, not an OR search
+rspec ./spec/models/search_spec.rb:257 # Search prevents SQL injection in multi-word quoted searches
+rspec ./spec/models/search_spec.rb:268 # Search can search for comments by tag
+rspec ./spec/models/search_spec.rb:275 # Search can search for comments with only tags
+rspec ./spec/models/search_spec.rb:282 # Search should only return comments matching all tags if multiple are present
+rspec ./spec/models/search_spec.rb:288 # Search should only return comments with stories in domain if domain present
+rspec ./spec/models/search_spec.rb:303 # Search can search for comments by url
+rspec ./spec/models/search_spec.rb:309 # Search can search for comments by story title
+rspec ./spec/models/search_spec.rb:315 # Search can search for comments by story submitter
+rspec ./spec/models/search_spec.rb:321 # Search can search for comments by commenter
+rspec ./spec/models/search_spec.rb:327 # Search can search for comments ordering by relevance
+rspec ./spec/models/search_spec.rb:334 # Search#flatten_title flattens multiword searches to single sql term
+rspec ./spec/models/search_spec.rb:339 # Search#flatten_title doesn't permit sql injection
+rspec ./spec/models/search_spec.rb:348 # Search#strip_operators doesn't permit sql injection
+rspec ./spec/models/search_spec.rb:358 # Search#strip_short_terms removes short words that mariadb would ignore
+
+Coverage report generated for RSpec to /home/sandbox/verify/tree-2204/coverage.
+Line Coverage: 13.47% (997 / 7400)
+Stopped processing SimpleCov as a previous error not related to SimpleCov has been detected
+exit=1
