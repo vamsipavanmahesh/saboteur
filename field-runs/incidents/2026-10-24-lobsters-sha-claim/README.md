@@ -72,3 +72,23 @@ Procedural rule now in force (study-wide): opaque identifiers
 typed from memory; an exact 40-char check against source runs
 before any execution that binds a tree. The invalid commands and
 outputs remain preserved above for audit.
+
+## 2231 base-run outcome correction + crash cause context (08:39 IST)
+
+Overall outcome of the pr2231-base run is EXIT 70 (internal crash),
+NOT a pass and NOT a clean MAP_BOUNDARY_STOP. The baselines (882
+examples, 2 checks) and coverage map (741 subjects) completed and
+the map cache was written (BOUNDARY_STOP_MAP_CACHED 08:27:54); the
+cache may remain usable, but the run record is the exit-70 crash.
+
+Cause context from a read of the pinned source (0.12.3, 6f87ccc9):
+@progress_file is a Tempfile (diagnostics.rb:294) read back by path
+in painted_file_glyphs (line 389), called from finish_progress
+(lines 322-330), which runs from an ensure in Engine#run_candidates
+(engine.rb:325-326). No explicit signal trap exists in these paths;
+on an interrupt, tempfile unlink during unwinding can precede the
+ensure-path read. Timing (boundary stop 08:27:54, crash ~5 s later)
+is consistent with that interrupt-cleanup race; external tmpfile
+removal cannot be excluded from the log alone. Filed as issue #1347
+(https://github.com/vamsipavanmahesh/saboteur/issues/1347);
+checked against #1346 (summarizer UTF-8 crash) - not a duplicate.

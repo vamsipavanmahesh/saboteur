@@ -271,3 +271,15 @@ pointers are to files on this branch.
   40-char check before execution binds a tree. Alarm window on
   record: ~5 min (08:34-08:38); "25 min loss" claim ungrounded;
   no user alarm sent.
+
+## D27 - 08:39 - Exit-70 diagnostics crash filed as issue #1347
+- Decision: the pr2231-base crash is a product bug (diagnostics
+  progress-tempfile ENOENT on the ensure path during an
+  interrupted run); filed as issue #1347 with the raw log and the
+  pinned-source line references. Not a duplicate of #1346. Run
+  outcome recorded as EXIT 70, not pass/boundary-stop; map cache
+  may remain usable.
+- Note (process): the verifier's corrected-packet forecast moved
+  from ~08:45 to 09:10-09:15 (08:29 finding: user_administration
+  spec GREEN at 2204/2156 heads inclusively, requiring no-EX1 maps
+  for both); stale checkpoints are not reported.
