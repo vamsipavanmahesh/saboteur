@@ -1,0 +1,123 @@
+Run options: include {focus: true}
+
+All examples were filtered out; ignoring {focus: true}
+
+Randomized with seed 49450
+...FF.F...............................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................FFFFF..........................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................
+
+Failures:
+
+  1) Spree::Image attachment details computes attachment height
+     Failure/Error: expect(subject.attachment_height).to eq(1)
+
+       expected: 1
+            got: nil
+
+       (compared using ==)
+     # ./spec/models/spree/image_spec.rb:71:in 'block (3 levels) in <top (required)>'
+
+  2) Spree::Image attachment details returns attachment url
+     Failure/Error:
+       @attachment.variant({
+         saver: {
+           strip: true
+         }
+       }.merge(transformation)).processed
+
+     NoMethodError:
+       undefined method 'new' for nil
+     # ./app/models/concerns/spree/active_storage_adapter/attachment.rb:38:in 'Spree::ActiveStorageAdapter::Attachment#variant'
+     # ./app/models/concerns/spree/active_storage_adapter/attachment.rb:28:in 'Spree::ActiveStorageAdapter::Attachment#url'
+     # ./app/models/concerns/spree/active_storage_adapter.rb:92:in 'Spree::ActiveStorageAdapter#url'
+     # ./spec/models/spree/image_spec.rb:63:in 'block (3 levels) in <top (required)>'
+
+  3) Spree::Image attachment details computes attachment width
+     Failure/Error: expect(subject.attachment_width).to eq(1)
+
+       expected: 1
+            got: nil
+
+       (compared using ==)
+     # ./spec/models/spree/image_spec.rb:67:in 'block (3 levels) in <top (required)>'
+
+  4) Spree::ActiveStorageAdapter::Attachment#variant strips definitions
+     Failure/Error:
+       @attachment.variant({
+         saver: {
+           strip: true
+         }
+       }.merge(transformation)).processed
+
+     NoMethodError:
+       undefined method 'new' for nil
+     # ./app/models/concerns/spree/active_storage_adapter/attachment.rb:38:in 'Spree::ActiveStorageAdapter::Attachment#variant'
+     # ./spec/models/spree/concerns/active_storage_adapter/attachment_spec.rb:44:in 'block (3 levels) in <top (required)>'
+
+  5) Spree::ActiveStorageAdapter::Attachment#variant converts to resize_to_limit when definition ends with >
+     Failure/Error:
+       @attachment.variant({
+         saver: {
+           strip: true
+         }
+       }.merge(transformation)).processed
+
+     NoMethodError:
+       undefined method 'new' for nil
+     # ./app/models/concerns/spree/active_storage_adapter/attachment.rb:38:in 'Spree::ActiveStorageAdapter::Attachment#variant'
+     # ./spec/models/spree/concerns/active_storage_adapter/attachment_spec.rb:24:in 'block (3 levels) in <top (required)>'
+
+  6) Spree::ActiveStorageAdapter::Attachment#variant defaults to the image's width and height
+     Failure/Error:
+       @attachment.variant({
+         saver: {
+           strip: true
+         }
+       }.merge(transformation)).processed
+
+     NoMethodError:
+       undefined method 'new' for nil
+     # ./app/models/concerns/spree/active_storage_adapter/attachment.rb:38:in 'Spree::ActiveStorageAdapter::Attachment#variant'
+     # ./spec/models/spree/concerns/active_storage_adapter/attachment_spec.rb:54:in 'block (3 levels) in <top (required)>'
+
+  7) Spree::ActiveStorageAdapter::Attachment#variant converts to resize_to_limit when definition doesn't contain any special symbol
+     Failure/Error:
+       @attachment.variant({
+         saver: {
+           strip: true
+         }
+       }.merge(transformation)).processed
+
+     NoMethodError:
+       undefined method 'new' for nil
+     # ./app/models/concerns/spree/active_storage_adapter/attachment.rb:38:in 'Spree::ActiveStorageAdapter::Attachment#variant'
+     # ./spec/models/spree/concerns/active_storage_adapter/attachment_spec.rb:14:in 'block (3 levels) in <top (required)>'
+
+  8) Spree::ActiveStorageAdapter::Attachment#variant converts to resize_to_fill when definition ends with ^
+     Failure/Error:
+       @attachment.variant({
+         saver: {
+           strip: true
+         }
+       }.merge(transformation)).processed
+
+     NoMethodError:
+       undefined method 'new' for nil
+     # ./app/models/concerns/spree/active_storage_adapter/attachment.rb:38:in 'Spree::ActiveStorageAdapter::Attachment#variant'
+     # ./spec/models/spree/concerns/active_storage_adapter/attachment_spec.rb:34:in 'block (3 levels) in <top (required)>'
+
+Finished in 25 minutes 37 seconds (files took 4.07 seconds to load)
+4485 examples, 8 failures
+
+Failed examples:
+
+rspec ./spec/models/spree/image_spec.rb:70 # Spree::Image attachment details computes attachment height
+rspec ./spec/models/spree/image_spec.rb:60 # Spree::Image attachment details returns attachment url
+rspec ./spec/models/spree/image_spec.rb:66 # Spree::Image attachment details computes attachment width
+rspec ./spec/models/spree/concerns/active_storage_adapter/attachment_spec.rb:38 # Spree::ActiveStorageAdapter::Attachment#variant strips definitions
+rspec ./spec/models/spree/concerns/active_storage_adapter/attachment_spec.rb:18 # Spree::ActiveStorageAdapter::Attachment#variant converts to resize_to_limit when definition ends with >
+rspec ./spec/models/spree/concerns/active_storage_adapter/attachment_spec.rb:48 # Spree::ActiveStorageAdapter::Attachment#variant defaults to the image's width and height
+rspec ./spec/models/spree/concerns/active_storage_adapter/attachment_spec.rb:8 # Spree::ActiveStorageAdapter::Attachment#variant converts to resize_to_limit when definition doesn't contain any special symbol
+rspec ./spec/models/spree/concerns/active_storage_adapter/attachment_spec.rb:28 # Spree::ActiveStorageAdapter::Attachment#variant converts to resize_to_fill when definition ends with ^
+
+Randomized with seed 49450
+

@@ -1,0 +1,336 @@
+=== pr2204 START 2026-10-23T22:27:15+05:30 ===
+Preparing worktree (detached HEAD ed722e44)
+HEAD is now at ed722e44 fix story #is_gone? condition
+Fetching gem metadata from https://rubygems.org/........
+Fetching brakeman 8.0.5
+Installing brakeman 8.0.5
+Bundle complete! 58 Gemfile dependencies, 180 gems now installed.
+Use `bundle info [gemname]` to see where a bundled gem is installed.
+4 installed gems you directly depend on are looking for funding.
+  Run `bundle fund` for details
+== Installing dependencies ==
+The Gemfile's dependencies are satisfied
+
+== Removing any old logs and tempfiles ==
+
+== Copying sample files ==
+
+== Removing old logs and tempfiles ==
+
+== Preparing database ==
+W, [2026-10-23T22:27:27.776045 #9205]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+Created database 'db/development/primary.sqlite3'
+Created database 'db/development/cache.sqlite3'
+Created database 'db/development/queue.sqlite3'
+Created database 'db/development/rack_attack.sqlite3'
+Created database 'db/test/primary.sqlite3'
+Created database 'db/test/cache.sqlite3'
+Created database 'db/test/queue.sqlite3'
+Created database 'db/test/rack_attack.sqlite3'
+
+== Restarting application server if running ==
+
+== You probably want to run 'rails fake_data' to have realistic data in dev
+W, [2026-10-23T22:27:37.396411 #9228]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+.................................................................................
+
+Finished in 4.97 seconds (files took 3.71 seconds to load)
+81 examples, 0 failures
+
+Coverage report generated for RSpec to /home/sandbox/field-runs/pr-trees/pr2204/coverage.
+Line Coverage: 17.18% (1312 / 7639)
+{"command": "bundle exec rspec spec/models/story_spec.rb --format progress --format json --out /home/sandbox/field-runs/saboteur-field-runs/apps/lobsters/logs/pr2204-head-specs.json", "started_at": "2026-10-23T22:27:34+0530", "ended_at": "2026-10-23T22:27:43+0530", "wall_seconds": 9.146, "exit_code": 0, "peak_rss_kb": 344936}
+=== pr2204 RSPEC_EXIT=0 DONE 2026-10-23T22:27:43+05:30 ===
+=== pr2156 START 2026-10-23T22:27:43+05:30 ===
+Preparing worktree (detached HEAD d9998c25)
+HEAD is now at d9998c25 fix username moderation log
+Bundle complete! 58 Gemfile dependencies, 180 gems now installed.
+Use `bundle info [gemname]` to see where a bundled gem is installed.
+4 installed gems you directly depend on are looking for funding.
+  Run `bundle fund` for details
+== Installing dependencies ==
+The Gemfile's dependencies are satisfied
+
+== Removing any old logs and tempfiles ==
+
+== Copying sample files ==
+
+== Removing old logs and tempfiles ==
+
+== Preparing database ==
+W, [2026-10-23T22:27:54.044264 #9271]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+Created database 'db/development/primary.sqlite3'
+Created database 'db/development/cache.sqlite3'
+Created database 'db/development/queue.sqlite3'
+Created database 'db/development/rack_attack.sqlite3'
+Created database 'db/test/primary.sqlite3'
+Created database 'db/test/cache.sqlite3'
+Created database 'db/test/queue.sqlite3'
+Created database 'db/test/rack_attack.sqlite3'
+
+== Restarting application server if running ==
+
+== You probably want to run 'rails fake_data' to have realistic data in dev
+W, [2026-10-23T22:28:04.468048 #9295]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+.
+
+Finished in 1.55 seconds (files took 3.78 seconds to load)
+1 example, 0 failures
+
+Coverage report generated for RSpec to /home/sandbox/field-runs/pr-trees/pr2156/coverage.
+Line Coverage: 10.56% (779 / 7378)
+{"command": "bundle exec rspec spec/controllers/settings_controller_spec.rb --format progress --format json --out /home/sandbox/field-runs/saboteur-field-runs/apps/lobsters/logs/pr2156-head-specs.json", "started_at": "2026-10-23T22:28:01+0530", "ended_at": "2026-10-23T22:28:07+0530", "wall_seconds": 5.81, "exit_code": 0, "peak_rss_kb": 290924}
+=== pr2156 RSPEC_EXIT=0 DONE 2026-10-23T22:28:07+05:30 ===
+=== pr2090 START 2026-10-23T22:28:07+05:30 ===
+Preparing worktree (detached HEAD 87e1e318)
+HEAD is now at 87e1e318 Adding redirects for /top rss endpoints to .rss versions (#2090)
+Fetching gem metadata from https://rubygems.org/........
+Fetching concurrent-ruby 1.3.7
+Fetching crass 1.0.6
+Installing crass 1.0.6
+Fetching marcel 1.1.0
+Installing marcel 1.1.0
+Fetching ffi 1.17.2
+Installing concurrent-ruby 1.3.7
+Fetching hashie 5.0.0
+Installing hashie 5.0.0
+Fetching json 2.9.1
+Installing json 2.9.1 with native extensions
+Installing ffi 1.17.2 with native extensions
+Fetching version_gem 1.1.9
+Installing version_gem 1.1.9
+Fetching minitest 6.0.3
+Installing minitest 6.0.3
+Fetching websocket-driver 0.8.0
+Installing websocket-driver 0.8.0 with native extensions
+Fetching net-protocol 0.2.2
+Installing net-protocol 0.2.2
+Fetching i18n 1.14.8
+Installing i18n 1.14.8
+Fetching sqlite3 2.7.4
+Installing sqlite3 2.7.4 with native extensions
+Fetching oauth-tty 1.0.6
+Installing oauth-tty 1.0.6
+Fetching snaky_hash 2.0.3
+Installing snaky_hash 2.0.3
+Fetching loofah 2.25.1
+Installing loofah 2.25.1
+Fetching net-imap 0.6.4.1
+Installing net-imap 0.6.4.1
+Fetching activesupport 8.0.5
+Installing activesupport 8.0.5
+Fetching ruby-vips 2.2.5
+Installing ruby-vips 2.2.5
+Fetching oauth 1.1.2
+Installing oauth 1.1.2
+Fetching rails-html-sanitizer 1.7.0
+Installing rails-html-sanitizer 1.7.0
+Fetching mail 2.9.0
+Installing mail 2.9.0
+Fetching globalid 1.3.0
+Installing globalid 1.3.0
+Fetching activemodel 8.0.5
+Installing activemodel 8.0.5
+Fetching actionview 8.0.5
+Installing actionview 8.0.5
+Fetching activejob 8.0.5
+Installing activejob 8.0.5
+Fetching activerecord 8.0.5
+Installing activerecord 8.0.5
+Fetching actionpack 8.0.5
+Installing actionpack 8.0.5
+Fetching actioncable 8.0.5
+Installing actioncable 8.0.5
+Fetching activestorage 8.0.5
+Installing activestorage 8.0.5
+Fetching actionmailer 8.0.5
+Installing actionmailer 8.0.5
+Fetching railties 8.0.5
+Installing railties 8.0.5
+Fetching actionmailbox 8.0.5
+Installing actionmailbox 8.0.5
+Fetching actiontext 8.0.5
+Installing actiontext 8.0.5
+Fetching rails 8.0.5
+Installing rails 8.0.5
+Bundle complete! 58 Gemfile dependencies, 178 gems now installed.
+Use `bundle info [gemname]` to see where a bundled gem is installed.
+4 installed gems you directly depend on are looking for funding.
+  Run `bundle fund` for details
+== Installing dependencies ==
+The Gemfile's dependencies are satisfied
+
+== Removing any old logs and tempfiles ==
+
+== Copying sample files ==
+
+== Removing old logs and tempfiles ==
+
+== Preparing database ==
+W, [2026-10-23T22:29:21.956254 #13307]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+Created database 'db/development/primary.sqlite3'
+Created database 'db/development/cache.sqlite3'
+Created database 'db/development/queue.sqlite3'
+Created database 'db/development/rack_attack.sqlite3'
+Created database 'db/test/primary.sqlite3'
+Created database 'db/test/cache.sqlite3'
+Created database 'db/test/queue.sqlite3'
+Created database 'db/test/rack_attack.sqlite3'
+
+== Restarting application server if running ==
+
+== You probably want to run 'rails fake_data' to have realistic data in dev
+W, [2026-10-23T22:29:31.764953 #13330]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+...................................
+
+Finished in 4.59 seconds (files took 3.48 seconds to load)
+35 examples, 0 failures
+
+Coverage report generated for RSpec to /home/sandbox/field-runs/pr-trees/pr2090/coverage.
+Line Coverage: 17.34% (1242 / 7161)
+{"command": "bundle exec rspec spec/controllers/home_controller_spec.rb spec/routing/home_spec.rb --format progress --format json --out /home/sandbox/field-runs/saboteur-field-runs/apps/lobsters/logs/pr2090-head-specs.json", "started_at": "2026-10-23T22:29:28+0530", "ended_at": "2026-10-23T22:29:37+0530", "wall_seconds": 8.541, "exit_code": 0, "peak_rss_kb": 318272}
+=== pr2090 RSPEC_EXIT=0 DONE 2026-10-23T22:29:37+05:30 ===
+=== pr2053 START 2026-10-23T22:29:37+05:30 ===
+Preparing worktree (detached HEAD 3f81b9f3)
+HEAD is now at 3f81b9f3 Fix title shortword search handling
+Fetching gem metadata from https://rubygems.org/........
+Fetching byebug 12.0.0
+Fetching coderay 1.1.3
+Installing byebug 12.0.0 with native extensions
+Installing coderay 1.1.3
+Fetching method_source 1.1.0
+Installing method_source 1.1.0
+Fetching rb-readline 0.5.5
+Installing rb-readline 0.5.5
+Fetching trilogy 2.9.0
+Installing trilogy 2.9.0 with native extensions
+Fetching pry 0.15.2
+Installing pry 0.15.2
+Fetching pry-byebug 3.11.0
+Installing pry-byebug 3.11.0
+Fetching pry-rails 0.3.11
+Installing pry-rails 0.3.11
+Gem::Ext::BuildError: ERROR: Failed to build gem native extension.
+
+current directory:
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/trilogy-2.9.0/ext/trilogy-ruby
+/home/sandbox/field-runs/ruby/ruby-4.0.0/bin/ruby extconf.rb
+checking for CRYPTO_malloc() in -lcrypto... no
+checking for SSL_new() in -lssl... no
+checking for rb_interned_str() in ruby.h... yes
+creating Makefile
+
+current directory:
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/trilogy-2.9.0/ext/trilogy-ruby
+make -j3 DESTDIR\= sitearchdir\=./.gem.20261023-13361-kzwnwi
+sitelibdir\=./.gem.20261023-13361-kzwnwi clean
+
+current directory:
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/trilogy-2.9.0/ext/trilogy-ruby
+make -j3 DESTDIR\= sitearchdir\=./.gem.20261023-13361-kzwnwi
+sitelibdir\=./.gem.20261023-13361-kzwnwi
+compiling trilogy.c
+compiling cast.c
+compiling cext.c
+In file included from
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/trilogy-2.9.0/ext/trilogy-ruby/inc/trilogy/client.h:11,
+from
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/trilogy-2.9.0/ext/trilogy-ruby/inc/trilogy/blocking.h:4,
+from
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/trilogy-2.9.0/ext/trilogy-ruby/src/blocking.c:4:
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/trilogy-2.9.0/ext/trilogy-ruby/inc/trilogy/socket.h:6:10:
+fatal error: openssl/err.h: No such file or directory
+    6 | #include <openssl/err.h>
+      |          ^~~~~~~~~~~~~~~
+compilation terminated.
+make: *** [Makefile:251: trilogy.o] Error 1
+make: *** Waiting for unfinished jobs....
+In file included from
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/trilogy-2.9.0/ext/trilogy-ruby/inc/trilogy/client.h:11,
+from
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/trilogy-2.9.0/ext/trilogy-ruby/inc/trilogy/blocking.h:4,
+from
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/trilogy-2.9.0/ext/trilogy-ruby/inc/trilogy.h:4,
+                 from cast.c:4:
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/trilogy-2.9.0/ext/trilogy-ruby/inc/trilogy/socket.h:6:10:
+fatal error: openssl/err.h: No such file or directory
+    6 | #include <openssl/err.h>
+      |          ^~~~~~~~~~~~~~~
+compilation terminated.
+make: *** [Makefile:251: cast.o] Error 1
+In file included from
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/trilogy-2.9.0/ext/trilogy-ruby/inc/trilogy/client.h:11,
+from
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/trilogy-2.9.0/ext/trilogy-ruby/inc/trilogy/blocking.h:4,
+from
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/trilogy-2.9.0/ext/trilogy-ruby/inc/trilogy.h:4,
+                 from cext.c:14:
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/trilogy-2.9.0/ext/trilogy-ruby/inc/trilogy/socket.h:6:10:
+fatal error: openssl/err.h: No such file or directory
+    6 | #include <openssl/err.h>
+      |          ^~~~~~~~~~~~~~~
+compilation terminated.
+make: *** [Makefile:251: cext.o] Error 1
+
+make failed, exit code 2
+
+Gem files will remain installed in
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/trilogy-2.9.0
+for inspection.
+Results logged to
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/extensions/x86_64-linux/4.0.0/trilogy-2.9.0/gem_make.out
+
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/rubygems/ext/builder.rb:139:in
+'Gem::Ext::Builder.run'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/rubygems/ext/builder.rb:65:in
+'block in Gem::Ext::Builder.make'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/rubygems/ext/builder.rb:57:in
+'Array#each'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/rubygems/ext/builder.rb:57:in
+'Gem::Ext::Builder.make'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/rubygems/ext/ext_conf_builder.rb:44:in
+'Gem::Ext::ExtConfBuilder.build'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/rubygems/ext/builder.rb:221:in
+'Gem::Ext::Builder#build_extension'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/rubygems/ext/builder.rb:255:in
+'block in Gem::Ext::Builder#build_extensions'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/rubygems/ext/builder.rb:252:in
+'Array#each'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/rubygems/ext/builder.rb:252:in
+'Gem::Ext::Builder#build_extensions'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/rubygems/installer.rb:809:in
+'Gem::Installer#build_extensions'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/bundler/rubygems_gem_installer.rb:115:in
+'Bundler::RubyGemsGemInstaller#build_extensions'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/bundler/rubygems_gem_installer.rb:30:in
+'Bundler::RubyGemsGemInstaller#install'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/bundler/source/rubygems.rb:217:in
+'block in Bundler::Source::Rubygems#install'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/rubygems.rb:1051:in
+'Gem.time'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/bundler/source/rubygems.rb:216:in
+'Bundler::Source::Rubygems#install'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/bundler/installer/gem_installer.rb:54:in
+'Bundler::GemInstaller#install'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/bundler/installer/gem_installer.rb:17:in
+'Bundler::GemInstaller#install_from_spec'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/bundler/installer/parallel_installer.rb:133:in
+'Bundler::ParallelInstaller#do_install'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/bundler/installer/parallel_installer.rb:124:in
+'block in Bundler::ParallelInstaller#worker_pool'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/bundler/worker.rb:62:in
+'Bundler::Worker#apply_func'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/bundler/worker.rb:57:in
+'block in Bundler::Worker#process_queue'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/bundler/worker.rb:54:in
+'Kernel#loop'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/bundler/worker.rb:54:in
+'Bundler::Worker#process_queue'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/bundler/worker.rb:90:in
+'block (2 levels) in Bundler::Worker#create_threads'
+
+An error occurred while installing trilogy (2.9.0), and Bundler cannot continue.
+
+In Gemfile:
+  trilogy
+ALL_DONE 2026-10-23T22:29:41+05:30

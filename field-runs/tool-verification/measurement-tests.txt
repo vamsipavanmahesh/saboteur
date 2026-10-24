@@ -1,0 +1,9 @@
+test_nonzero (__main__.Measurement) ... ok
+test_signal (__main__.Measurement) ... ok
+test_spawn_failure_unknown_memory (__main__.Measurement) ... ok
+test_success (__main__.Measurement) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.153s
+
+OK

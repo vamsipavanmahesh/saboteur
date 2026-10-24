@@ -1,0 +1,24 @@
+{
+  "kind": "verification",
+  "status": "done",
+  "scope": "PR head tree spec pre-verification (no saboteur involved): PR's own spec files at its head SHA on its own required Ruby 4.0.0",
+  "command": "bundle exec rspec spec/models/story_spec.rb --format progress --format json --out logs/pr2204-head-specs.json",
+  "started_at": "2026-10-23T22:27:34+0530",
+  "ended_at": "2026-10-23T22:27:43+0530",
+  "wall_seconds": 9.146,
+  "exit_code": 0,
+  "peak_rss_kb": 344936,
+  "base_sha": "8f1b50061e5ef0b88ddbadc675395f7b5cf4eb76",
+  "head_sha": "ed722e449227b39ab6268f4260aaa66df95275bd",
+  "pr_url": "https://github.com/lobsters/lobsters/pull/2204",
+  "saboteur_version": null,
+  "saboteur_sha": null,
+  "ruby": "4.0.0 (tree's own .ruby-version)",
+  "examples": 81,
+  "failures": 0,
+  "pending": 0,
+  "evidence_paths": [
+    "logs/pr2204-head-specs.json",
+    "logs/pr2204-head-specs.log"
+  ]
+}

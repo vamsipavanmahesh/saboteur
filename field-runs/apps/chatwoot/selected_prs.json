@@ -1,0 +1,132 @@
+[
+ {
+  "pr": 16185,
+  "url": "https://github.com/chatwoot/chatwoot/pull/16185",
+  "head_sha": "4fb7c05f95e04e70b65141ff19bbdb9328095da8",
+  "base_sha": "dac03318c737bf76846298534ca3368e8afd9b97",
+  "title": "fix: fall back to SQL search on OpenSearch errors (#16185)",
+  "stat": "2 files changed, 72 insertions(+), 22 deletions(-)",
+  "ruby_files": [
+   "app/services/search_service.rb"
+  ],
+  "spec_files": [
+   "spec/services/search_service_spec.rb"
+  ],
+  "test_selection": [
+   "spec/services/search_service_spec.rb"
+  ],
+  "baseline_coverage": "in models+services baseline",
+  "notes": "PR's own spec is the direct spec for the changed file",
+  "tree_checks": {
+   "base": "40 examples 0 failures",
+   "head": "37 examples 0 failures"
+  },
+  "tree_check_note": "worktree at base/head SHA, CE strip applied, tree's own db:schema:load, test_selection specs; logs in logs/pr-checks/"
+ },
+ {
+  "pr": 15978,
+  "url": "https://github.com/chatwoot/chatwoot/pull/15978",
+  "head_sha": "fbb90f753cb04cd6ad96c48bf5202fa18a0b58af",
+  "base_sha": "96b13cc2060d4aaf63ba61a2a1d92665e0d743f1",
+  "title": "fix: skip IMAP emails that another fetch job already saved (#15978)",
+  "stat": "3 files changed, 46 insertions(+)",
+  "ruby_files": [
+   "app/mailboxes/imap/imap_mailbox.rb"
+  ],
+  "spec_files": [
+   "spec/mailboxes/imap/imap_mailbox_spec.rb"
+  ],
+  "test_selection": [
+   "spec/mailboxes/imap/imap_mailbox_spec.rb"
+  ],
+  "baseline_coverage": "OUTSIDE models+services baseline - additional baseline run required before this PR's mutation run",
+  "notes": "direct spec exists and is the PR's own spec",
+  "tree_checks": {
+   "base": "21 examples 0 failures",
+   "head": "23 examples 0 failures"
+  },
+  "tree_check_note": "worktree at base/head SHA, CE strip applied, tree's own db:schema:load, test_selection specs; logs in logs/pr-checks/"
+ },
+ {
+  "pr": 15807,
+  "url": "https://github.com/chatwoot/chatwoot/pull/15807",
+  "head_sha": "00960a09d1a19a4d954cd20c5ad5b8b8d01a6472",
+  "base_sha": "081bd68ab22a167e2af19e46f89c97e994a9f1c4",
+  "title": "fix: preserve automation labels on unrelated conversation saves (#15807)",
+  "stat": "4 files changed, 249 insertions(+), 5 deletions(-)",
+  "ruby_files": [
+   "app/jobs/migration/conversation_batch_cache_label_job.rb",
+   "app/models/concerns/labelable.rb",
+   "app/models/concerns/labelable/persistence.rb"
+  ],
+  "spec_files": [
+   "spec/models/concerns/labelable/persistence_spec.rb"
+  ],
+  "test_selection": [
+   "spec/models/concerns/labelable/persistence_spec.rb"
+  ],
+  "baseline_coverage": "in models+services baseline",
+  "notes": "no spec/models/concerns/labelable_spec.rb exists; persistence_spec is the direct spec",
+  "tree_checks": {
+   "base": "NOT APPLICABLE - persistence.rb and persistence_spec.rb are both introduced by this PR (verified via git show); no direct spec exists at base",
+   "head": "23 examples 0 failures"
+  },
+  "tree_check_note": "worktree at base/head SHA, CE strip applied, tree's own db:schema:load, test_selection specs; logs in logs/pr-checks/"
+ },
+ {
+  "pr": 16182,
+  "url": "https://github.com/chatwoot/chatwoot/pull/16182",
+  "head_sha": "5c2b3f78bd3f845d2bc95c745a7698c4a5946599",
+  "base_sha": "7a86dea8d0befa545c0ba2501b9f8c1f7e3089bd",
+  "title": "feat: configurable auto-resolve minimum and schedule (#16182)",
+  "stat": "13 files changed, 59 insertions(+), 11 deletions(-)",
+  "ruby_files": [
+   "app/jobs/trigger_scheduled_items_job.rb",
+   "app/models/account.rb",
+   "app/models/concerns/account_settings_schema.rb",
+   "lib/limits.rb"
+  ],
+  "spec_files": [
+   "spec/configs/schedule_spec.rb",
+   "spec/jobs/trigger_scheduled_items_job_spec.rb",
+   "spec/models/account_spec.rb"
+  ],
+  "test_selection": [
+   "spec/jobs/trigger_scheduled_items_job_spec.rb",
+   "spec/models/account_spec.rb"
+  ],
+  "baseline_coverage": "jobs spec OUTSIDE baseline - additional baseline run required; account_spec in baseline",
+  "notes": "lib/limits.rb has no direct spec in repo (grep Limits:: -> only unrelated references); account_settings_schema has no direct spec",
+  "tree_checks": {
+   "base": "81 examples 0 failures (trigger_scheduled_items_job_spec + account_spec)",
+   "head": "82 examples 0 failures"
+  },
+  "tree_check_note": "worktree at base/head SHA, CE strip applied, tree's own db:schema:load, test_selection specs; logs in logs/pr-checks/"
+ },
+ {
+  "pr": 16253,
+  "url": "https://github.com/chatwoot/chatwoot/pull/16253",
+  "head_sha": "00b13f7873ed92bbc01fc8b0292dd8f7d4a5c1d6",
+  "base_sha": "012bb8edb8f7de1454cd11ced1e1136b3656d694",
+  "title": "fix(stripe): disconnect accounts when the app is uninstalled (#16253)",
+  "stat": "8 files changed, 184 insertions(+), 10 deletions(-)",
+  "ruby_files": [
+   "app/controllers/super_admin/app_configs_controller.rb",
+   "app/controllers/webhooks/stripe_app_controller.rb",
+   "app/services/integrations/stripe/uninstallation_service.rb"
+  ],
+  "spec_files": [
+   "spec/services/integrations/stripe/uninstallation_service_spec.rb"
+  ],
+  "test_selection": [
+   "spec/services/integrations/stripe/uninstallation_service_spec.rb"
+  ],
+  "baseline_coverage": "in models+services baseline",
+  "notes": "no spec exists for webhooks/stripe_app_controller or super_admin/app_configs_controller (grep verified); uninstallation_service_spec is the only direct spec",
+  "tree_checks": {
+   "base": "NOT APPLICABLE - uninstallation_service.rb and its spec are both introduced by this PR (verified via git show); no direct spec exists at base",
+   "head": "3 examples 0 failures"
+  },
+  "tree_check_note": "worktree at base/head SHA, CE strip applied, tree's own db:schema:load, test_selection specs; logs in logs/pr-checks/"
+ }
+]

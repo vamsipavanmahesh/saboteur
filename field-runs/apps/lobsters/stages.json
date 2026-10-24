@@ -1,0 +1,68 @@
+{
+  "environment": {
+    "status": "done",
+    "reason": "bin/setup exit 0 only after recorded deviations (libvips 8.18.7 prebuilt, libyaml headers); documented flow was blocked at both points - not completed unchanged",
+    "evidence": [
+      "logs/bin-setup.log",
+      "ENV.md"
+    ]
+  },
+  "baseline": {
+    "status": "done",
+    "reason": "913 examples, 2 pre-existing failures observed (F-BASE-1, F-BASE-2; each seen failing in 3 runs, non-flakiness not proven), exit 1, wall 35.3s",
+    "evidence": [
+      "logs/baseline-rspec.json",
+      "reports/baseline/measurement.json",
+      "findings.md"
+    ]
+  },
+  "documented_flow": {
+    "status": "not_done",
+    "reason": "Not started before the four-hour stop: verified saboteur 0.13.0 release identity was unavailable. Preparation controls are separate evidence, not a substitute.",
+    "evidence": []
+  },
+  "map": {
+    "status": "not_done",
+    "reason": "Not started before the four-hour stop: verified saboteur 0.13.0 release identity was unavailable. Preparation controls are separate evidence, not a substitute.",
+    "evidence": []
+  },
+  "pr_replays": {
+    "status": "not_done",
+    "reason": "Not started before the four-hour stop: verified saboteur 0.13.0 release identity was unavailable. Preparation controls are separate evidence, not a substitute.",
+    "evidence": [
+      "prs/selected_prs.json",
+      "reports/pr2231-head-specs/measurement.json",
+      "reports/pr2204-head-specs/measurement.json",
+      "reports/pr2156-head-specs/measurement.json",
+      "reports/pr2090-head-specs/measurement.json",
+      "reports/pr2143-head-specs/measurement.json",
+      "reports/pr2231-base-specs/measurement.json",
+      "reports/pr2204-base-specs/measurement.json",
+      "reports/pr2156-base-specs/measurement.json",
+      "reports/pr2090-base-specs/measurement.json",
+      "reports/pr2143-base-specs/measurement.json"
+    ]
+  },
+  "parallelism": {
+    "status": "not_done",
+    "reason": "Not started before the four-hour stop: verified saboteur 0.13.0 release identity was unavailable. Preparation controls are separate evidence, not a substitute.",
+    "evidence": []
+  },
+  "determinism": {
+    "status": "not_done",
+    "reason": "Not started before the four-hour stop: verified saboteur 0.13.0 release identity was unavailable. Preparation controls are separate evidence, not a substitute.",
+    "evidence": [
+      "logs/baseline-failures-recheck.log"
+    ]
+  },
+  "triage": {
+    "status": "not_done",
+    "reason": "Not started: no versioned mutation reports exist to sample or independently verify. Findings unknown, not zero.",
+    "evidence": []
+  },
+  "kills": {
+    "status": "not_done",
+    "reason": "Not started: no versioned mutation reports exist to sample or independently verify. Findings unknown, not zero.",
+    "evidence": []
+  }
+}

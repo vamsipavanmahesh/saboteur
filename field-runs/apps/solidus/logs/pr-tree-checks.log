@@ -1,0 +1,162 @@
+=== pr6691-base-scope 2026-10-23T16:53:16Z sha=7c1842d9099d76713b4d2a69001eac914a5f16d3 specs: spec/models/spree/stock spec/models/spree/order_cancellations_spec.rb spec/models/spree/unit_cancel_spec.rb spec/models/spree/payment_method/bogus_credit_card_spec.rb spec/helpers/base_helper_spec.rb ===
+{
+  "kind": "baseline",
+  "status": "done",
+  "command": "bundle exec rspec spec/models/spree/stock spec/models/spree/order_cancellations_spec.rb spec/models/spree/unit_cancel_spec.rb spec/models/spree/payment_method/bogus_credit_card_spec.rb spec/helpers/base_helper_spec.rb --format progress --format json --out /home/sandbox/field/runs/apps/solidus/logs/pr6691-base-scope-rspec.json",
+  "started_at": "2026-10-23T16:53:20Z",
+  "ended_at": "2026-10-23T16:53:47Z",
+  "wall_seconds": 27,
+  "exit_code": 0,
+  "peak_rss_kb": 212648,
+  "base_sha": "7c1842d9099d76713b4d2a69001eac914a5f16d3",
+  "head_sha": "7c1842d9099d76713b4d2a69001eac914a5f16d3",
+  "pr_url": "https://github.com/solidusio/solidus/pull/6691",
+  "saboteur_version": null,
+  "saboteur_sha": null
+}
+=== pr6691-head-scope 2026-10-23T16:53:47Z sha=1514f27fc7b257ab1ae5bab5a3646a04f256b06a specs: spec/models/spree/stock spec/models/spree/order_cancellations_spec.rb spec/models/spree/unit_cancel_spec.rb spec/models/spree/payment_method/bogus_credit_card_spec.rb spec/helpers/base_helper_spec.rb ===
+{
+  "kind": "baseline",
+  "status": "done",
+  "command": "bundle exec rspec spec/models/spree/stock spec/models/spree/order_cancellations_spec.rb spec/models/spree/unit_cancel_spec.rb spec/models/spree/payment_method/bogus_credit_card_spec.rb spec/helpers/base_helper_spec.rb --format progress --format json --out /home/sandbox/field/runs/apps/solidus/logs/pr6691-head-scope-rspec.json",
+  "started_at": "2026-10-23T16:53:51Z",
+  "ended_at": "2026-10-23T16:54:17Z",
+  "wall_seconds": 26,
+  "exit_code": 0,
+  "peak_rss_kb": 213632,
+  "base_sha": "1514f27fc7b257ab1ae5bab5a3646a04f256b06a",
+  "head_sha": "1514f27fc7b257ab1ae5bab5a3646a04f256b06a",
+  "pr_url": "https://github.com/solidusio/solidus/pull/6691",
+  "saboteur_version": null,
+  "saboteur_sha": null
+}
+=== pr6677-base-scope 2026-10-23T16:54:17Z sha=198c66c2f36fae2aab622851e2945cb66ce9b44b specs: spec/models/spree/stock spec/models/spree/order_cancellations_spec.rb spec/models/spree/unit_cancel_spec.rb spec/models/spree/payment_method/bogus_credit_card_spec.rb spec/helpers/base_helper_spec.rb ===
+{
+  "kind": "baseline",
+  "status": "done",
+  "command": "bundle exec rspec spec/models/spree/stock spec/models/spree/order_cancellations_spec.rb spec/models/spree/unit_cancel_spec.rb spec/models/spree/payment_method/bogus_credit_card_spec.rb spec/helpers/base_helper_spec.rb --format progress --format json --out /home/sandbox/field/runs/apps/solidus/logs/pr6677-base-scope-rspec.json",
+  "started_at": "2026-10-23T16:54:22Z",
+  "ended_at": "2026-10-23T16:54:49Z",
+  "wall_seconds": 27,
+  "exit_code": 0,
+  "peak_rss_kb": 213468,
+  "base_sha": "198c66c2f36fae2aab622851e2945cb66ce9b44b",
+  "head_sha": "198c66c2f36fae2aab622851e2945cb66ce9b44b",
+  "pr_url": "https://github.com/solidusio/solidus/pull/6677",
+  "saboteur_version": null,
+  "saboteur_sha": null
+}
+=== pr6677-head-scope 2026-10-23T16:54:49Z sha=4dd53128473a4e0c7b7fdbb6d152e35a5ca7bb1b specs: spec/models/spree/stock spec/models/spree/order_cancellations_spec.rb spec/models/spree/unit_cancel_spec.rb spec/models/spree/payment_method/bogus_credit_card_spec.rb spec/helpers/base_helper_spec.rb ===
+{
+  "kind": "baseline",
+  "status": "done",
+  "command": "bundle exec rspec spec/models/spree/stock spec/models/spree/order_cancellations_spec.rb spec/models/spree/unit_cancel_spec.rb spec/models/spree/payment_method/bogus_credit_card_spec.rb spec/helpers/base_helper_spec.rb --format progress --format json --out /home/sandbox/field/runs/apps/solidus/logs/pr6677-head-scope-rspec.json",
+  "started_at": "2026-10-23T16:54:53Z",
+  "ended_at": "2026-10-23T16:55:19Z",
+  "wall_seconds": 26,
+  "exit_code": 0,
+  "peak_rss_kb": 213528,
+  "base_sha": "4dd53128473a4e0c7b7fdbb6d152e35a5ca7bb1b",
+  "head_sha": "4dd53128473a4e0c7b7fdbb6d152e35a5ca7bb1b",
+  "pr_url": "https://github.com/solidusio/solidus/pull/6677",
+  "saboteur_version": null,
+  "saboteur_sha": null
+}
+=== pr6697-base-scope 2026-10-23T16:55:19Z sha=5b47ff22b600011f369e8da0de60bfe60bb27039 specs: spec/models/spree/stock spec/models/spree/order_cancellations_spec.rb spec/models/spree/unit_cancel_spec.rb spec/models/spree/payment_method/bogus_credit_card_spec.rb spec/helpers/base_helper_spec.rb ===
+{
+  "kind": "baseline",
+  "status": "done",
+  "command": "bundle exec rspec spec/models/spree/stock spec/models/spree/order_cancellations_spec.rb spec/models/spree/unit_cancel_spec.rb spec/models/spree/payment_method/bogus_credit_card_spec.rb spec/helpers/base_helper_spec.rb --format progress --format json --out /home/sandbox/field/runs/apps/solidus/logs/pr6697-base-scope-rspec.json",
+  "started_at": "2026-10-23T16:55:23Z",
+  "ended_at": "2026-10-23T17:07:54Z",
+  "wall_seconds": 751,
+  "exit_code": 0,
+  "peak_rss_kb": 212940,
+  "base_sha": "5b47ff22b600011f369e8da0de60bfe60bb27039",
+  "head_sha": "5b47ff22b600011f369e8da0de60bfe60bb27039",
+  "pr_url": "https://github.com/solidusio/solidus/pull/6697",
+  "saboteur_version": null,
+  "saboteur_sha": null
+}
+=== pr6697-head-scope 2026-10-23T17:07:55Z sha=8950d6cc6b4d79c65b8a58172e60453d4d5e1d95 specs: spec/models/spree/stock spec/models/spree/order_cancellations_spec.rb spec/models/spree/unit_cancel_spec.rb spec/models/spree/payment_method/bogus_credit_card_spec.rb spec/helpers/base_helper_spec.rb ===
+{
+  "kind": "baseline",
+  "status": "done",
+  "command": "bundle exec rspec spec/models/spree/stock spec/models/spree/order_cancellations_spec.rb spec/models/spree/unit_cancel_spec.rb spec/models/spree/payment_method/bogus_credit_card_spec.rb spec/helpers/base_helper_spec.rb --format progress --format json --out /home/sandbox/field/runs/apps/solidus/logs/pr6697-head-scope-rspec.json",
+  "started_at": "2026-10-23T17:07:59Z",
+  "ended_at": "2026-10-23T17:08:24Z",
+  "wall_seconds": 25,
+  "exit_code": 0,
+  "peak_rss_kb": 213280,
+  "base_sha": "8950d6cc6b4d79c65b8a58172e60453d4d5e1d95",
+  "head_sha": "8950d6cc6b4d79c65b8a58172e60453d4d5e1d95",
+  "pr_url": "https://github.com/solidusio/solidus/pull/6697",
+  "saboteur_version": null,
+  "saboteur_sha": null
+}
+=== pr6701-base-scope 2026-10-23T17:08:24Z sha=5158ea6d0ebf63d29acce4ae9bc8332d59e2c321 specs: spec/models/spree/stock spec/models/spree/order_cancellations_spec.rb spec/models/spree/unit_cancel_spec.rb spec/models/spree/payment_method/bogus_credit_card_spec.rb spec/helpers/base_helper_spec.rb ===
+{
+  "kind": "baseline",
+  "status": "done",
+  "command": "bundle exec rspec spec/models/spree/stock spec/models/spree/order_cancellations_spec.rb spec/models/spree/unit_cancel_spec.rb spec/models/spree/payment_method/bogus_credit_card_spec.rb spec/helpers/base_helper_spec.rb --format progress --format json --out /home/sandbox/field/runs/apps/solidus/logs/pr6701-base-scope-rspec.json",
+  "started_at": "2026-10-23T17:08:29Z",
+  "ended_at": "2026-10-23T17:08:54Z",
+  "wall_seconds": 25,
+  "exit_code": 0,
+  "peak_rss_kb": 212196,
+  "base_sha": "5158ea6d0ebf63d29acce4ae9bc8332d59e2c321",
+  "head_sha": "5158ea6d0ebf63d29acce4ae9bc8332d59e2c321",
+  "pr_url": "https://github.com/solidusio/solidus/pull/6701",
+  "saboteur_version": null,
+  "saboteur_sha": null
+}
+=== pr6701-head-scope 2026-10-23T17:08:54Z sha=5b47ff22b600011f369e8da0de60bfe60bb27039 specs: spec/models/spree/stock spec/models/spree/order_cancellations_spec.rb spec/models/spree/unit_cancel_spec.rb spec/models/spree/payment_method/bogus_credit_card_spec.rb spec/helpers/base_helper_spec.rb ===
+{
+  "kind": "baseline",
+  "status": "done",
+  "command": "bundle exec rspec spec/models/spree/stock spec/models/spree/order_cancellations_spec.rb spec/models/spree/unit_cancel_spec.rb spec/models/spree/payment_method/bogus_credit_card_spec.rb spec/helpers/base_helper_spec.rb --format progress --format json --out /home/sandbox/field/runs/apps/solidus/logs/pr6701-head-scope-rspec.json",
+  "started_at": "2026-10-23T17:08:58Z",
+  "ended_at": "2026-10-23T17:16:35Z",
+  "wall_seconds": 457,
+  "exit_code": 0,
+  "peak_rss_kb": 212968,
+  "base_sha": "5b47ff22b600011f369e8da0de60bfe60bb27039",
+  "head_sha": "5b47ff22b600011f369e8da0de60bfe60bb27039",
+  "pr_url": "https://github.com/solidusio/solidus/pull/6701",
+  "saboteur_version": null,
+  "saboteur_sha": null
+}
+=== pr6692-base-scope 2026-10-23T17:16:36Z sha=78fb02ba19a443a6648aa870634700eb2c1a0a94 specs: spec/models/spree/stock spec/models/spree/order_cancellations_spec.rb spec/models/spree/unit_cancel_spec.rb spec/models/spree/payment_method/bogus_credit_card_spec.rb spec/helpers/base_helper_spec.rb ===
+{
+  "kind": "baseline",
+  "status": "done",
+  "command": "bundle exec rspec spec/models/spree/stock spec/models/spree/order_cancellations_spec.rb spec/models/spree/unit_cancel_spec.rb spec/models/spree/payment_method/bogus_credit_card_spec.rb spec/helpers/base_helper_spec.rb --format progress --format json --out /home/sandbox/field/runs/apps/solidus/logs/pr6692-base-scope-rspec.json",
+  "started_at": "2026-10-23T17:16:40Z",
+  "ended_at": "2026-10-23T17:17:04Z",
+  "wall_seconds": 24,
+  "exit_code": 0,
+  "peak_rss_kb": 213544,
+  "base_sha": "78fb02ba19a443a6648aa870634700eb2c1a0a94",
+  "head_sha": "78fb02ba19a443a6648aa870634700eb2c1a0a94",
+  "pr_url": "https://github.com/solidusio/solidus/pull/6692",
+  "saboteur_version": null,
+  "saboteur_sha": null
+}
+=== pr6692-head-scope 2026-10-23T17:17:04Z sha=c27efd40c184eba0c758ecc9429cf23551000f5f specs: spec/models/spree/stock spec/models/spree/order_cancellations_spec.rb spec/models/spree/unit_cancel_spec.rb spec/models/spree/payment_method/bogus_credit_card_spec.rb spec/helpers/base_helper_spec.rb ===
+{
+  "kind": "baseline",
+  "status": "done",
+  "command": "bundle exec rspec spec/models/spree/stock spec/models/spree/order_cancellations_spec.rb spec/models/spree/unit_cancel_spec.rb spec/models/spree/payment_method/bogus_credit_card_spec.rb spec/helpers/base_helper_spec.rb --format progress --format json --out /home/sandbox/field/runs/apps/solidus/logs/pr6692-head-scope-rspec.json",
+  "started_at": "2026-10-23T17:17:08Z",
+  "ended_at": "2026-10-23T17:17:33Z",
+  "wall_seconds": 25,
+  "exit_code": 0,
+  "peak_rss_kb": 218320,
+  "base_sha": "c27efd40c184eba0c758ecc9429cf23551000f5f",
+  "head_sha": "c27efd40c184eba0c758ecc9429cf23551000f5f",
+  "pr_url": "https://github.com/solidusio/solidus/pull/6692",
+  "saboteur_version": null,
+  "saboteur_sha": null
+}
+/home/sandbox/field/pr-tree-checks.sh: line 28: unexpected EOF while looking for matching `"'
+/home/sandbox/field/pr-tree-checks.sh: line 29: syntax error: unexpected end of file

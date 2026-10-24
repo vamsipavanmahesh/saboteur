@@ -1,0 +1,8 @@
+{
+  "repository": "https://github.com/lobsters/lobsters",
+  "sha": "407536444934ac7d78f4ce1c18f228e3891a8663",
+  "shape": "mid-size Rails app",
+  "ruby_files": 488,
+  "spec_files": 109,
+  "size_method": "git ls-files filtered by suffix .rb and _spec.rb, including all tracked paths"
+}

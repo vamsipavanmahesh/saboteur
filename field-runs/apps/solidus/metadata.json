@@ -1,0 +1,8 @@
+{
+  "repository": "https://github.com/solidusio/solidus",
+  "sha": "07d5aff446586f6ab8ca024e2d8d08ee3e0463d8",
+  "shape": "Rails engine / multi-gem repository",
+  "ruby_files": 2112,
+  "spec_files": 822,
+  "size_method": "git ls-files filtered by suffix .rb and _spec.rb, including all tracked paths"
+}

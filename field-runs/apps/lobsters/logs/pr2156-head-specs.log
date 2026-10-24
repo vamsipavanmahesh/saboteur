@@ -1,0 +1,40 @@
+=== pr2156 START 2026-10-23T22:27:43+05:30 ===
+Preparing worktree (detached HEAD d9998c25)
+HEAD is now at d9998c25 fix username moderation log
+Bundle complete! 58 Gemfile dependencies, 180 gems now installed.
+Use `bundle info [gemname]` to see where a bundled gem is installed.
+4 installed gems you directly depend on are looking for funding.
+  Run `bundle fund` for details
+== Installing dependencies ==
+The Gemfile's dependencies are satisfied
+
+== Removing any old logs and tempfiles ==
+
+== Copying sample files ==
+
+== Removing old logs and tempfiles ==
+
+== Preparing database ==
+W, [2026-10-23T22:27:54.044264 #9271]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+Created database 'db/development/primary.sqlite3'
+Created database 'db/development/cache.sqlite3'
+Created database 'db/development/queue.sqlite3'
+Created database 'db/development/rack_attack.sqlite3'
+Created database 'db/test/primary.sqlite3'
+Created database 'db/test/cache.sqlite3'
+Created database 'db/test/queue.sqlite3'
+Created database 'db/test/rack_attack.sqlite3'
+
+== Restarting application server if running ==
+
+== You probably want to run 'rails fake_data' to have realistic data in dev
+W, [2026-10-23T22:28:04.468048 #9295]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+.
+
+Finished in 1.55 seconds (files took 3.78 seconds to load)
+1 example, 0 failures
+
+Coverage report generated for RSpec to /home/sandbox/field-runs/pr-trees/pr2156/coverage.
+Line Coverage: 10.56% (779 / 7378)
+{"command": "bundle exec rspec spec/controllers/settings_controller_spec.rb --format progress --format json --out /home/sandbox/field-runs/saboteur-field-runs/apps/lobsters/logs/pr2156-head-specs.json", "started_at": "2026-10-23T22:28:01+0530", "ended_at": "2026-10-23T22:28:07+0530", "wall_seconds": 5.81, "exit_code": 0, "peak_rss_kb": 290924}
+=== pr2156 RSPEC_EXIT=0 DONE 2026-10-23T22:28:07+05:30 ===

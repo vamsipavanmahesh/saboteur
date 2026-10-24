@@ -1,0 +1,170 @@
+DEPRECATION WARNING: Defining enums with keyword arguments is deprecated and will be removed
+in Rails 8.0. Positional arguments should be used instead:
+
+enum :notification_type, {conversation_creation: 1, conversation_assignment: 2, assigned_conversation_new_message: 3, conversation_mention: 4, participating_conversation_new_message: 5, sla_missed_first_response: 6, sla_missed_next_response: 7, sla_missed_resolution: 8, voice_call_missed: 9}
+ (called from <class:Notification> at /home/sandbox/fieldruns/chatwoot-git/app/models/notification.rb:50)
+DEPRECATION WARNING: Defining enums with keyword arguments is deprecated and will be removed
+in Rails 8.0. Positional arguments should be used instead:
+
+enum :sender_name_type, {friendly: 0, professional: 1}
+ (called from <class:Inbox> at /home/sandbox/fieldruns/chatwoot-git/app/models/inbox.rb:81)
+DEPRECATION WARNING: Defining enums with keyword arguments is deprecated and will be removed
+in Rails 8.0. Positional arguments should be used instead:
+
+enum :role, {agent: 0, administrator: 1}
+ (called from <class:AccountUser> at /home/sandbox/fieldruns/chatwoot-git/app/models/account_user.rb:34)
+DEPRECATION WARNING: Defining enums with keyword arguments is deprecated and will be removed
+in Rails 8.0. Positional arguments should be used instead:
+
+enum :availability, {online: 0, offline: 1, busy: 2}
+ (called from <class:AccountUser> at /home/sandbox/fieldruns/chatwoot-git/app/models/account_user.rb:35)
+DEPRECATION WARNING: Defining enums with keyword arguments is deprecated and will be removed
+in Rails 8.0. Positional arguments should be used instead:
+
+enum :status, {active: 0, inactive: 1}
+ (called from <class:AgentBotInbox> at /home/sandbox/fieldruns/chatwoot-git/app/models/agent_bot_inbox.rb:22)
+DEPRECATION WARNING: Defining enums with keyword arguments is deprecated and will be removed
+in Rails 8.0. Positional arguments should be used instead:
+
+enum :bot_type, {webhook: 0}
+ (called from <class:AgentBot> at /home/sandbox/fieldruns/chatwoot-git/app/models/agent_bot.rb:42)
+DEPRECATION WARNING: Defining enums with keyword arguments is deprecated and will be removed
+in Rails 8.0. Positional arguments should be used instead:
+
+enum :status, {draft: 0, published: 1, archived: 2}
+ (called from <class:Article> at /home/sandbox/fieldruns/chatwoot-git/app/models/article.rb:76)
+DEPRECATION WARNING: Defining enums with keyword arguments is deprecated and will be removed
+in Rails 8.0. Positional arguments should be used instead:
+
+enum :conversation_priority, {earliest_created: 0, longest_waiting: 1}
+ (called from <class:AssignmentPolicy> at /home/sandbox/fieldruns/chatwoot-git/app/models/assignment_policy.rb:36)
+DEPRECATION WARNING: Defining enums with keyword arguments is deprecated and will be removed
+in Rails 8.0. Positional arguments should be used instead:
+
+enum :assignment_order, {round_robin: 0}
+ (called from <class:AssignmentPolicy> at /home/sandbox/fieldruns/chatwoot-git/app/models/assignment_policy.rb:38)
+DEPRECATION WARNING: Defining enums with keyword arguments is deprecated and will be removed
+in Rails 8.0. Positional arguments should be used instead:
+
+enum :file_type, {image: 0, audio: 1, video: 2, file: 3, location: 4, fallback: 5, share: 6, story_mention: 7, contact: 8, ig_reel: 9, ig_post: 10, ig_story: 11, embed: 12}
+ (called from <class:Attachment> at /home/sandbox/fieldruns/chatwoot-git/app/models/attachment.rb:47)
+DEPRECATION WARNING: Defining enums with keyword arguments is deprecated and will be removed
+in Rails 8.0. Positional arguments should be used instead:
+
+enum :status, {pending: 0, processing: 1, executed: 2, skipped: 3, executing: 4}
+ (called from <class:AutomationRulePendingExecution> at /home/sandbox/fieldruns/chatwoot-git/app/models/automation_rule_pending_execution.rb:42)
+DEPRECATION WARNING: Defining enums with keyword arguments is deprecated and will be removed
+in Rails 8.0. Positional arguments should be used instead:
+
+enum :campaign_type, {ongoing: 0, one_off: 1}
+ (called from <class:Campaign> at /home/sandbox/fieldruns/chatwoot-git/app/models/campaign.rb:50)
+DEPRECATION WARNING: Defining enums with keyword arguments is deprecated and will be removed
+in Rails 8.0. Positional arguments should be used instead:
+
+enum :campaign_status, {active: 0, completed: 1, processing: 2}
+ (called from <class:Campaign> at /home/sandbox/fieldruns/chatwoot-git/app/models/campaign.rb:52)
+DEPRECATION WARNING: Defining enums with keyword arguments is deprecated and will be removed
+in Rails 8.0. Positional arguments should be used instead:
+
+enum :medium, {sms: 0, whatsapp: 1}
+ (called from <class:TwilioSms> at /home/sandbox/fieldruns/chatwoot-git/app/models/channel/twilio_sms.rb:52)
+DEPRECATION WARNING: Defining enums with keyword arguments is deprecated and will be removed
+in Rails 8.0. Positional arguments should be used instead:
+
+enum :reply_time, {in_a_few_minutes: 0, in_a_few_hours: 1, in_a_day: 2}
+ (called from <class:WebWidget> at /home/sandbox/fieldruns/chatwoot-git/app/models/channel/web_widget.rb:58)
+DEPRECATION WARNING: Defining enums with keyword arguments is deprecated and will be removed
+in Rails 8.0. Positional arguments should be used instead:
+
+enum :contact_type, {visitor: 0, lead: 1, customer: 2}
+ (called from <class:Contact> at /home/sandbox/fieldruns/chatwoot-git/app/models/contact.rb:72)
+DEPRECATION WARNING: Defining enums with keyword arguments is deprecated and will be removed
+in Rails 8.0. Positional arguments should be used instead:
+
+enum :status, {open: 0, resolved: 1, pending: 2, snoozed: 3}
+ (called from <class:Conversation> at /home/sandbox/fieldruns/chatwoot-git/app/models/conversation.rb:86)
+DEPRECATION WARNING: Defining enums with keyword arguments is deprecated and will be removed
+in Rails 8.0. Positional arguments should be used instead:
+
+enum :priority, {low: 0, medium: 1, high: 2, urgent: 3}
+ (called from <class:Conversation> at /home/sandbox/fieldruns/chatwoot-git/app/models/conversation.rb:87)
+DEPRECATION WARNING: Defining enums with keyword arguments is deprecated and will be removed
+in Rails 8.0. Positional arguments should be used instead:
+
+enum :attribute_model, {conversation_attribute: 0, contact_attribute: 1, company_attribute: 2}
+ (called from <class:CustomAttributeDefinition> at /home/sandbox/fieldruns/chatwoot-git/app/models/custom_attribute_definition.rb:48)
+DEPRECATION WARNING: Defining enums with keyword arguments is deprecated and will be removed
+in Rails 8.0. Positional arguments should be used instead:
+
+enum :attribute_display_type, {text: 0, number: 1, currency: 2, percent: 3, link: 4, date: 5, list: 6, checkbox: 7}
+ (called from <class:CustomAttributeDefinition> at /home/sandbox/fieldruns/chatwoot-git/app/models/custom_attribute_definition.rb:49)
+DEPRECATION WARNING: Defining enums with keyword arguments is deprecated and will be removed
+in Rails 8.0. Positional arguments should be used instead:
+
+enum :filter_type, {conversation: 0, contact: 1, report: 2}
+ (called from <class:CustomFilter> at /home/sandbox/fieldruns/chatwoot-git/app/models/custom_filter.rb:23)
+DEPRECATION WARNING: Defining enums with keyword arguments is deprecated and will be removed
+in Rails 8.0. Positional arguments should be used instead:
+
+enum :status, {pending: 0, processing: 1, completed: 2, failed: 3, completed_with_errors: 6, abandoned: 7}
+ (called from <class:DataImport> at /home/sandbox/fieldruns/chatwoot-git/app/models/data_import.rb:57)
+DEPRECATION WARNING: Defining enums with keyword arguments is deprecated and will be removed
+in Rails 8.0. Positional arguments should be used instead:
+
+enum :status, {disabled: 0, enabled: 1}
+ (called from <class:Hook> at /home/sandbox/fieldruns/chatwoot-git/app/models/integrations/hook.rb:45)
+DEPRECATION WARNING: Defining enums with keyword arguments is deprecated and will be removed
+in Rails 8.0. Positional arguments should be used instead:
+
+enum :hook_type, {account: 0, inbox: 1}
+ (called from <class:Hook> at /home/sandbox/fieldruns/chatwoot-git/app/models/integrations/hook.rb:51)
+DEPRECATION WARNING: Defining enums with keyword arguments is deprecated and will be removed
+in Rails 8.0. Positional arguments should be used instead:
+
+enum :visibility, {personal: 0, global: 1}
+ (called from <class:Macro> at /home/sandbox/fieldruns/chatwoot-git/app/models/macro.rb:29)
+DEPRECATION WARNING: Defining enums with keyword arguments is deprecated and will be removed
+in Rails 8.0. Positional arguments should be used instead:
+
+enum :message_type, {incoming: 0, outgoing: 1, activity: 2, template: 3}
+ (called from <class:Message> at /home/sandbox/fieldruns/chatwoot-git/app/models/message.rb:88)
+DEPRECATION WARNING: Defining enums with keyword arguments is deprecated and will be removed
+in Rails 8.0. Positional arguments should be used instead:
+
+enum :content_type, {text: 0, input_text: 1, input_textarea: 2, input_email: 3, input_select: 4, cards: 5, form: 6, article: 7, incoming_email: 8, input_csat: 9, integrations: 10, sticker: 11, voice_call: 12}
+ (called from <class:Message> at /home/sandbox/fieldruns/chatwoot-git/app/models/message.rb:89)
+DEPRECATION WARNING: Defining enums with keyword arguments is deprecated and will be removed
+in Rails 8.0. Positional arguments should be used instead:
+
+enum :status, {sent: 0, delivered: 1, read: 2, failed: 3}
+ (called from <class:Message> at /home/sandbox/fieldruns/chatwoot-git/app/models/message.rb:104)
+DEPRECATION WARNING: Defining enums with keyword arguments is deprecated and will be removed
+in Rails 8.0. Positional arguments should be used instead:
+
+enum :webhook_type, {account_type: 0, inbox_type: 1}
+ (called from <class:Webhook> at /home/sandbox/fieldruns/chatwoot-git/app/models/webhook.rb:30)
+..............................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................**.....................................................................................................................................................DEPRECATION WARNING: Defining enums with keyword arguments is deprecated and will be removed
+in Rails 8.0. Positional arguments should be used instead:
+
+enum :subscription_type, {browser_push: 1, fcm: 2, apns_voip: 3}
+ (called from <class:NotificationSubscription> at /home/sandbox/fieldruns/chatwoot-git/app/models/notification_subscription.rb:29)
+.................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................DEPRECATION WARNING: Defining enums with keyword arguments is deprecated and will be removed
+in Rails 8.0. Positional arguments should be used instead:
+
+enum :status, {pending: 0, processing: 1, imported: 2, skipped: 3, failed: 4}
+ (called from <class:DataImportItem> at /home/sandbox/fieldruns/chatwoot-git/app/models/data_import_item.rb:34)
+..............................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................
+
+Pending: (Failures listed here are expected and do not affect your suite's status)
+
+  1) Conversation Audit audit logging on destroy creates an audit log when conversation is destroyed
+     # Enterprise audit module not available
+     # ./spec/models/enterprise/audit/conversation_spec.rb:13
+
+  2) Conversation Audit audit logging on destroy does not create audit log for other actions by default
+     # Enterprise audit module not available
+     # ./spec/models/enterprise/audit/conversation_spec.rb:26
+
+Finished in 3 minutes 25.3 seconds (files took 6.53 seconds to load)
+3252 examples, 0 failures, 2 pending
+

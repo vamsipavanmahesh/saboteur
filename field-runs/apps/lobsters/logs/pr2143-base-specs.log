@@ -1,0 +1,40 @@
+=== pr2143 BASE_START 2026-10-23T22:42:24+05:30 ===
+Preparing worktree (detached HEAD e72cf85f)
+HEAD is now at e72cf85f Remove MariaDB mention from CONTRIBUTING.md
+Bundle complete! 58 Gemfile dependencies, 178 gems now installed.
+Use `bundle info [gemname]` to see where a bundled gem is installed.
+4 installed gems you directly depend on are looking for funding.
+  Run `bundle fund` for details
+== Installing dependencies ==
+The Gemfile's dependencies are satisfied
+
+== Removing any old logs and tempfiles ==
+
+== Copying sample files ==
+
+== Removing old logs and tempfiles ==
+
+== Preparing database ==
+W, [2026-10-23T22:42:34.664598 #14273]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+Created database 'db/development/primary.sqlite3'
+Created database 'db/development/cache.sqlite3'
+Created database 'db/development/queue.sqlite3'
+Created database 'db/development/rack_attack.sqlite3'
+Created database 'db/test/primary.sqlite3'
+Created database 'db/test/cache.sqlite3'
+Created database 'db/test/queue.sqlite3'
+Created database 'db/test/rack_attack.sqlite3'
+
+== Restarting application server if running ==
+
+== You probably want to run 'rails fake_data' to have realistic data in dev
+W, [2026-10-23T22:42:44.210227 #14296]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+...........................................................................
+
+Finished in 5.2 seconds (files took 3.57 seconds to load)
+75 examples, 0 failures
+
+Coverage report generated for RSpec to /home/sandbox/field-runs/pr-trees/pr2143-base/coverage.
+Line Coverage: 17.3% (1306 / 7551)
+{"command": "bundle exec rspec spec/models/story_spec.rb --format progress --format json --out /home/sandbox/field-runs/saboteur-field-runs/apps/lobsters/logs/pr2143-base-specs.json", "started_at": "2026-10-23T22:42:41+0530", "ended_at": "2026-10-23T22:42:50+0530", "wall_seconds": 9.219, "exit_code": 0, "peak_rss_kb": 327968}
+=== pr2143 BASE_RSPEC_EXIT=0 DONE 2026-10-23T22:42:50+05:30 ===

@@ -1,0 +1,19 @@
+{
+  "kind": "baseline",
+  "status": "done",
+  "command": "bundle exec rspec spec/models/spree/stock spec/models/spree/order_cancellations_spec.rb spec/models/spree/unit_cancel_spec.rb spec/models/spree/payment_method/bogus_credit_card_spec.rb spec/helpers/base_helper_spec.rb --format progress --format json --out /home/sandbox/field/runs/apps/solidus/logs/pr6692-base-scope-rspec.json",
+  "started_at": "2026-10-23T17:16:40Z",
+  "ended_at": "2026-10-23T17:17:04Z",
+  "wall_seconds": 24,
+  "exit_code": 0,
+  "peak_rss_kb": 213544,
+  "base_sha": "78fb02ba19a443a6648aa870634700eb2c1a0a94",
+  "head_sha": "78fb02ba19a443a6648aa870634700eb2c1a0a94",
+  "pr_url": "https://github.com/solidusio/solidus/pull/6692",
+  "saboteur_version": null,
+  "saboteur_sha": null,
+  "evidence_paths": [
+    "apps/solidus/logs/pr6692-base-scope-rspec.json",
+    "apps/solidus/reports/pr6692-base-scope/stdout+stderr.log"
+  ]
+}

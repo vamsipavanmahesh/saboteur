@@ -1,0 +1,18 @@
+=== RUN 1 2026-10-23T21:55:53+05:30 ===
+Failed examples:
+
+rspec ./spec/extras/github_spec.rb:14 # Github CGI.parse should work
+rspec ./spec/features/user_administration_spec.rb:39 # User Administration banning
+
+Coverage report generated for RSpec to /home/sandbox/field-runs/lobsters/coverage.
+Line Coverage: 17.38% (1234 / 7099)
+Stopped processing SimpleCov as a previous error not related to SimpleCov has been detected
+=== RUN 2 2026-10-23T21:56:00+05:30 ===
+Failed examples:
+
+rspec ./spec/extras/github_spec.rb:14 # Github CGI.parse should work
+rspec ./spec/features/user_administration_spec.rb:39 # User Administration banning
+
+Coverage report generated for RSpec to /home/sandbox/field-runs/lobsters/coverage.
+Line Coverage: 17.38% (1234 / 7099)
+Stopped processing SimpleCov as a previous error not related to SimpleCov has been detected

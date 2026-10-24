@@ -1,0 +1,15 @@
+{
+  "kind": "baseline",
+  "status": "done",
+  "command": "bundle exec rspec --format progress --format json --out /home/sandbox/field/runs/apps/solidus/logs/baseline-rspec.json",
+  "started_at": "2026-10-23T16:23:40Z",
+  "ended_at": "2026-10-23T16:49:22Z",
+  "wall_seconds": 1542,
+  "exit_code": 1,
+  "peak_rss_kb": 408468,
+  "base_sha": "07d5aff446586f6ab8ca024e2d8d08ee3e0463d8",
+  "head_sha": "07d5aff446586f6ab8ca024e2d8d08ee3e0463d8",
+  "pr_url": null,
+  "saboteur_version": null,
+  "saboteur_sha": null
+}
