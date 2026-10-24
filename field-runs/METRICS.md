@@ -1,7 +1,7 @@
 # Metric definitions (chosen 2026-10-24 08:21 IST)
 
-Chosen by main under the user's 08:20:52 delegation of decisions
-(WhatsApp wamid.HBgMOTE5MzkyMTQzNDAzFQIAEhgUM0E5NEQ1QjNERDRDRjFGQzUxMUYA).
+Chosen by main under the user's 08:20:52 delegation of decisions (user's
+WhatsApp message of 08:20:52 IST).
 No metrics are computed or published until the underlying data has
 landed and been recomputed under these definitions.
 
