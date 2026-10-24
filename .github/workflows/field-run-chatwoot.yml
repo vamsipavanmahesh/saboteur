@@ -1,0 +1,181 @@
+name: "Field run - Chatwoot (stage 1 - env, provision, bounded baseline)"
+
+# Stage 1 of the chatwoot field run on standard GitHub-hosted runners.
+# This workflow provisions the era environment and runs the bounded baseline
+# subset (spec/models + spec/services + the extra spec). It does NOT build
+# the whole-suite coverage map and does NOT run per-PR mutation replays;
+# those stages land in a later workflow change after this one proves green.
+# Every stage emits receipts and uploads its raw logs; nothing here is a
+# whole-suite claim. Manual dispatch only, so it can never fire on a push
+# or pull request.
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: field-run-chatwoot
+  cancel-in-progress: false
+
+env:
+  CHATWOOT_SHA: 98a9ed710ad7334b07e96ca6c1da0b7e8ebc686a
+  SABOTEUR_PIN: 6f87ccc98377bf0c23f3cf409006f0464c2aa67c
+  RUBY_VERSION: 3.4.4
+  BUNDLER_VERSION: 2.5.16
+  NODE_VERSION: 24.13.0
+  PNPM_VERSION: 10.2.0
+
+jobs:
+  provision-baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Environment receipt
+        run: |
+          mkdir -p receipts
+          {
+            echo "date_local=$(date -Is)"
+            echo "date_utc=$(date -u -Is)"
+            echo "nproc=$(nproc)"
+            echo "meminfo=$(grep MemTotal /proc/meminfo)"
+            echo "disk=$(df -h / | tail -1)"
+            echo "os_image=${{ runner.os }} ${{ runner.arch }} image ${{ github.run_id }}"
+            echo "cgroup_v2_memory_max=$(cat /sys/fs/cgroup/memory.max 2>/dev/null || echo absent)"
+            echo "cgroup_v2_memory_current=$(cat /sys/fs/cgroup/memory.current 2>/dev/null || echo absent)"
+          } | tee receipts/env.env
+
+      - name: Install system packages (postgres 16 + pgvector, redis)
+        run: |
+          set -e
+          sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/postgresql.gpg
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-16 postgresql-16-pgvector postgresql-contrib-16 redis-server 2>&1 | tail -2
+          {
+            echo "postgres=$(dpkg-query -W -f='${Version}' postgresql-16)"
+            echo "pgvector=$(dpkg-query -W -f='${Version}' postgresql-16-pgvector)"
+            echo "redis=$(redis-server --version)"
+          } | tee -a receipts/env.env
+
+      - name: Start postgres + redis
+        run: |
+          sudo service postgresql start
+          redis-server --daemonize yes --port 6379 --save '' --appendonly no --logfile /tmp/redis.log
+          sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'postgres';"
+          pg_isready
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ env.RUBY_VERSION }}
+          bundler: ${{ env.BUNDLER_VERSION }}
+
+      - name: Set up Node + pnpm
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+        run: |
+          corepack enable
+          corepack prepare pnpm@${{ env.PNPM_VERSION }} --activate
+          pnpm --version | tee -a receipts/env.env
+
+      - name: Check out chatwoot at the frozen collection HEAD
+        uses: actions/checkout@v4
+        with:
+          repository: chatwoot/chatwoot
+          ref: ${{ env.CHATWOOT_SHA }}
+          path: chatwoot
+
+      - name: Check out saboteur at the tool pin
+        uses: actions/checkout@v4
+        with:
+          path: saboteur-pin
+          ref: ${{ env.SABOTEUR_PIN }}
+
+      - name: Build + install the pinned saboteur gem, prove payload identity
+        run: |
+          set -e
+          cd saboteur-pin
+          gem build saboteur.gemspec --output=saboteur-pin.gem > /dev/null
+          echo "built_gem_sha256=$(sha256sum saboteur-pin.gem | cut -d' ' -f1)" | tee ../receipts/gem.env
+          gem install --local saboteur-pin.gem --no-document 2>&1 | tail -1
+          INSTALLED=$(gem contents saboteur | grep '/lib/\|/exe/' | sed "s|^$(gem env gemdir)||" | sort)
+          diff <(cd lib && find . -type f | sort; cd ../exe && find . -type f | sort) <(echo "$INSTALLED" | sed 's|/gems/saboteur-0.12.3||') > ../receipts/gem-payload-paths.diff || true
+          cd lib && find . -type f | sort | xargs sha256sum > ../../receipts/gem-payload-source.sha256
+          GEMDIR=$(gem env gemdir)/gems/saboteur-0.12.3
+          (cd "$GEMDIR/lib" && find . -type f | sort | xargs sha256sum) > ../../receipts/gem-payload-installed.sha256
+          cd ../..
+          diff receipts/gem-payload-source.sha256 receipts/gem-payload-installed.sha256 > receipts/gem-payload.diff
+          test ! -s receipts/gem-payload.diff && echo "payload_diff=EMPTY-identical" | tee -a receipts/gem.env
+
+      - name: Chatwoot env file with generated keys (never committed)
+        run: |
+          cd chatwoot
+          {
+            echo "RAILS_ENV=test"
+            echo "REDIS_URL=redis://localhost:6379"
+            echo "POSTGRES_HOST=localhost"
+            echo "POSTGRES_PORT=5432"
+            echo "POSTGRES_USERNAME=postgres"
+            echo "POSTGRES_PASSWORD=postgres"
+            echo "POSTGRES_DATABASE=chatwoot_test"
+            echo "SECRET_KEY_BASE=$(openssl rand -hex 64)"
+            echo "ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY=$(openssl rand -hex 32)"
+            echo "ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY=$(openssl rand -hex 32)"
+            echo "ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT=$(openssl rand -hex 32)"
+            echo "FRONTEND_URL=http://localhost:3000"
+          } > .env
+
+      - name: Bundle install (single bounded attempt)
+        working-directory: chatwoot
+        run: |
+          set -o pipefail
+          MAKEFLAGS=-j1 bundle config set --local path vendor/bundle
+          MAKEFLAGS=-j1 bundle install --jobs 1 --without development 2>&1 | tee ../receipts/bundle.log | tail -3
+
+      - name: pnpm install (frozen lockfile)
+        working-directory: chatwoot
+        run: pnpm i --frozen-lockfile 2>&1 | tee ../receipts/pnpm.log | tail -3
+
+      - name: Database create + schema load (UTF8 forced)
+        working-directory: chatwoot
+        run: |
+          set -o pipefail
+          sudo -u postgres createdb -E UTF8 -T template0 chatwoot_test || true
+          bundle exec rails db:schema:load 2>&1 | tee ../receipts/db.log | tail -3
+
+      - name: Smoke spec (account)
+        working-directory: chatwoot
+        run: bundle exec rspec spec/models/account_spec.rb --format progress 2>&1 | tee ../receipts/smoke.log | tail -3
+
+      - name: Bounded baseline subset (models + services)
+        working-directory: chatwoot
+        run: |
+          set -o pipefail
+          echo "started_at=$(date -Iseconds)" > ../receipts/baseline-meta.env
+          t0=$(date +%s)
+          bundle exec rspec spec/models spec/services --format progress --format json --out ../receipts/baseline-rspec.json > ../receipts/baseline-rspec.log 2>&1
+          ec=$?
+          {
+            echo "exit_code=$ec"
+            echo "ended_at=$(date -Iseconds)"
+            echo "wall_seconds=$(( $(date +%s) - t0 ))"
+            echo "note=bounded subset (spec/models + spec/services); a new environment measurement, prior sandbox receipts do not gate"
+          } >> ../receipts/baseline-meta.env
+          tail -3 ../receipts/baseline-rspec.log
+          exit $ec
+
+      - name: Stage manifest
+        if: always()
+        run: |
+          cd receipts && find . -type f | sort | xargs sha256sum > MANIFEST.sha256 && cat MANIFEST.sha256
+
+      - name: Upload receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: field-run-chatwoot-stage1-${{ github.run_id }}
+          path: receipts/
+          if-no-files-found: error
