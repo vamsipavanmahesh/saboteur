@@ -342,3 +342,12 @@ pointers are to files on this branch.
 - Evidence: BUG-UNIT.md; HE ledger v3 (20 candidates: 13 mechanical old-only, 7 pending-regression, all denominator_included=false, outcome=null - provisional, not audit-verified; referenced line-maps/blame receipts not in packet, worker to send).
 - Impact: All bug rates are per-verified-behavior with aggregate fix-PR counts beside; component table kept separate from primary denominators; pooled flag rate deduplicated per introducing PR.
 - Reversibility: Contract addition; any later split requires pre-result recorded witnesses.
+
+## D32 - 08:46 - Whole-suite map protocol fixed at the pinned source
+
+- Decision: Adopt PROTOCOL.md as the required replay route: per-era unscoped map job (writes map + inputs snapshot + whole-suite-map-v2 pointer), then pr-preset replays with partial_coverage="use" in the same root with identical config; honest per-row labels (cache hit / partial-merged with provenance / full fallback). Canary on PR 2231 (merge commit 9fd8f5fca9b5f93a465a079cd0847b17b2acebe8) precedes all noise-row execution.
+- Reason: The three v2 replays consumed 44/81/1-test selected-spec maps and could not confirm survivors; survivor confirmation reads only the pointer-named whole-suite map (engine.rb:299-311 at the pin).
+- Evidence: PROTOCOL.md mechanism claims verified against saboteur 0.12.3 pin 6f87ccc9 (coverage_store.rb, coverage_map.rb:302-309, coverage_partial.rb, partial_invalidation.rb:24,45, selection_announcement.rb:62, engine.rb:390-392, docs/ci-whole-suite-map.md); the worker's packet sources are byte-identical to the pin blobs.
+- Correction logged: an earlier staging-side reading required the map to be built at the BASE tree specifically; that was over-specific. The user's words require whole-suite completeness with the era tree's specs, which the documented map-job route satisfies. This is a main-agent correction of an internal interpretation, not a change to user intent.
+- Impact: 2231/2204/2156 v2 rows remain PROVISIONAL until re-run; no noise-row execution before canary raws show HIT + active confirmation on 2231; the same route applies to chatwoot and human-essentials.
+- Reversibility: Protocol document; rows re-run under it replace provisional rows as new labeled evidence, raws preserved.
