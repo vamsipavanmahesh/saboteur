@@ -1,0 +1,30 @@
+=== oom diagnostic 2026-10-24T11:18:17+05:30 ===
+--- cgroup ---
+--- events ---
+--- swap ---
+--- free ---
+               total        used        free      shared  buff/cache   available
+Mem:            1982         142        1586          59         254        1633
+Swap:              0           0           0
+--- top rss ---
+  RSS     PID COMMAND
+42828   52027 postgres
+18068   52026 postgres
+14760     544 envd
+ 9576     572 networkd-dispat
+ 9200   52030 postgres
+ 8700     684 unattended-upgr
+ 7176     748 agent-exec-serv
+--- map bundle log tail ---
+Fetching source index from file:///home/sandbox/fieldruns/local-gems/
+Fetching gem metadata from https://rubygems.org/........
+Fetching source index from https://rubygems.org/
+--- pg/redis status ---
+localhost:5432 - accepting connections
+PONG
+--- cgroup/user corrected 2026-10-24T11:18:47+05:30 ---
+memory.max=1944915968 memory.current=195751936
+events: low 0 high 0 max 0 oom 0 oom_kill 1 oom_group_kill 0 
+kill phase: bundler RESOLVER (after "Fetching source index from https://rubygems.org/"), install phase never reached
+waiting for server to shut down.... done
+server stopped
