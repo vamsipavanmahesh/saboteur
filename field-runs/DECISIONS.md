@@ -595,3 +595,10 @@ All windows within the ~2-week rule; every snapshot head is itself a mainline me
 - Reason: survivor confirmation contract met for all 22; grouping is behavior-primary per D58 with statement secondary.
 - Evidence: apps/lobsters/reports/pr2197-triage-corrective2/ (MANIFEST.md, titles_probe_spec.rb, 22 existing + 22 probe logs, baseline/driver/final-restored logs).
 - Reversibility: publication only; statement-level numbers preserved for recounts.
+
+## D68 - 2026-10-24T12:29+05:30 - PR 2197's 3 unmeasured subjects: snapshot line-table check result
+
+- Decision: the line-table check owed under D66/D67 is resolved with a narrow record: the snapshot coverage map records ZERO covering tests for the three subjects' line ranges (app/controllers/inbox_controller.rb:35-42, app/controllers/messages_controller.rb:8-15, app/controllers/mod/origins_controller.rb:3-10). This is zero-recorded-coverage in the snapshot map only - it is NOT a claim that no existing test reaches those lines, and the subjects are not gaps. They remain unmeasured and stay out of every survivor, gap, and noise count; the 2197 row's qualification and 3 admitted gaps are unaffected.
+- Reason: per D57 a skip is never a gap without row-tree proof, and zero-recorded map coverage is not itself proof of absence; the honest record is the narrow one.
+- Evidence: snapshot line-table check result (inbox 35-42 / messages 8-15 / origins 3-10, all zero recorded); row packet at apps/lobsters/reports/pr2197-replay-corrective2/.
+- Reversibility: if a future row-tree run measures these subjects, the row record gains entries; nothing already admitted is removed by that alone.
