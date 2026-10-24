@@ -22,3 +22,13 @@ vs measured wall within 1s on this run.
   spec/models/comment_spec.rb, spec/requests/comments_spec.rb only).
 - Per-replay structured measurement.json not yet supplied by the worker;
   the raw MEASURED footer is in logs/pr2231-replay-20261024-0716.log.
+
+Update 07:24: wrapper measurement.json received and added (envelope
+07:16:38.757915 -> 07:17:14.610503 = 35.85s, agrees with the MEASURED
+footer; head_sha 9fd8f5fca9b5f93a465a079cd0847b17b2acebe8).
+Qualifications: all 4 kills are tool-labeled crashes, not assertion
+kills; the tool score reflects the selected tests only; kill causes are
+tool labels, not independent verdicts; independent triage is ongoing.
+The earlier setup attempt failed exit 3 / 6.13s (missing database.yml);
+the rerun used a copied pin configuration - an explicit deviation whose
+source/hash record is tracked in the run notes.

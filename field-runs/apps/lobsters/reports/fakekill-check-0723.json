@@ -1,0 +1,40 @@
+[
+  {
+    "pr": 2231,
+    "report": "report-4e03bca3.json",
+    "mutants": 4,
+    "statuses": {
+      "Killed": 4
+    },
+    "kill_reason_counts": {
+      "crash: NoMethodError": 2,
+      "crash: RuntimeError": 1,
+      "crash: ArgumentError": 1
+    },
+    "killedBy_references": 4,
+    "unresolved_killedBy": [],
+    "excluded_kill_hits": [],
+    "excluded_testFiles": [],
+    "rejectedKills": 0,
+    "complete": true
+  },
+  {
+    "pr": 2204,
+    "report": "report-b79f3865.json",
+    "mutants": 22,
+    "statuses": {
+      "Killed": 19,
+      "Survived": 3
+    },
+    "kill_reason_counts": {
+      "assertion": 18,
+      "crash: RuntimeError": 1
+    },
+    "killedBy_references": 19,
+    "unresolved_killedBy": [],
+    "excluded_kill_hits": [],
+    "excluded_testFiles": [],
+    "rejectedKills": 0,
+    "complete": true
+  }
+]

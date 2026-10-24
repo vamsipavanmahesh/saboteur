@@ -24,3 +24,11 @@ internal 61.8s; baseline 4.9s, map 24.8s, mutants 21.9s, jobs=1).
   also absent from testFiles (spec/models/story_spec.rb only).
 - Per-replay structured measurement.json not yet supplied by the worker;
   the raw MEASURED footer is in logs/pr2204-replay-20261024-0718.log.
+
+Update 07:24: wrapper measurement.json received and added (envelope
+07:18:28.350769 -> 07:19:31.004332 = 62.65s, agrees with the MEASURED
+footer; head_sha ed722e449227b39ab6268f4260aaa66df95275bd).
+Qualifications: kills are 18 assertion + 1 crash (tool labels, not
+independent verdicts); the 3 survivors are unconfirmed, not yet
+real-gap findings; the tool score reflects the selected tests only;
+independent triage is ongoing.

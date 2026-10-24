@@ -1,0 +1,17 @@
+{
+  "kind": "pr",
+  "status": null,
+  "command": "bundle exec saboteur pr --since 9a773eac0b49fd86b16585ad503de9a51919c496 --jobs 1 --json /home/sandbox/field-runs/saboteur-field-runs/apps/lobsters/reports/pr2156-replay/report.json --html /home/sandbox/field-runs/saboteur-field-runs/apps/lobsters/reports/pr2156-replay/report.html",
+  "started_at": "2026-10-24T07:21:48.345018+05:30",
+  "ended_at": "2026-10-24T07:22:13.884942+05:30",
+  "wall_seconds": 25.54,
+  "wall_seconds_monotonic_suspect": 25.54,
+  "exit_code": 1,
+  "peak_rss_kb": 353436,
+  "base_sha": "9a773eac0b49fd86b16585ad503de9a51919c496",
+  "head_sha": "d9998c2555317db7b3cb9a159ef7878ff993ab78",
+  "pr_url": "https://github.com/lobsters/lobsters/pull/2156",
+  "saboteur_version": "0.12.3",
+  "saboteur_sha": "6f87ccc98377bf0c23f3cf409006f0464c2aa67c",
+  "evidence_paths": []
+}
