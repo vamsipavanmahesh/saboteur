@@ -1,0 +1,45 @@
+
+An error occurred while loading ./spec/models/concerns/labelable/persistence_spec.rb. - Did you mean?
+                    rspec ./spec/models/concerns/featurable_spec.rb
+
+Failure/Error: __send__(method, file)
+
+LoadError:
+  cannot load such file -- /home/sandbox/fieldruns/wt/15807-base/spec/models/concerns/labelable/persistence_spec.rb
+# /home/sandbox/fieldruns/chatwoot-git/vendor/bundle/ruby/3.4.0/gems/rspec-core-3.13.0/lib/rspec/core/configuration.rb:2138:in 'Kernel#load'
+# /home/sandbox/fieldruns/chatwoot-git/vendor/bundle/ruby/3.4.0/gems/rspec-core-3.13.0/lib/rspec/core/configuration.rb:2138:in 'RSpec::Core::Configuration#load_file_handling_errors'
+# /home/sandbox/fieldruns/chatwoot-git/vendor/bundle/ruby/3.4.0/gems/rspec-core-3.13.0/lib/rspec/core/configuration.rb:1638:in 'block in RSpec::Core::Configuration#load_spec_files'
+# /home/sandbox/fieldruns/chatwoot-git/vendor/bundle/ruby/3.4.0/gems/rspec-core-3.13.0/lib/rspec/core/configuration.rb:1636:in 'Array#each'
+# /home/sandbox/fieldruns/chatwoot-git/vendor/bundle/ruby/3.4.0/gems/rspec-core-3.13.0/lib/rspec/core/configuration.rb:1636:in 'RSpec::Core::Configuration#load_spec_files'
+# /home/sandbox/fieldruns/chatwoot-git/vendor/bundle/ruby/3.4.0/gems/rspec-core-3.13.0/lib/rspec/core/runner.rb:102:in 'RSpec::Core::Runner#setup'
+# /home/sandbox/fieldruns/chatwoot-git/vendor/bundle/ruby/3.4.0/gems/rspec-core-3.13.0/lib/rspec/core/runner.rb:86:in 'RSpec::Core::Runner#run'
+# /home/sandbox/fieldruns/chatwoot-git/vendor/bundle/ruby/3.4.0/gems/rspec-core-3.13.0/lib/rspec/core/runner.rb:71:in 'RSpec::Core::Runner.run'
+# /home/sandbox/fieldruns/chatwoot-git/vendor/bundle/ruby/3.4.0/gems/rspec-core-3.13.0/lib/rspec/core/runner.rb:45:in 'RSpec::Core::Runner.invoke'
+# /home/sandbox/fieldruns/chatwoot-git/vendor/bundle/ruby/3.4.0/gems/rspec-core-3.13.0/exe/rspec:4:in '<top (required)>'
+# /home/sandbox/fieldruns/wt/15807-base/vendor/bundle/ruby/3.4.0/bin/rspec:25:in 'Kernel#load'
+# /home/sandbox/fieldruns/wt/15807-base/vendor/bundle/ruby/3.4.0/bin/rspec:25:in '<top (required)>'
+# /home/sandbox/local/ruby/lib/ruby/gems/3.4.0/gems/bundler-2.5.16/lib/bundler/cli/exec.rb:58:in 'Kernel.load'
+# /home/sandbox/local/ruby/lib/ruby/gems/3.4.0/gems/bundler-2.5.16/lib/bundler/cli/exec.rb:58:in 'Bundler::CLI::Exec#kernel_load'
+# /home/sandbox/local/ruby/lib/ruby/gems/3.4.0/gems/bundler-2.5.16/lib/bundler/cli/exec.rb:23:in 'Bundler::CLI::Exec#run'
+# /home/sandbox/local/ruby/lib/ruby/gems/3.4.0/gems/bundler-2.5.16/lib/bundler/cli.rb:455:in 'Bundler::CLI#exec'
+# /home/sandbox/local/ruby/lib/ruby/gems/3.4.0/gems/bundler-2.5.16/lib/bundler/vendor/thor/lib/thor/command.rb:28:in 'Bundler::Thor::Command#run'
+# /home/sandbox/local/ruby/lib/ruby/gems/3.4.0/gems/bundler-2.5.16/lib/bundler/vendor/thor/lib/thor/invocation.rb:127:in 'Bundler::Thor::Invocation#invoke_command'
+# /home/sandbox/local/ruby/lib/ruby/gems/3.4.0/gems/bundler-2.5.16/lib/bundler/vendor/thor/lib/thor.rb:527:in 'Bundler::Thor.dispatch'
+# /home/sandbox/local/ruby/lib/ruby/gems/3.4.0/gems/bundler-2.5.16/lib/bundler/cli.rb:35:in 'Bundler::CLI.dispatch'
+# /home/sandbox/local/ruby/lib/ruby/gems/3.4.0/gems/bundler-2.5.16/lib/bundler/vendor/thor/lib/thor/base.rb:584:in 'Bundler::Thor::Base::ClassMethods#start'
+# /home/sandbox/local/ruby/lib/ruby/gems/3.4.0/gems/bundler-2.5.16/lib/bundler/cli.rb:29:in 'Bundler::CLI.start'
+# /home/sandbox/local/ruby/lib/ruby/gems/3.4.0/gems/bundler-2.5.16/exe/bundle:28:in 'block in <top (required)>'
+# /home/sandbox/local/ruby/lib/ruby/gems/3.4.0/gems/bundler-2.5.16/lib/bundler/friendly_errors.rb:117:in 'Bundler.with_friendly_errors'
+# /home/sandbox/local/ruby/lib/ruby/gems/3.4.0/gems/bundler-2.5.16/exe/bundle:20:in '<top (required)>'
+# /home/sandbox/local/ruby/bin/bundle:25:in 'Kernel#load'
+# /home/sandbox/local/ruby/bin/bundle:25:in '<main>'
+# 
+#   Showing full backtrace because every line was filtered out.
+#   See docs for RSpec::Configuration#backtrace_exclusion_patterns and
+#   RSpec::Configuration#backtrace_inclusion_patterns for more information.
+No examples found.
+
+
+Finished in 0.00003 seconds (files took 0.6306 seconds to load)
+0 examples, 0 failures, 1 error occurred outside of examples
+

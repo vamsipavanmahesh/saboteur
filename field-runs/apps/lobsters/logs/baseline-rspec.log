@@ -1,0 +1,30 @@
+W, [2026-10-23T21:54:34.073106 #7271]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+....................................................F..................................................................................................................................................................................................................F.........................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................
+
+Failures:
+
+  1) Github CGI.parse should work
+     Failure/Error: expect(CGI.parse("a"))
+
+     NoMethodError:
+       undefined method 'parse' for class CGI
+     # ./spec/extras/github_spec.rb:15:in 'block (3 levels) in <top (required)>'
+
+  2) User Administration banning
+     Failure/Error: expect(sent_emails.size).to eq(1)
+       Expected 0 to eq 1.
+     # ./spec/features/user_administration_spec.rb:50:in 'block (2 levels) in <top (required)>'
+
+Finished in 29.94 seconds (files took 4.82 seconds to load)
+913 examples, 2 failures
+
+Failed examples:
+
+rspec ./spec/extras/github_spec.rb:14 # Github CGI.parse should work
+rspec ./spec/features/user_administration_spec.rb:39 # User Administration banning
+
+Coverage report generated for RSpec to /home/sandbox/field-runs/lobsters/coverage.
+Line Coverage: 65.69% (4372 / 6655)
+Stopped processing SimpleCov as a previous error not related to SimpleCov has been detected
+{"command": "bundle exec rspec --format progress --format json --out /home/sandbox/field-runs/saboteur-field-runs/apps/lobsters/logs/baseline-rspec.json", "started_at": "2026-10-23T21:54:30+0530", "ended_at": "2026-10-23T21:55:06+0530", "wall_seconds": 35.345, "exit_code": 1, "peak_rss_kb": 454056}
+WRAPPER_EXIT=1

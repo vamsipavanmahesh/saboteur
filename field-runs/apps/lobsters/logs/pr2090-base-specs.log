@@ -1,0 +1,9 @@
+W, [2026-10-23T22:42:53.522379 #14306]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+................................
+
+Finished in 4.3 seconds (files took 3.71 seconds to load)
+32 examples, 0 failures
+
+Coverage report generated for RSpec to /home/sandbox/field-runs/pr-trees/pr2143/coverage.
+Line Coverage: 17.34% (1242 / 7161)
+{"command": "bundle exec rspec spec/controllers/home_controller_spec.rb spec/routing/home_spec.rb --format progress --format json --out /home/sandbox/field-runs/saboteur-field-runs/apps/lobsters/logs/pr2090-base-specs.json", "started_at": "2026-10-23T22:42:50+0530", "ended_at": "2026-10-23T22:42:59+0530", "wall_seconds": 8.453, "exit_code": 0, "peak_rss_kb": 312268}

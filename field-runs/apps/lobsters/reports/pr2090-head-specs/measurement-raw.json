@@ -1,0 +1,8 @@
+{
+  "command": "bundle exec rspec spec/controllers/home_controller_spec.rb spec/routing/home_spec.rb --format progress --format json --out /home/sandbox/field-runs/saboteur-field-runs/apps/lobsters/logs/pr2090-head-specs.json",
+  "started_at": "2026-10-23T22:29:28+0530",
+  "ended_at": "2026-10-23T22:29:37+0530",
+  "wall_seconds": 8.541,
+  "exit_code": 0,
+  "peak_rss_kb": 318272
+}

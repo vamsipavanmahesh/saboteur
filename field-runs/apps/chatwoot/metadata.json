@@ -1,0 +1,8 @@
+{
+  "repository": "https://github.com/chatwoot/chatwoot",
+  "sha": "7fe41fe03731fc2f5b1841b84351386962d2fd05",
+  "shape": "large Postgres and Redis Rails app",
+  "ruby_files": 2957,
+  "spec_files": 1014,
+  "size_method": "git ls-files filtered by suffix .rb and _spec.rb, including all tracked paths"
+}

@@ -1,0 +1,21 @@
+W, [2026-10-24T06:46:09.081088 #4193]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+....F..
+
+Failures:
+
+  1) User Administration banning
+     Failure/Error: expect(sent_emails.size).to eq(1)
+       Expected 0 to eq 1.
+     # ./spec/features/user_administration_spec.rb:50:in 'block (2 levels) in <top (required)>'
+
+Finished in 3.08 seconds (files took 4.44 seconds to load)
+7 examples, 1 failure
+
+Failed examples:
+
+rspec ./spec/features/user_administration_spec.rb:39 # User Administration banning
+
+Coverage report generated for RSpec to /home/sandbox/field-runs/lobsters/coverage.
+Line Coverage: 17.38% (1234 / 7099)
+Stopped processing SimpleCov as a previous error not related to SimpleCov has been detected
+MEASURED exit=1 wall=8.35s rss_kb=308372

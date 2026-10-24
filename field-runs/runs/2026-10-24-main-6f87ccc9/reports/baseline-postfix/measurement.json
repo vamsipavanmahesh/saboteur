@@ -1,0 +1,18 @@
+{
+  "kind": "baseline",
+  "status": "done",
+  "command": "bundle exec rspec",
+  "started_at": "2026-10-24T06:46:37.222306+05:30",
+  "ended_at": "2026-10-24T06:47:19.152073+05:30",
+  "wall_seconds": 41.93,
+  "exit_code": 1,
+  "peak_rss_kb": 463384,
+  "base_sha": "407536444934ac7d78f4ce1c18f228e3891a8663",
+  "head_sha": "407536444934ac7d78f4ce1c18f228e3891a8663",
+  "pr_url": null,
+  "saboteur_version": "0.12.3",
+  "saboteur_sha": "6f87ccc98377bf0c23f3cf409006f0464c2aa67c",
+  "evidence_paths": [
+    "logs/baseline2-postfix-20261024-0646.log"
+  ]
+}

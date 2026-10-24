@@ -1,0 +1,25 @@
+saboteur: warning: 190 uncommitted or untracked change(s) in the working tree: none inside the mutation scope, 189 outside it (4 tracked, 185 untracked), 1 saboteur setup file(s) (0 tracked, 1 untracked).
+  setup files: config/saboteur.rb
+  Mutants run your code and could alter or delete files; run on a clean, committed tree or a CI checkout.
+saboteur: Operators: operator_assignment, condition_negation, range, body_nil, body_true, body_false, body_raise, comparison, arithmetic, boolean_logic, condition_true, condition_false, negation_removal, literal_number, or_assign, and_assign, safe_navigation, statement_removal, filter_replacement, copy_replacement, literal_string, literal_boolean, argument_swap, argument_removal, pair_removal, element_removal, endpoint_replacement, chain_removal, method_swap, operand_replacement, interpolation_removal, jump_value, rescue_removal, ensure_removal, when_removal, unary_removal, regex_replacement
+saboteur: loading the application
+saboteur: SimpleCov.start ignored for this run (saboteur needs Ruby's Coverage itself)
+saboteur: running the loaded suite unscoped: 913 examples in 109 spec files; 3 full passes (2 baseline checks + 1 coverage map build).
+saboteur: checking the unchanged suite twice (seed 1)
+W, [2026-10-24T06:42:46.987222 #3928]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+saboteur: baseline check 1: 30 s elapsed, 550/913 examples (60 %), about 20 s left
+saboteur: baseline check 1 took 40 s; about 80 s left for the remaining 1 full pass and the coverage map build at that rate
+saboteur: baseline check 1 failed at seed 1: the suite failed: ./spec/extras/github_spec.rb[1:2:1], ./spec/features/user_administration_spec.rb[1:3]. The log says:
+  Failures:
+    1) Github CGI.parse should work
+       Failure/Error: expect(CGI.parse("a"))
+       NoMethodError:
+         undefined method 'parse' for class CGI
+       # ./spec/extras/github_spec.rb:15:in 'block (3 levels) in <top (required)>'
+    2) User Administration banning
+       Failure/Error: expect(sent_emails.size).to eq(1)
+         Expected 0 to eq 1.
+       # ./spec/features/user_administration_spec.rb:50:in 'block (2 levels) in <top (required)>'
+See the full log at /home/sandbox/field-runs/lobsters/.saboteur/baseline-1.log. Fix the suite or its setup, then run saboteur again with the same seed. No mutants were started.
+exit 5 - baseline suite red: fix your tests first
+MEASURED exit=5 wall=49.66s rss_kb=426384

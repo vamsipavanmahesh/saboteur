@@ -1,0 +1,20 @@
+{
+  "kind": "map",
+  "status": "blocked",
+  "command": "bundle exec saboteur run --all --verbose --html /home/sandbox/field-runs/saboteur-field-runs/apps/lobsters/reports/map/map.html --json /home/sandbox/field-runs/saboteur-field-runs/apps/lobsters/reports/map/map.stryker.json",
+  "started_at": "2026-10-24T06:42:41.842497+05:30",
+  "ended_at": "2026-10-24T06:43:31.504013+05:30",
+  "wall_seconds": 49.66,
+  "exit_code": 5,
+  "peak_rss_kb": 426384,
+  "base_sha": "407536444934ac7d78f4ce1c18f228e3891a8663",
+  "head_sha": "407536444934ac7d78f4ce1c18f228e3891a8663",
+  "pr_url": null,
+  "saboteur_version": "0.12.3",
+  "saboteur_sha": "6f87ccc98377bf0c23f3cf409006f0464c2aa67c",
+  "evidence_paths": [
+    "logs/map-20261024-0643.log",
+    "logs/baseline-1.log"
+  ],
+  "enrichment_note": "Snapshot composition 2026-10-24T06:52+05:30: status/evidence paths filled from received raw logs. Original retained alongside; command, times, identity and numeric measurements unchanged."
+}

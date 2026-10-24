@@ -1,0 +1,57 @@
+{
+ "environment": {
+  "status": "done",
+  "reason": "toolchain source-built (documented deviation, no sudo available); app deps installed; pg+redis up; schema loaded; smoke spec green",
+  "evidence": [
+   "apps/chatwoot/ENV.md",
+   "apps/chatwoot/commands.sh",
+   "apps/chatwoot/logs/baseline-rspec.log (smoke tail pending)"
+  ]
+ },
+ "baseline": {
+  "status": "done",
+  "reason": "3252 examples 0 failures 2 pending (enterprise-audit pending markers) exit 0, 213s; extra baseline 31/0/0 exit 0 for out-of-scope PR specs",
+  "evidence": [
+   "apps/chatwoot/reports/baseline/measurement.json",
+   "apps/chatwoot/reports/baseline-extra/measurement.json",
+   "apps/chatwoot/logs/baseline-rspec.json",
+   "apps/chatwoot/logs/baseline-extra-rspec.json",
+   "apps/chatwoot/reports/baseline/pending_examples.json"
+  ]
+ },
+ "documented_flow": {
+  "status": "not_done",
+  "reason": "saboteur install + docs/ci-whole-suite-map.md flow requires released 0.13.0; held for verified SHA",
+  "evidence": []
+ },
+ "map": {
+  "status": "not_done",
+  "reason": "waits on 0.13.0",
+  "evidence": []
+ },
+ "pr_replays": {
+  "status": "not_done",
+  "reason": "PR selection pending; runs wait on 0.13.0",
+  "evidence": []
+ },
+ "parallelism": {
+  "status": "not_done",
+  "reason": "waits on 0.13.0",
+  "evidence": []
+ },
+ "determinism": {
+  "status": "not_done",
+  "reason": "waits on 0.13.0",
+  "evidence": []
+ },
+ "triage": {
+  "status": "not_done",
+  "reason": "fresh-context triager assigned by main after raw evidence exists; self-triage does not count",
+  "evidence": []
+ },
+ "kills": {
+  "status": "not_done",
+  "reason": "waits on 0.13.0 + triage sampling",
+  "evidence": []
+ }
+}

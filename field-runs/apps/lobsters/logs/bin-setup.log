@@ -1,0 +1,781 @@
+STARTED_AT=2026-10-23T21:45:04+05:30
+== Installing dependencies ==
+The following gems are missing
+ * rails (8.1.3.1)
+ * solid_cache (1.0.7)
+ * sqlite3 (2.9.6)
+ * solid_queue (1.2.1)
+ * mission_control-jobs (1.1.0)
+ * activerecord-typedstore (1.6.0)
+ * importmap-rails (2.1.0)
+ * propshaft (1.1.0)
+ * sentry-rails (5.28.0)
+ * typeid (0.2.2)
+ * json (2.21.2)
+ * actionpack-page_caching (1.2.5)
+ * puma (8.0.2)
+ * bcrypt (3.1.22)
+ * rotp (6.3.0)
+ * rqrcode (3.1.1)
+ * cgi (0.5.1)
+ * commonmarker (2.6.3)
+ * htmlentities (4.3.4)
+ * pdf-reader (2.15.0)
+ * nokogiri (1.19.4)
+ * parslet (2.0.0)
+ * flamegraph (0.9.5)
+ * memory_profiler (1.1.0)
+ * rack-mini-profiler (4.0.0)
+ * stackprof (0.2.27)
+ * builder (3.3.0)
+ * faker (3.5.1)
+ * oauth (1.1.8)
+ * mail (2.9.1)
+ * sitemap_generator (6.3.0)
+ * svg-graph (2.2.2)
+ * rack-attack (6.7.0)
+ * lograge (0.14.0)
+ * silencer (2.0.0)
+ * ruby-vips (2.3.0)
+ * active_record_doctor (1.15.0)
+ * benchmark-perf (0.6.0)
+ * brakeman (8.0.6)
+ * capybara (3.40.0)
+ * crass (1.0.7)
+ * database_cleaner (2.1.0)
+ * database_consistency (2.1.1)
+ * factory_bot_rails (6.4.4)
+ * foreman (0.88.1)
+ * letter_opener (1.10.0)
+ * listen (3.9.0)
+ * rspec-rails (8.0.2)
+ * simplecov (0.22.0)
+ * standard (1.52.0)
+ * standard-performance (1.9.0)
+ * standard-rails (1.6.0)
+ * super_diff (0.16.0)
+ * vcr (6.4.0)
+ * webmock (3.25.1)
+ * actioncable (8.1.3.1)
+ * actionmailbox (8.1.3.1)
+ * actionmailer (8.1.3.1)
+ * actionpack (8.1.3.1)
+ * actiontext (8.1.3.1)
+ * actionview (8.1.3.1)
+ * activejob (8.1.3.1)
+ * activemodel (8.1.3.1)
+ * activerecord (8.1.3.1)
+ * activestorage (8.1.3.1)
+ * activesupport (8.1.3.1)
+ * railties (8.1.3.1)
+ * mini_portile2 (2.8.9)
+ * concurrent-ruby (1.3.8)
+ * fugit (1.11.1)
+ * thor (1.5.0)
+ * irb (1.17.0)
+ * stimulus-rails (1.3.4)
+ * turbo-rails (2.0.17)
+ * rack (3.2.7)
+ * sentry-ruby (5.28.0)
+ * uuid7 (0.2.0)
+ * nio4r (2.7.5)
+ * chunky_png (1.4.0)
+ * rqrcode_core (2.0.1)
+ * Ascii85 (2.0.1)
+ * afm (0.2.2)
+ * hashery (2.1.2)
+ * ruby-rc4 (0.1.5)
+ * ttfunk (1.8.0)
+ * i18n (1.15.2)
+ * anonymous_loader (0.1.3)
+ * auth-sanitizer (0.2.3)
+ * oauth-tty (1.0.13)
+ * snaky_hash (2.0.7)
+ * version_gem (1.1.15)
+ * mini_mime (1.1.5)
+ * net-imap (0.6.6)
+ * request_store (1.7.0)
+ * ffi (1.17.4)
+ * addressable (2.9.0)
+ * matrix (0.4.2)
+ * rack-test (2.2.0)
+ * regexp_parser (2.11.3)
+ * xpath (3.2.0)
+ * database_cleaner-active_record (2.2.0)
+ * factory_bot (6.5.0)
+ * launchy (3.0.1)
+ * rb-fsevent (0.11.2)
+ * rb-inotify (0.11.1)
+ * rspec-core (3.13.5)
+ * rspec-expectations (3.13.5)
+ * rspec-mocks (3.13.5)
+ * rspec-support (3.13.6)
+ * docile (1.4.1)
+ * simplecov-html (0.13.2)
+ * simplecov_json_formatter (0.1.4)
+ * language_server-protocol (3.17.0.3)
+ * lint_roller (1.1.0)
+ * rubocop (1.81.7)
+ * standard-custom (1.0.2)
+ * rubocop-performance (1.26.1)
+ * rubocop-rails (2.34.2)
+ * attr_extras (7.1.0)
+ * diff-lcs (1.5.1)
+ * patience_diff (1.2.0)
+ * crack (1.0.0)
+ * hashdiff (1.1.2)
+ * websocket-driver (0.8.2)
+ * zeitwerk (2.7.5)
+ * rails-dom-testing (2.3.0)
+ * rack-session (2.1.2)
+ * rails-html-sanitizer (1.7.1)
+ * useragent (0.16.11)
+ * action_text-trix (2.1.19)
+ * globalid (1.4.0)
+ * erubi (1.13.1)
+ * timeout (0.6.1)
+ * marcel (1.2.1)
+ * bigdecimal (3.3.1)
+ * connection_pool (3.0.2)
+ * minitest (6.0.6)
+ * tzinfo (2.0.6)
+ * rackup (2.3.1)
+ * et-orbi (1.4.0)
+ * raabro (1.4.0)
+ * prism (1.9.0)
+ * rdoc (7.2.0)
+ * hashie (5.1.0)
+ * net-protocol (0.3.0)
+ * public_suffix (7.0.5)
+ * database_cleaner-core (2.0.1)
+ * childprocess (5.1.0)
+ * parallel (1.26.3)
+ * parser (3.3.9.0)
+ * rainbow (3.1.1)
+ * rubocop-ast (1.48.0)
+ * ruby-progressbar (1.13.0)
+ * unicode-display_width (3.2.0)
+ * optimist (3.2.0)
+ * websocket-extensions (0.1.5)
+ * loofah (2.25.2)
+ * erb (6.0.4)
+ * ast (2.4.2)
+ * unicode-emoji (4.2.0)
+Install missing gems with `bundle install`
+Bundler 4.0.20 is running, but your lockfile was generated with 4.0.3. Installing Bundler 4.0.3 and restarting using that version.
+Fetching gem metadata from https://rubygems.org/.
+Fetching bundler 4.0.3
+Installing bundler 4.0.3
+Fetching gem metadata from https://rubygems.org/........
+Fetching bigdecimal 3.3.1
+Fetching Ascii85 2.0.1
+Installing Ascii85 2.0.1
+Fetching concurrent-ruby 1.3.8
+Installing bigdecimal 3.3.1 with native extensions
+Installing concurrent-ruby 1.3.8
+Fetching connection_pool 3.0.2
+Installing connection_pool 3.0.2
+Fetching json 2.21.2
+Installing json 2.21.2 with native extensions
+Fetching prism 1.9.0
+Installing prism 1.9.0 with native extensions
+Fetching securerandom 0.4.1
+Installing securerandom 0.4.1
+Fetching uri 1.1.1
+Installing uri 1.1.1
+Fetching builder 3.3.0
+Installing builder 3.3.0
+Fetching erubi 1.13.1
+Installing erubi 1.13.1
+Fetching crass 1.0.7
+Installing crass 1.0.7
+Fetching rack 3.2.7
+Installing rack 3.2.7
+Fetching useragent 0.16.11
+Installing useragent 0.16.11
+Fetching prettyprint 0.2.0
+Installing prettyprint 0.2.0
+Fetching erb 6.0.4
+Installing erb 6.0.4 with native extensions
+Fetching date 3.5.1
+Installing date 3.5.1 with native extensions
+Fetching stringio 3.2.0
+Installing stringio 3.2.0 with native extensions
+Fetching tsort 0.2.0
+Installing tsort 0.2.0
+Fetching io-console 0.8.2
+Installing io-console 0.8.2 with native extensions
+Fetching thor 1.5.0
+Installing thor 1.5.0
+Fetching zeitwerk 2.7.5
+Installing zeitwerk 2.7.5
+Fetching nio4r 2.7.5
+Installing nio4r 2.7.5 with native extensions
+Fetching websocket-extensions 0.1.5
+Installing websocket-extensions 0.1.5
+Fetching timeout 0.6.1
+Installing timeout 0.6.1
+Fetching marcel 1.2.1
+Installing marcel 1.2.1
+Fetching mini_mime 1.1.5
+Installing mini_mime 1.1.5
+Fetching public_suffix 7.0.5
+Installing public_suffix 7.0.5
+Fetching afm 0.2.2
+Installing afm 0.2.2
+Fetching version_gem 1.1.15
+Installing version_gem 1.1.15
+Fetching ast 2.4.2
+Installing ast 2.4.2
+Fetching attr_extras 7.1.0
+Installing attr_extras 7.1.0
+Fetching bcrypt 3.1.22
+Installing bcrypt 3.1.22 with native extensions
+Fetching benchmark-perf 0.6.0
+Installing benchmark-perf 0.6.0
+Fetching matrix 0.4.2
+Installing matrix 0.4.2
+Fetching regexp_parser 2.11.3
+Installing regexp_parser 2.11.3
+Fetching cgi 0.5.1
+Installing cgi 0.5.1 with native extensions
+Fetching chunky_png 1.4.0
+Fetching commonmarker 2.6.3 (x86_64-linux)
+Installing chunky_png 1.4.0
+Fetching database_cleaner-core 2.0.1
+Installing database_cleaner-core 2.0.1
+Fetching diff-lcs 1.5.1
+Installing diff-lcs 1.5.1
+Fetching docile 1.4.1
+Installing docile 1.4.1
+Fetching ffi 1.17.4 (x86_64-linux-gnu)
+Installing ffi 1.17.4 (x86_64-linux-gnu)
+Fetching flamegraph 0.9.5
+Installing flamegraph 0.9.5
+Fetching foreman 0.88.1
+Installing foreman 0.88.1
+Fetching raabro 1.4.0
+Installing commonmarker 2.6.3 (x86_64-linux)
+Installing raabro 1.4.0
+Fetching hashdiff 1.1.2
+Installing hashdiff 1.1.2
+Fetching hashery 2.1.2
+Installing hashery 2.1.2
+Fetching htmlentities 4.3.4
+Installing htmlentities 4.3.4
+Fetching language_server-protocol 3.17.0.3
+Installing language_server-protocol 3.17.0.3
+Fetching lint_roller 1.1.0
+Installing lint_roller 1.1.0
+Fetching rb-fsevent 0.11.2
+Installing rb-fsevent 0.11.2
+Fetching memory_profiler 1.1.0
+Installing memory_profiler 1.1.0
+Fetching mini_portile2 2.8.9
+Installing mini_portile2 2.8.9
+Fetching optimist 3.2.0
+Installing optimist 3.2.0
+Fetching parallel 1.26.3
+Fetching parslet 2.0.0
+Installing parallel 1.26.3
+Fetching ruby-rc4 0.1.5
+Installing ruby-rc4 0.1.5
+Installing parslet 2.0.0
+Fetching rainbow 3.1.1
+Fetching rotp 6.3.0
+Installing rainbow 3.1.1
+Fetching rqrcode_core 2.0.1
+Installing rotp 6.3.0
+Fetching rspec-support 3.13.6
+Installing rqrcode_core 2.0.1
+Fetching ruby-progressbar 1.13.0
+Installing ruby-progressbar 1.13.0
+Installing rspec-support 3.13.6
+Fetching unicode-emoji 4.2.0
+Fetching silencer 2.0.0
+Installing silencer 2.0.0
+Fetching simplecov-html 0.13.2
+Installing unicode-emoji 4.2.0
+Fetching simplecov_json_formatter 0.1.4
+Installing simplecov_json_formatter 0.1.4
+Fetching stackprof 0.2.27
+Installing simplecov-html 0.13.2
+Fetching svg-graph 2.2.2
+Installing stackprof 0.2.27 with native extensions
+Installing svg-graph 2.2.2
+Fetching vcr 6.4.0
+Installing vcr 6.4.0
+Fetching i18n 1.15.2
+Installing i18n 1.15.2
+Fetching tzinfo 2.0.6
+Installing tzinfo 2.0.6
+Fetching childprocess 5.1.0
+Installing childprocess 5.1.0
+Fetching hashie 5.1.0
+Installing hashie 5.1.0
+Fetching ttfunk 1.8.0
+Installing ttfunk 1.8.0
+Fetching sentry-ruby 5.28.0
+Installing sentry-ruby 5.28.0
+Fetching sitemap_generator 6.3.0
+Installing sitemap_generator 6.3.0
+Fetching nokogiri 1.19.4 (x86_64-linux-gnu)
+Installing nokogiri 1.19.4 (x86_64-linux-gnu)
+Fetching brakeman 8.0.6
+Installing brakeman 8.0.6
+Fetching rack-session 2.1.2
+Installing rack-session 2.1.2
+Fetching rack-test 2.2.0
+Installing rack-test 2.2.0
+Fetching rackup 2.3.1
+Installing rackup 2.3.1
+Fetching request_store 1.7.0
+Installing request_store 1.7.0
+Fetching rack-attack 6.7.0
+Installing rack-attack 6.7.0
+Fetching rack-mini-profiler 4.0.0
+Installing rack-mini-profiler 4.0.0
+Fetching pp 0.6.3
+Installing pp 0.6.3
+Fetching psych 5.3.1
+Installing psych 5.3.1 with native extensions
+Fetching uuid7 0.2.0
+Installing uuid7 0.2.0
+Fetching minitest 6.0.6
+Installing minitest 6.0.6
+Fetching websocket-driver 0.8.2
+Installing websocket-driver 0.8.2 with native extensions
+Fetching net-protocol 0.3.0
+Installing net-protocol 0.3.0
+Fetching addressable 2.9.0
+Installing addressable 2.9.0
+Fetching anonymous_loader 0.1.3
+Installing anonymous_loader 0.1.3
+Fetching auth-sanitizer 0.2.3
+Installing auth-sanitizer 0.2.3
+Fetching parser 3.3.9.0
+Installing parser 3.3.9.0
+Fetching puma 8.0.2
+Fetching crack 1.0.0
+Installing crack 1.0.0
+Fetching rb-inotify 0.11.1
+Installing puma 8.0.2 with native extensions
+Installing rb-inotify 0.11.1
+Fetching ruby-vips 2.3.0
+Installing ruby-vips 2.3.0
+Fetching sqlite3 2.9.6
+Installing sqlite3 2.9.6 with native extensions
+Fetching patience_diff 1.2.0
+Installing patience_diff 1.2.0
+Fetching rqrcode 3.1.1
+Installing rqrcode 3.1.1
+Fetching rspec-core 3.13.5
+Installing rspec-core 3.13.5
+Fetching rspec-expectations 3.13.5
+Installing rspec-expectations 3.13.5
+Fetching rspec-mocks 3.13.5
+Installing rspec-mocks 3.13.5
+Fetching unicode-display_width 3.2.0
+Installing unicode-display_width 3.2.0
+Fetching simplecov 0.22.0
+Installing simplecov 0.22.0
+Fetching faker 3.5.1
+Installing faker 3.5.1
+Fetching et-orbi 1.4.0
+Installing et-orbi 1.4.0
+Fetching snaky_hash 2.0.7
+Installing snaky_hash 2.0.7
+Fetching pdf-reader 2.15.0
+Installing pdf-reader 2.15.0
+Fetching loofah 2.25.2
+Installing loofah 2.25.2
+Fetching xpath 3.2.0
+Installing xpath 3.2.0
+Fetching typeid 0.2.2
+Installing typeid 0.2.2
+Fetching activesupport 8.1.3.1
+Installing activesupport 8.1.3.1
+Fetching net-imap 0.6.6
+Installing net-imap 0.6.6
+Fetching launchy 3.0.1
+Installing launchy 3.0.1
+Fetching oauth-tty 1.0.13
+Installing oauth-tty 1.0.13
+Fetching rubocop-ast 1.48.0
+Installing rubocop-ast 1.48.0
+Fetching webmock 3.25.1
+Installing webmock 3.25.1
+Fetching listen 3.9.0
+Installing listen 3.9.0
+Fetching super_diff 0.16.0
+Installing super_diff 0.16.0
+Fetching fugit 1.11.1
+Installing fugit 1.11.1
+Fetching rails-html-sanitizer 1.7.1
+Installing rails-html-sanitizer 1.7.1
+Fetching capybara 3.40.0
+Installing capybara 3.40.0
+Fetching rails-dom-testing 2.3.0
+Installing rails-dom-testing 2.3.0
+Fetching globalid 1.4.0
+Installing globalid 1.4.0
+Fetching activemodel 8.1.3.1
+Installing activemodel 8.1.3.1
+Fetching factory_bot 6.5.0
+Installing factory_bot 6.5.0
+Fetching mail 2.9.1
+Installing mail 2.9.1
+Fetching letter_opener 1.10.0
+Installing letter_opener 1.10.0
+Fetching oauth 1.1.8
+Installing oauth 1.1.8
+Fetching rubocop 1.81.7
+Installing rubocop 1.81.7
+Fetching actionview 8.1.3.1
+Installing actionview 8.1.3.1
+Fetching activejob 8.1.3.1
+Installing activejob 8.1.3.1
+Fetching activerecord 8.1.3.1
+Installing activerecord 8.1.3.1
+Fetching rubocop-performance 1.26.1
+Installing rubocop-performance 1.26.1
+Fetching rubocop-rails 2.34.2
+Installing rubocop-rails 2.34.2
+Fetching standard-custom 1.0.2
+Installing standard-custom 1.0.2
+Fetching actionpack 8.1.3.1
+Installing actionpack 8.1.3.1
+Fetching active_record_doctor 1.15.0
+Installing active_record_doctor 1.15.0
+Fetching activerecord-typedstore 1.6.0
+Installing activerecord-typedstore 1.6.0
+Fetching database_cleaner-active_record 2.2.0
+Installing database_cleaner-active_record 2.2.0
+Fetching database_consistency 2.1.1
+Installing database_consistency 2.1.1
+Fetching standard-performance 1.9.0
+Installing standard-performance 1.9.0
+Fetching standard-rails 1.6.0
+Installing standard-rails 1.6.0
+Fetching actioncable 8.1.3.1
+Installing actioncable 8.1.3.1
+Fetching activestorage 8.1.3.1
+Installing activestorage 8.1.3.1
+Fetching actionmailer 8.1.3.1
+Installing actionmailer 8.1.3.1
+Fetching actionpack-page_caching 1.2.5
+Installing actionpack-page_caching 1.2.5
+Gem::Ext::BuildError: ERROR: Failed to build gem native extension.
+
+current directory:
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/gems/psych-5.3.1/ext/psych
+/home/sandbox/field-runs/ruby/ruby-4.0.9/bin/ruby extconf.rb
+checking for pkg-config for yaml-0.1... not found
+checking for yaml.h... no
+yaml.h not found
+*** extconf.rb failed ***
+Could not create Makefile due to some reason, probably lack of necessary
+libraries and/or headers.  Check the mkmf.log file for more details.  You may
+need configuration options.
+
+Provided configuration options:
+	--with-opt-dir
+	--without-opt-dir
+	--with-opt-include=${opt-dir}/include
+	--without-opt-include
+	--with-opt-lib=${opt-dir}/lib
+	--without-opt-lib
+	--with-make-prog
+	--without-make-prog
+	--srcdir=.
+	--curdir
+	--ruby=/home/sandbox/field-runs/ruby/ruby-4.0.9/bin/$(RUBY_BASE_NAME)
+	--with-libyaml-source-dir
+	--without-libyaml-source-dir
+	--with-yaml-0.1-dir
+	--without-yaml-0.1-dir
+	--with-yaml-0.1-include=${yaml-0.1-dir}/include
+	--without-yaml-0.1-include
+	--with-yaml-0.1-lib=${yaml-0.1-dir}/lib
+	--without-yaml-0.1-lib
+	--with-yaml-0.1-config
+	--without-yaml-0.1-config
+	--with-pkg-config
+	--without-pkg-config
+	--with-libyaml-dir
+	--without-libyaml-dir
+	--with-libyaml-include=${libyaml-dir}/include
+	--without-libyaml-include
+	--with-libyaml-lib=${libyaml-dir}/lib
+	--without-libyaml-lib
+
+To see why this extension failed to compile, please check the mkmf.log which can
+be found here:
+
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/extensions/x86_64-linux/4.0.0/psych-5.3.1/mkmf.log
+
+extconf failed, exit code 1
+
+Gem files will remain installed in
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/gems/psych-5.3.1
+for inspection.
+Results logged to
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/extensions/x86_64-linux/4.0.0/psych-5.3.1/gem_make.out
+
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/4.0.0/rubygems/ext/builder.rb:147:in
+'Gem::Ext::Builder.run'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/4.0.0/rubygems/ext/ext_conf_builder.rb:30:in
+'Gem::Ext::ExtConfBuilder.build'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/4.0.0/rubygems/ext/builder.rb:241:in
+'Gem::Ext::Builder#build_extension'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/4.0.0/rubygems/ext/builder.rb:273:in
+'block in Gem::Ext::Builder#build_extensions'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/4.0.0/rubygems/ext/builder.rb:272:in
+'Array#each'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/4.0.0/rubygems/ext/builder.rb:272:in
+'Gem::Ext::Builder#build_extensions'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/4.0.0/rubygems/installer.rb:822:in
+'Gem::Installer#build_extensions'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/gems/bundler-4.0.3/lib/bundler/rubygems_gem_installer.rb:115:in
+'Bundler::RubyGemsGemInstaller#build_extensions'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/gems/bundler-4.0.3/lib/bundler/rubygems_gem_installer.rb:30:in
+'Bundler::RubyGemsGemInstaller#install'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/gems/bundler-4.0.3/lib/bundler/source/rubygems.rb:217:in
+'block in Bundler::Source::Rubygems#install'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/4.0.0/rubygems.rb:1053:in
+'Gem.time'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/gems/bundler-4.0.3/lib/bundler/source/rubygems.rb:216:in
+'Bundler::Source::Rubygems#install'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/gems/bundler-4.0.3/lib/bundler/installer/gem_installer.rb:54:in
+'Bundler::GemInstaller#install'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/gems/bundler-4.0.3/lib/bundler/installer/gem_installer.rb:17:in
+'Bundler::GemInstaller#install_from_spec'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/gems/bundler-4.0.3/lib/bundler/installer/parallel_installer.rb:133:in
+'Bundler::ParallelInstaller#do_install'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/gems/bundler-4.0.3/lib/bundler/installer/parallel_installer.rb:124:in
+'block in Bundler::ParallelInstaller#worker_pool'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/gems/bundler-4.0.3/lib/bundler/worker.rb:62:in
+'Bundler::Worker#apply_func'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/gems/bundler-4.0.3/lib/bundler/worker.rb:57:in
+'block in Bundler::Worker#process_queue'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/gems/bundler-4.0.3/lib/bundler/worker.rb:54:in
+'Kernel#loop'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/gems/bundler-4.0.3/lib/bundler/worker.rb:54:in
+'Bundler::Worker#process_queue'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/gems/bundler-4.0.3/lib/bundler/worker.rb:90:in
+'block (2 levels) in Bundler::Worker#create_threads'
+
+An error occurred while installing psych (5.3.1), and Bundler cannot continue.
+
+In Gemfile:
+  rails was resolved to 8.1.3.1, which depends on
+    actiontext was resolved to 8.1.3.1, which depends on
+      action_text-trix was resolved to 2.1.19, which depends on
+        railties was resolved to 8.1.3.1, which depends on
+          irb was resolved to 1.17.0, which depends on
+            rdoc was resolved to 7.2.0, which depends on
+              psych
+bin/setup:8:in 'Kernel#system': Command failed with exit 5: bundle (RuntimeError)
+	from bin/setup:8:in 'Object#system!'
+	from bin/setup:18:in 'block in <main>'
+	from /home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/4.0.0/fileutils.rb:241:in 'Dir.chdir'
+	from /home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/4.0.0/fileutils.rb:241:in 'FileUtils#cd'
+	from bin/setup:11:in '<main>'
+EXIT_CODE=1
+ENDED_AT=2026-10-23T21:46:37+05:30
+RETRY_STARTED_AT=2026-10-23T21:47:30+05:30
+== Installing dependencies ==
+The following gems are missing
+ * rails (8.1.3.1)
+ * solid_cache (1.0.7)
+ * solid_queue (1.2.1)
+ * mission_control-jobs (1.1.0)
+ * importmap-rails (2.1.0)
+ * propshaft (1.1.0)
+ * sentry-rails (5.28.0)
+ * lograge (0.14.0)
+ * database_cleaner (2.1.0)
+ * factory_bot_rails (6.4.4)
+ * rspec-rails (8.0.2)
+ * standard (1.52.0)
+ * actionmailbox (8.1.3.1)
+ * actiontext (8.1.3.1)
+ * railties (8.1.3.1)
+ * irb (1.17.0)
+ * stimulus-rails (1.3.4)
+ * turbo-rails (2.0.17)
+ * action_text-trix (2.1.19)
+ * rdoc (7.2.0)
+Install missing gems with `bundle install`
+Fetching gem metadata from https://rubygems.org/........
+Fetching database_cleaner 2.1.0
+Installing psych 5.3.1 with native extensions
+Fetching actionmailbox 8.1.3.1
+Installing actionmailbox 8.1.3.1
+Fetching rdoc 7.2.0
+Installing rdoc 7.2.0
+Fetching standard 1.52.0
+Installing standard 1.52.0
+Fetching irb 1.17.0
+Installing database_cleaner 2.1.0
+Installing irb 1.17.0
+Fetching railties 8.1.3.1
+Installing railties 8.1.3.1
+Fetching action_text-trix 2.1.19
+Fetching factory_bot_rails 6.4.4
+Installing factory_bot_rails 6.4.4
+Fetching importmap-rails 2.1.0
+Installing action_text-trix 2.1.19
+Fetching lograge 0.14.0
+Installing importmap-rails 2.1.0
+Installing lograge 0.14.0
+Fetching stimulus-rails 1.3.4
+Fetching turbo-rails 2.0.17
+Installing stimulus-rails 1.3.4
+Fetching propshaft 1.1.0
+Installing turbo-rails 2.0.17
+Fetching rspec-rails 8.0.2
+Installing propshaft 1.1.0
+Fetching sentry-rails 5.28.0
+Installing sentry-rails 5.28.0
+Installing rspec-rails 8.0.2
+Fetching solid_cache 1.0.7
+Fetching solid_queue 1.2.1
+Installing solid_cache 1.0.7
+Fetching actiontext 8.1.3.1
+Installing solid_queue 1.2.1
+Fetching mission_control-jobs 1.1.0
+Installing actiontext 8.1.3.1
+Fetching rails 8.1.3.1
+Installing mission_control-jobs 1.1.0
+Installing rails 8.1.3.1
+Bundle complete! 58 Gemfile dependencies, 180 gems now installed.
+Use `bundle info [gemname]` to see where a bundled gem is installed.
+Post-install message from mission_control-jobs:
+Upgrading to Mission Control – Jobs 1.0.0? HTTP Basic authentication has been added by default, and it needs
+to be configured or disabled before you can access the dashboard.
+--> Check https://github.com/rails/mission_control-jobs?tab=readme-ov-file#authentication
+for more details and instructions.
+Post-install message from solid_cache:
+Upgrading from Solid Cache v0.3 or earlier? There are new database migrations in v0.4.
+See https://github.com/rails/solid_cache/blob/main/upgrading_to_version_0.4.x.md for upgrade instructions.
+Post-install message from solid_queue:
+Upgrading from Solid Queue < 1.0? Check details on breaking changes and upgrade instructions
+--> https://github.com/rails/solid_queue/blob/main/UPGRADING.md
+4 installed gems you directly depend on are looking for funding.
+  Run `bundle fund` for details
+
+== Removing any old logs and tempfiles ==
+bin/rails aborted!
+Bundler::GemRequireError: There was an error while trying to load the gem 'ruby-vips'. (Bundler::GemRequireError)
+Gem Load Error is: Could not open library 'vips.so.42': vips.so.42: cannot open shared object file: No such file or directory.
+Could not open library 'libvips.so.42': libhdf5_serial.so.103: cannot open shared object file: No such file or directory.
+Searched in <system library path>
+Backtrace for gem load error is:
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/gems/ffi-1.17.4-x86_64-linux-gnu/lib/ffi/dynamic_library.rb:94:in 'FFI::DynamicLibrary.load_library'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/gems/ffi-1.17.4-x86_64-linux-gnu/lib/ffi/library.rb:95:in 'block in FFI::Library#ffi_lib'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/gems/ffi-1.17.4-x86_64-linux-gnu/lib/ffi/library.rb:94:in 'Array#map'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/gems/ffi-1.17.4-x86_64-linux-gnu/lib/ffi/library.rb:94:in 'FFI::Library#ffi_lib'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/gems/ruby-vips-2.3.0/lib/vips.rb:48:in '<module:Vips>'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/gems/ruby-vips-2.3.0/lib/vips.rb:45:in '<top (required)>'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/4.0.0/bundled_gems.rb:60:in 'Kernel.require'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/4.0.0/bundled_gems.rb:60:in 'block (2 levels) in Kernel#replace_require'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/gems/zeitwerk-2.7.5/lib/zeitwerk/core_ext/kernel.rb:34:in 'Kernel#require'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/gems/ruby-vips-2.3.0/lib/ruby-vips.rb:1:in '<top (required)>'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/4.0.0/bundled_gems.rb:60:in 'Kernel#require'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/4.0.0/bundled_gems.rb:60:in 'block (2 levels) in Kernel.replace_require'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/gems/zeitwerk-2.7.5/lib/zeitwerk/core_ext/kernel.rb:34:in 'Kernel.require'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/4.0.0/bundler/runtime.rb:63:in 'block (2 levels) in Bundler::Runtime#require'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/4.0.0/bundler/runtime.rb:58:in 'Array#each'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/4.0.0/bundler/runtime.rb:58:in 'block in Bundler::Runtime#require'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/4.0.0/bundler/runtime.rb:52:in 'Array#each'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/4.0.0/bundler/runtime.rb:52:in 'Bundler::Runtime#require'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/4.0.0/bundler.rb:214:in 'Bundler.require'
+/home/sandbox/field-runs/lobsters/config/application.rb:21:in '<top (required)>'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/4.0.0/bundled_gems.rb:60:in 'Kernel.require'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/4.0.0/bundled_gems.rb:60:in 'block (2 levels) in Kernel#replace_require'
+/home/sandbox/field-runs/lobsters/Rakefile:4:in '<top (required)>'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/gems/rake-13.3.1/lib/rake/rake_module.rb:29:in 'Kernel#load'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/gems/rake-13.3.1/lib/rake/rake_module.rb:29:in 'Rake.load_rakefile'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/gems/rake-13.3.1/lib/rake/application.rb:740:in 'Rake::Application#raw_load_rakefile'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/gems/rake-13.3.1/lib/rake/application.rb:126:in 'block in Rake::Application#load_rakefile'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/gems/rake-13.3.1/lib/rake/application.rb:214:in 'Rake::Application#standard_exception_handling'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/gems/rake-13.3.1/lib/rake/application.rb:125:in 'Rake::Application#load_rakefile'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/gems/railties-8.1.3.1/lib/rails/commands/rake/rake_command.rb:43:in 'block in Rails::Command::RakeCommand.with_rake'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/gems/rake-13.3.1/lib/rake/rake_module.rb:59:in 'Rake.with_application'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/gems/railties-8.1.3.1/lib/rails/commands/rake/rake_command.rb:41:in 'Rails::Command::RakeCommand.with_rake'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/gems/railties-8.1.3.1/lib/rails/commands/rake/rake_command.rb:20:in 'Rails::Command::RakeCommand.perform'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/gems/railties-8.1.3.1/lib/rails/command.rb:150:in 'Rails::Command.invoke_rake'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/gems/railties-8.1.3.1/lib/rails/command.rb:67:in 'block in Rails::Command.invoke'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/gems/railties-8.1.3.1/lib/rails/command.rb:143:in 'Rails::Command.with_argv'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/gems/railties-8.1.3.1/lib/rails/command.rb:63:in 'Rails::Command.invoke'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/gems/railties-8.1.3.1/lib/rails/commands.rb:18:in '<top (required)>'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/4.0.0/bundled_gems.rb:60:in 'Kernel.require'
+/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/4.0.0/bundled_gems.rb:60:in 'block (2 levels) in Kernel#replace_require'
+bin/rails:4:in '<main>'
+Bundler Error Backtrace:
+/home/sandbox/field-runs/lobsters/config/application.rb:21:in '<top (required)>'
+/home/sandbox/field-runs/lobsters/Rakefile:4:in '<top (required)>'
+bin/rails:4:in '<main>'
+
+Caused by:
+LoadError: Could not open library 'vips.so.42': vips.so.42: cannot open shared object file: No such file or directory. (LoadError)
+Could not open library 'libvips.so.42': libhdf5_serial.so.103: cannot open shared object file: No such file or directory.
+Searched in <system library path>
+/home/sandbox/field-runs/lobsters/config/application.rb:21:in '<top (required)>'
+/home/sandbox/field-runs/lobsters/Rakefile:4:in '<top (required)>'
+bin/rails:4:in '<main>'
+(See full trace by running task with --trace)
+bin/setup:8:in 'Kernel#system': Command failed with exit 1: rails (RuntimeError)
+	from bin/setup:8:in 'Object#system!'
+	from bin/setup:21:in 'block in <main>'
+	from /home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/4.0.0/fileutils.rb:241:in 'Dir.chdir'
+	from /home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/4.0.0/fileutils.rb:241:in 'FileUtils#cd'
+	from bin/setup:11:in '<main>'
+EXIT_CODE=1
+ENDED_AT=2026-10-23T21:47:35+05:30
+RETRY2_STARTED_AT=2026-10-23T21:49:25+05:30
+== Installing dependencies ==
+The Gemfile's dependencies are satisfied
+
+== Removing any old logs and tempfiles ==
+bin/rails aborted!
+libvips's unfuzzed operations are not safe to use with untrusted content, and Active Storage cannot disable them. Disabling them requires libvips 8.13 or later and ruby-vips 2.2.1 or later. Please upgrade libvips and ruby-vips, or remove the ruby-vips gem from your Gemfile.
+/home/sandbox/field-runs/lobsters/config/application.rb:10:in '<top (required)>'
+/home/sandbox/field-runs/lobsters/Rakefile:4:in '<top (required)>'
+bin/rails:4:in '<main>'
+(See full trace by running task with --trace)
+bin/setup:8:in 'Kernel#system': Command failed with exit 1: rails (RuntimeError)
+	from bin/setup:8:in 'Object#system!'
+	from bin/setup:21:in 'block in <main>'
+	from /home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/4.0.0/fileutils.rb:241:in 'Dir.chdir'
+	from /home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/4.0.0/fileutils.rb:241:in 'FileUtils#cd'
+	from bin/setup:11:in '<main>'
+EXIT_CODE=1
+ENDED_AT=2026-10-23T21:49:27+05:30
+RETRY3_STARTED_AT=2026-10-23T21:50:42+05:30
+== Installing dependencies ==
+The Gemfile's dependencies are satisfied
+
+== Removing any old logs and tempfiles ==
+
+== Copying sample files ==
+
+== Removing old logs and tempfiles ==
+
+== Preparing database ==
+W, [2026-10-23T21:50:52.673343 #7182]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+Created database 'db/development/primary.sqlite3'
+Created database 'db/development/cache.sqlite3'
+Created database 'db/development/queue.sqlite3'
+Created database 'db/development/rack_attack.sqlite3'
+Created database 'db/test/primary.sqlite3'
+Created database 'db/test/cache.sqlite3'
+Created database 'db/test/queue.sqlite3'
+Created database 'db/test/rack_attack.sqlite3'
+
+== Restarting application server if running ==
+
+== You probably want to run 'rails fake_data' to have realistic data in dev
+EXIT_CODE=0
+ENDED_AT=2026-10-23T21:50:59+05:30

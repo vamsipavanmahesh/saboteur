@@ -1,0 +1,109 @@
+=== pr2090 START 2026-10-23T22:28:07+05:30 ===
+Preparing worktree (detached HEAD 87e1e318)
+HEAD is now at 87e1e318 Adding redirects for /top rss endpoints to .rss versions (#2090)
+Fetching gem metadata from https://rubygems.org/........
+Fetching concurrent-ruby 1.3.7
+Fetching crass 1.0.6
+Installing crass 1.0.6
+Fetching marcel 1.1.0
+Installing marcel 1.1.0
+Fetching ffi 1.17.2
+Installing concurrent-ruby 1.3.7
+Fetching hashie 5.0.0
+Installing hashie 5.0.0
+Fetching json 2.9.1
+Installing json 2.9.1 with native extensions
+Installing ffi 1.17.2 with native extensions
+Fetching version_gem 1.1.9
+Installing version_gem 1.1.9
+Fetching minitest 6.0.3
+Installing minitest 6.0.3
+Fetching websocket-driver 0.8.0
+Installing websocket-driver 0.8.0 with native extensions
+Fetching net-protocol 0.2.2
+Installing net-protocol 0.2.2
+Fetching i18n 1.14.8
+Installing i18n 1.14.8
+Fetching sqlite3 2.7.4
+Installing sqlite3 2.7.4 with native extensions
+Fetching oauth-tty 1.0.6
+Installing oauth-tty 1.0.6
+Fetching snaky_hash 2.0.3
+Installing snaky_hash 2.0.3
+Fetching loofah 2.25.1
+Installing loofah 2.25.1
+Fetching net-imap 0.6.4.1
+Installing net-imap 0.6.4.1
+Fetching activesupport 8.0.5
+Installing activesupport 8.0.5
+Fetching ruby-vips 2.2.5
+Installing ruby-vips 2.2.5
+Fetching oauth 1.1.2
+Installing oauth 1.1.2
+Fetching rails-html-sanitizer 1.7.0
+Installing rails-html-sanitizer 1.7.0
+Fetching mail 2.9.0
+Installing mail 2.9.0
+Fetching globalid 1.3.0
+Installing globalid 1.3.0
+Fetching activemodel 8.0.5
+Installing activemodel 8.0.5
+Fetching actionview 8.0.5
+Installing actionview 8.0.5
+Fetching activejob 8.0.5
+Installing activejob 8.0.5
+Fetching activerecord 8.0.5
+Installing activerecord 8.0.5
+Fetching actionpack 8.0.5
+Installing actionpack 8.0.5
+Fetching actioncable 8.0.5
+Installing actioncable 8.0.5
+Fetching activestorage 8.0.5
+Installing activestorage 8.0.5
+Fetching actionmailer 8.0.5
+Installing actionmailer 8.0.5
+Fetching railties 8.0.5
+Installing railties 8.0.5
+Fetching actionmailbox 8.0.5
+Installing actionmailbox 8.0.5
+Fetching actiontext 8.0.5
+Installing actiontext 8.0.5
+Fetching rails 8.0.5
+Installing rails 8.0.5
+Bundle complete! 58 Gemfile dependencies, 178 gems now installed.
+Use `bundle info [gemname]` to see where a bundled gem is installed.
+4 installed gems you directly depend on are looking for funding.
+  Run `bundle fund` for details
+== Installing dependencies ==
+The Gemfile's dependencies are satisfied
+
+== Removing any old logs and tempfiles ==
+
+== Copying sample files ==
+
+== Removing old logs and tempfiles ==
+
+== Preparing database ==
+W, [2026-10-23T22:29:21.956254 #13307]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+Created database 'db/development/primary.sqlite3'
+Created database 'db/development/cache.sqlite3'
+Created database 'db/development/queue.sqlite3'
+Created database 'db/development/rack_attack.sqlite3'
+Created database 'db/test/primary.sqlite3'
+Created database 'db/test/cache.sqlite3'
+Created database 'db/test/queue.sqlite3'
+Created database 'db/test/rack_attack.sqlite3'
+
+== Restarting application server if running ==
+
+== You probably want to run 'rails fake_data' to have realistic data in dev
+W, [2026-10-23T22:29:31.764953 #13330]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+...................................
+
+Finished in 4.59 seconds (files took 3.48 seconds to load)
+35 examples, 0 failures
+
+Coverage report generated for RSpec to /home/sandbox/field-runs/pr-trees/pr2090/coverage.
+Line Coverage: 17.34% (1242 / 7161)
+{"command": "bundle exec rspec spec/controllers/home_controller_spec.rb spec/routing/home_spec.rb --format progress --format json --out /home/sandbox/field-runs/saboteur-field-runs/apps/lobsters/logs/pr2090-head-specs.json", "started_at": "2026-10-23T22:29:28+0530", "ended_at": "2026-10-23T22:29:37+0530", "wall_seconds": 8.541, "exit_code": 0, "peak_rss_kb": 318272}
+=== pr2090 RSPEC_EXIT=0 DONE 2026-10-23T22:29:37+05:30 ===

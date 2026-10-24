@@ -1,0 +1,19 @@
+RUBYLIB=/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/gems/bundler-4.0.3/lib:/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/4.0.0:/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/4.0.0/x86_64-linux:/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/site_ruby/4.0.0:/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/site_ruby/4.0.0/x86_64-linux:/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/vendor_ruby/4.0.0:/home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/vendor_ruby/4.0.0/x86_64-linux
+LOAD_PATH_FRONT:
+  /home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/gems/bundler-4.0.3/lib
+  /home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/4.0.0
+  /home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/4.0.0/x86_64-linux
+  /home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/site_ruby/4.0.0
+  /home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/site_ruby/4.0.0/x86_64-linux
+  /home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/vendor_ruby/4.0.0
+  /home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/vendor_ruby/4.0.0/x86_64-linux
+  /home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/gems/webmock-3.25.1/lib
+CGI_FEATURES:
+  /home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/4.0.0/x86_64-linux/cgi/escape.so
+  /home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/gems/cgi-0.5.1/lib/cgi/escape.rb
+  /home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/gems/cgi-0.5.1/lib/cgi/util.rb
+  /home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/gems/cgi-0.5.1/lib/cgi/core.rb
+  /home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/gems/cgi-0.5.1/lib/cgi/cookie.rb
+  /home/sandbox/field-runs/ruby/ruby-4.0.9/lib/ruby/gems/4.0.0/gems/cgi-0.5.1/lib/cgi.rb
+PARSE=true
+VERSION=0.5.1

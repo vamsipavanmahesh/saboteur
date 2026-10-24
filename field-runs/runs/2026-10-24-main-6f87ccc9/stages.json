@@ -1,0 +1,36 @@
+{
+  "snapshot": "2026-10-24T06:49:00+05:30",
+  "saboteur_sha": "6f87ccc98377bf0c23f3cf409006f0464c2aa67c",
+  "saboteur_version": "0.12.3",
+  "app_sha": "407536444934ac7d78f4ce1c18f228e3891a8663",
+  "stages": {
+    "documented_flow": {
+      "status": "partial",
+      "reason": "Generator preceded built-gem flow; literal install skipped existing workflow files; fresh unchanged flow not proven"
+    },
+    "map": {
+      "status": "blocked",
+      "exit_code": 5,
+      "wall_seconds": 49.66,
+      "peak_rss_kb": 426384,
+      "reason": "First baseline check failed; no mutants started; raw log preserved; CGI setup then corrected, banning-email failure remains"
+    },
+    "pr_replays": {
+      "status": "not_started",
+      "reason": "Map blocked; five fresh PR bundle readiness logs record Ruby4.0.9 vs Gemfile4.0.0 mismatch. No actual replay or readiness success."
+    },
+    "parallelism": {
+      "status": "not_started"
+    },
+    "determinism": {
+      "status": "not_started"
+    },
+    "independent_triage": {
+      "status": "not_started"
+    },
+    "kill_verification": {
+      "status": "not_started"
+    }
+  },
+  "raw_completeness_append_at": "2026-10-24T06:52:00+05:30"
+}

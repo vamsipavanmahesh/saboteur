@@ -1,0 +1,11 @@
+W, [2026-10-24T06:39:14.732238 #3862]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+     created  config/saboteur.rb
+     created  bin/saboteur
+    appended  .gitignore
+     created  .github/workflows/saboteur-map.yml
+     created  .github/workflows/saboteur-pr.yml
+
+Next: commit both files and push to main. The main workflow runs your whole suite and mutates the whole project once to build the map (docs/ci-whole-suite-map.md); pull requests restore it from the cache.
+
+Next: bin/saboteur doctor, then bin/saboteur run --since origin/main (keep SimpleCov off for the run).
+MEASURED exit=0 wall=4.15s rss_kb=170980

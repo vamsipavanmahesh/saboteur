@@ -1,0 +1,7 @@
+# build identity inspection (collected 2026-10-24T06:51+05:30 from existing state; no build log file survived separately - the .gem artifact itself is included)
+## source checkout
+commit 6f87ccc98377bf0c23f3cf409006f0464c2aa67c
+Date: Fri Oct 23 22:38:43 2026 +0530
+Subject: docs: class-body validation limit (fixture) and the validation-option design (#1341)
+## artifact
+7f5b8949bce9bda19a584c079631d3b76ad37e700935285b550b7bb1c30689fa  saboteur-0.12.3.gem

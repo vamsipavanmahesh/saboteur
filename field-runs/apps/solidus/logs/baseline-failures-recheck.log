@@ -1,0 +1,99 @@
+RECHECK_START 2026-10-23T16:51:33Z
+== run 1: default env (vips default), image_spec + attachment_spec ==
+rspec ./spec/models/spree/image_spec.rb:60 # Spree::Image attachment details returns attachment url
+
+Randomized with seed 46332
+
+== run 2: ACTIVE_STORAGE_VARIANT_PROCESSOR=mini_magick (app-provided switch in core/lib/spree/testing_support/dummy_app.rb:140) ==
+rspec ./spec/models/spree/image_spec.rb:60 # Spree::Image attachment details returns attachment url
+
+Randomized with seed 38245
+
+RECHECK_END 2026-10-23T16:51:39Z
+RECHECK2_START 2026-10-23T16:51:53Z
+== run A: default env, both files, full output ==
+Failures:
+     Failure/Error:
+       @attachment.variant({
+         saver: {
+           strip: true
+         }
+       }.merge(transformation)).processed
+     NoMethodError:
+       undefined method 'new' for nil
+     # ./app/models/concerns/spree/active_storage_adapter/attachment.rb:38:in 'Spree::ActiveStorageAdapter::Attachment#variant'
+     # ./app/models/concerns/spree/active_storage_adapter/attachment.rb:28:in 'Spree::ActiveStorageAdapter::Attachment#url'
+     # ./app/models/concerns/spree/active_storage_adapter.rb:92:in 'Spree::ActiveStorageAdapter#url'
+     # ./spec/models/spree/image_spec.rb:63:in 'block (3 levels) in <top (required)>'
+     Failure/Error: expect(subject.attachment_height).to eq(1)
+       expected: 1
+            got: nil
+       (compared using ==)
+     # ./spec/models/spree/image_spec.rb:71:in 'block (3 levels) in <top (required)>'
+     Failure/Error: expect(subject.attachment_width).to eq(1)
+       expected: 1
+            got: nil
+       (compared using ==)
+     # ./spec/models/spree/image_spec.rb:67:in 'block (3 levels) in <top (required)>'
+     Failure/Error:
+       @attachment.variant({
+         saver: {
+           strip: true
+         }
+       }.merge(transformation)).processed
+     NoMethodError:
+       undefined method 'new' for nil
+     # ./app/models/concerns/spree/active_storage_adapter/attachment.rb:38:in 'Spree::ActiveStorageAdapter::Attachment#variant'
+     # ./spec/models/spree/concerns/active_storage_adapter/attachment_spec.rb:24:in 'block (3 levels) in <top (required)>'
+     Failure/Error:
+       @attachment.variant({
+         saver: {
+           strip: true
+         }
+       }.merge(transformation)).processed
+     NoMethodError:
+== run B: ACTIVE_STORAGE_VARIANT_PROCESSOR=mini_magick ==
+Failures:
+     Failure/Error:
+       @attachment.variant({
+         saver: {
+           strip: true
+         }
+       }.merge(transformation)).processed
+     ActiveStorage::Transformers::ImageProcessingTransformer::UnsupportedImageProcessingMethod:
+       The provided transformation method is not supported: saver.
+     # ./app/models/concerns/spree/active_storage_adapter/attachment.rb:38:in 'Spree::ActiveStorageAdapter::Attachment#variant'
+     # ./app/models/concerns/spree/active_storage_adapter/attachment.rb:28:in 'Spree::ActiveStorageAdapter::Attachment#url'
+     # ./app/models/concerns/spree/active_storage_adapter.rb:92:in 'Spree::ActiveStorageAdapter#url'
+     # ./spec/models/spree/image_spec.rb:63:in 'block (3 levels) in <top (required)>'
+     Failure/Error:
+       @attachment.variant({
+         saver: {
+           strip: true
+         }
+       }.merge(transformation)).processed
+     ActiveStorage::Transformers::ImageProcessingTransformer::UnsupportedImageProcessingMethod:
+       The provided transformation method is not supported: saver.
+     # ./app/models/concerns/spree/active_storage_adapter/attachment.rb:38:in 'Spree::ActiveStorageAdapter::Attachment#variant'
+     # ./spec/models/spree/concerns/active_storage_adapter/attachment_spec.rb:54:in 'block (3 levels) in <top (required)>'
+     Failure/Error:
+       @attachment.variant({
+         saver: {
+           strip: true
+         }
+       }.merge(transformation)).processed
+     ActiveStorage::Transformers::ImageProcessingTransformer::UnsupportedImageProcessingMethod:
+       The provided transformation method is not supported: saver.
+     # ./app/models/concerns/spree/active_storage_adapter/attachment.rb:38:in 'Spree::ActiveStorageAdapter::Attachment#variant'
+     # ./spec/models/spree/concerns/active_storage_adapter/attachment_spec.rb:24:in 'block (3 levels) in <top (required)>'
+     Failure/Error:
+       @attachment.variant({
+         saver: {
+           strip: true
+         }
+       }.merge(transformation)).processed
+     ActiveStorage::Transformers::ImageProcessingTransformer::UnsupportedImageProcessingMethod:
+RECHECK2_END 2026-10-23T16:52:00Z
+RECHECK3 2026-10-23T16:52:13Z counts only
+run A (default vips): 19 examples, 8 failures
+run B (mini_magick):  19 examples, 6 failures

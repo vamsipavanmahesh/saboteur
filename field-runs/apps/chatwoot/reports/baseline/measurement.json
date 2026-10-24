@@ -1,0 +1,27 @@
+{
+ "kind": "baseline",
+ "status": "done",
+ "command": "bundle exec rspec spec/models spec/services --format progress --format json --out logs/baseline-rspec.json",
+ "started_at": "2026-10-23T22:07:02+05:30",
+ "ended_at": "2026-10-23T22:10:35+05:30",
+ "wall_seconds": 213,
+ "exit_code": 0,
+ "peak_rss_kb": 628840,
+ "base_sha": "7fe41fe03731fc2f5b1841b84351386962d2fd05",
+ "head_sha": null,
+ "pr_url": null,
+ "saboteur_version": null,
+ "saboteur_sha": null,
+ "examples": 3252,
+ "failures": 0,
+ "pending": 2,
+ "scope": "spec/models (64 files) + spec/services (201 files) = 265 of 665 CE spec files; narrowed per user allowance + 21:58 faster steer",
+ "peak_rss_method": "2s sampler, sum of VmRSS over rspec process tree",
+ "evidence_paths": [
+  "apps/chatwoot/logs/baseline-rspec.json",
+  "apps/chatwoot/logs/baseline-rspec.log",
+  "apps/chatwoot/reports/baseline/meta.env"
+ ],
+ "rspec_duration_seconds": 205.32000276,
+ "wall_vs_rspec_note": "wall_seconds (213) is end-to-end process time from meta.env timestamps; rspec_duration_seconds (205.32) is RSpec-reported example time from the formatter JSON. Distinct measures, both from source files."
+}

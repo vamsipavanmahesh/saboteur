@@ -1,0 +1,22 @@
+{
+  "kind": "verification",
+  "status": "done",
+  "command": "bundle install --local",
+  "started_at": "2026-10-24T06:41:12.185371+05:30",
+  "ended_at": "2026-10-24T06:41:13.871722+05:30",
+  "wall_seconds": 1.69,
+  "exit_code": 0,
+  "peak_rss_kb": 75416,
+  "base_sha": "407536444934ac7d78f4ce1c18f228e3891a8663",
+  "head_sha": "407536444934ac7d78f4ce1c18f228e3891a8663",
+  "pr_url": null,
+  "saboteur_version": "0.12.3",
+  "saboteur_sha": "6f87ccc98377bf0c23f3cf409006f0464c2aa67c",
+  "evidence_paths": [
+    "logs/docflow2-bundle-install.log",
+    "logs/built-gem-sha256-verify.txt",
+    "logs/docflow2-loaded-spec.txt"
+  ],
+  "saboteur_gem_sha256": "7f5b8949bce9bda19a584c079631d3b76ad37e700935285b550b7bb1c30689fa",
+  "enrichment_note": "Enriched 2026-10-24T06:45+05:30 by field agent: identity/status/evidence fields filled post hoc; original preserved as measurement.original.json. command/wall/exit/rss untouched."
+}

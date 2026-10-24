@@ -1,0 +1,77 @@
+{
+  "app": "lobsters",
+  "pinned_sha": "407536444934ac7d78f4ce1c18f228e3891a8663",
+  "updated_at": "2026-10-23T22:44:00+05:30",
+  "timebox": {
+    "started": "2026-10-23T21:39:00+05:30",
+    "stop_report_by": "2026-10-24T01:39:00+05:30"
+  },
+  "stages": {
+    "environment": {
+      "status": "done",
+      "reason": "bin/setup exit 0 only after recorded deviations (libvips 8.18.7 prebuilt, libyaml headers); documented flow was blocked at both points - not completed unchanged",
+      "evidence": [
+        "logs/bin-setup.log",
+        "ENV.md"
+      ]
+    },
+    "baseline": {
+      "status": "done",
+      "reason": "913 examples, 2 pre-existing failures observed (F-BASE-1, F-BASE-2; each seen failing in 3 runs, non-flakiness not proven), exit 1, wall 35.3s",
+      "evidence": [
+        "logs/baseline-rspec.json",
+        "reports/baseline/measurement.json",
+        "findings.md"
+      ]
+    },
+    "documented_flow": {
+      "status": "not_done",
+      "reason": "saboteur documented install/map flow - no saboteur stage has been run; held until main sends verified 0.13.0 SHA (app setup deviations are recorded under environment + ENV.md + findings.md)",
+      "evidence": []
+    },
+    "map": {
+      "status": "not_done",
+      "reason": "saboteur 0.13.0 not released; held until verified SHA from main",
+      "evidence": []
+    },
+    "pr_replays": {
+      "status": "not_done",
+      "reason": "5 PRs qualified (#2143 substituted for MySQL-era #2053, F-ENV-2). HEAD trees: all 5 PRs' own spec files green on Ruby 4.0.0 (reports/pr*-head-specs/). BASE control trees: 4/5 green (pr2231 40ex, pr2204 76ex, pr2090 32ex, pr2143 75ex); pr2156 base is narrow N/A - its only spec file was added by the PR, raw LoadError captured, 0 examples (reports/pr2156-base-specs/). Saboteur replay runs held until verified 0.13.0 SHA",
+      "evidence": [
+        "prs/selected_prs.json",
+        "reports/pr2231-head-specs/measurement.json",
+        "reports/pr2204-head-specs/measurement.json",
+        "reports/pr2156-head-specs/measurement.json",
+        "reports/pr2090-head-specs/measurement.json",
+        "reports/pr2143-head-specs/measurement.json",
+        "reports/pr2231-base-specs/measurement.json",
+        "reports/pr2204-base-specs/measurement.json",
+        "reports/pr2156-base-specs/measurement.json",
+        "reports/pr2090-base-specs/measurement.json",
+        "reports/pr2143-base-specs/measurement.json"
+      ]
+    },
+    "parallelism": {
+      "status": "not_done",
+      "reason": "awaits 0.13.0",
+      "evidence": []
+    },
+    "determinism": {
+      "status": "not_done",
+      "reason": "awaits 0.13.0; F-BASE-1/2 observed failing in 3 runs each (not proof of non-flakiness)",
+      "evidence": [
+        "logs/baseline-failures-recheck.log"
+      ]
+    },
+    "triage": {
+      "status": "not_done",
+      "reason": "reserved for independent fresh-context triager; no self-triage performed",
+      "evidence": []
+    },
+    "kills": {
+      "status": "not_done",
+      "reason": "awaits 0.13.0",
+      "evidence": []
+    }
+  }
+}

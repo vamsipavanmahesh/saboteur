@@ -1,0 +1,25 @@
+{
+  "kind": "verification",
+  "status": "partly",
+  "scope": "PR BASE tree control check (no saboteur): the PR's spec files at base_sha on the base tree's required Ruby 4.0.0, as pre-mutation control",
+  "command": "bundle exec rspec spec/controllers/settings_controller_spec.rb --format progress --format json --out logs/pr2156-base-specs.json",
+  "started_at": "2026-10-23T22:42:24+0530",
+  "ended_at": "2026-10-23T22:42:24+0530",
+  "wall_seconds": 0.361,
+  "exit_code": 1,
+  "peak_rss_kb": 41152,
+  "base_sha": "9a773eac0b49fd86b16585ad503de9a51919c496",
+  "head_sha": "d9998c2555317db7b3cb9a159ef7878ff993ab78",
+  "pr_url": "https://github.com/lobsters/lobsters/pull/2156",
+  "saboteur_version": null,
+  "saboteur_sha": null,
+  "ruby": "4.0.0 (base tree's own .ruby-version)",
+  "examples": 0,
+  "failures": 0,
+  "pending": 0,
+  "note": "PR's only spec file was ADDED by the PR and does not exist at base_sha: raw LoadError captured (0 examples, 1 load error). Narrow N/A for base-green; no other spec file belongs to this PR.",
+  "evidence_paths": [
+    "logs/pr2156-base-specs.json",
+    "logs/pr2156-base-specs.log"
+  ]
+}

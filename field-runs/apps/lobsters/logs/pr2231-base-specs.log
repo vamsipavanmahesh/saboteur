@@ -1,0 +1,40 @@
+=== pr2231 BASE_START 2026-10-23T22:41:16+05:30 ===
+Preparing worktree (detached HEAD 372345a2)
+HEAD is now at 372345a2 nostale label for slower PRs
+Bundle complete! 58 Gemfile dependencies, 180 gems now installed.
+Use `bundle info [gemname]` to see where a bundled gem is installed.
+4 installed gems you directly depend on are looking for funding.
+  Run `bundle fund` for details
+== Installing dependencies ==
+The Gemfile's dependencies are satisfied
+
+== Removing any old logs and tempfiles ==
+
+== Copying sample files ==
+
+== Removing old logs and tempfiles ==
+
+== Preparing database ==
+W, [2026-10-23T22:41:26.480645 #14096]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+Created database 'db/development/primary.sqlite3'
+Created database 'db/development/cache.sqlite3'
+Created database 'db/development/queue.sqlite3'
+Created database 'db/development/rack_attack.sqlite3'
+Created database 'db/test/primary.sqlite3'
+Created database 'db/test/cache.sqlite3'
+Created database 'db/test/queue.sqlite3'
+Created database 'db/test/rack_attack.sqlite3'
+
+== Restarting application server if running ==
+
+== You probably want to run 'rails fake_data' to have realistic data in dev
+W, [2026-10-23T22:41:36.353096 #14119]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+........................................
+
+Finished in 3.96 seconds (files took 3.61 seconds to load)
+40 examples, 0 failures
+
+Coverage report generated for RSpec to /home/sandbox/field-runs/pr-trees/pr2231-base/coverage.
+Line Coverage: 20.68% (1482 / 7167)
+{"command": "bundle exec rspec spec/models/comment_spec.rb spec/requests/comments_spec.rb spec/mailers/email_reply_mailer_spec.rb --format progress --format json --out /home/sandbox/field-runs/saboteur-field-runs/apps/lobsters/logs/pr2231-base-specs.json", "started_at": "2026-10-23T22:41:33+0530", "ended_at": "2026-10-23T22:41:41+0530", "wall_seconds": 8.056, "exit_code": 0, "peak_rss_kb": 341092}
+=== pr2231 BASE_RSPEC_EXIT=0 DONE 2026-10-23T22:41:41+05:30 ===

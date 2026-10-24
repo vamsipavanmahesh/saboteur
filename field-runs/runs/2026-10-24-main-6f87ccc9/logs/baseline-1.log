@@ -1,0 +1,52 @@
+25/913 examples finished
+50/913 examples finished
+75/913 examples finished
+100/913 examples finished
+125/913 examples finished
+150/913 examples finished
+175/913 examples finished
+200/913 examples finished
+225/913 examples finished
+250/913 examples finished
+275/913 examples finished
+300/913 examples finished
+325/913 examples finished
+350/913 examples finished
+375/913 examples finished
+400/913 examples finished
+425/913 examples finished
+450/913 examples finished
+475/913 examples finished
+500/913 examples finished
+525/913 examples finished
+550/913 examples finished
+575/913 examples finished
+600/913 examples finished
+625/913 examples finished
+650/913 examples finished
+675/913 examples finished
+700/913 examples finished
+725/913 examples finished
+750/913 examples finished
+775/913 examples finished
+800/913 examples finished
+825/913 examples finished
+850/913 examples finished
+875/913 examples finished
+900/913 examples finished
+913/913 examples finished
+
+Failures:
+
+  1) Github CGI.parse should work
+     Failure/Error: expect(CGI.parse("a"))
+
+     NoMethodError:
+       undefined method 'parse' for class CGI
+     # ./spec/extras/github_spec.rb:15:in 'block (3 levels) in <top (required)>'
+
+  2) User Administration banning
+     Failure/Error: expect(sent_emails.size).to eq(1)
+       Expected 0 to eq 1.
+     # ./spec/features/user_administration_spec.rb:50:in 'block (2 levels) in <top (required)>'
+913 examples, 2 failures
