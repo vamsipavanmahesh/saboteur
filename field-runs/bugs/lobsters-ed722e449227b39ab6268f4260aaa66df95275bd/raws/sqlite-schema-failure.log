@@ -1,0 +1,11 @@
+W, [2026-10-24T08:18:52.773803 #18628]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+bin/rails aborted!
+ArgumentError: Unknown key: :unsigned. Valid keys are: :limit, :precision, :scale, :default, :null, :collation, :comment, :primary_key, :if_exists, :if_not_exists, :as, :type, :stored (ArgumentError)
+
+        raise ArgumentError.new("Unknown key: #{k.inspect}. Valid keys are: #{valid_keys.map(&:inspect).join(', ')}")
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/home/sandbox/field-runs/pr-trees/bug2204-intro-base/db/schema.rb:66:in 'block in <top (required)>'
+/home/sandbox/field-runs/pr-trees/bug2204-intro-base/db/schema.rb:13:in '<top (required)>'
+Tasks: TOP => db:prepare
+(See full trace by running task with --trace)
+captured 2026-10-24T08:18:53+05:30 exit=0

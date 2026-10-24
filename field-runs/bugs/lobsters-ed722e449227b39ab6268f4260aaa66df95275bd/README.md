@@ -45,3 +45,46 @@ Conflict recorded (ENVIRONMENT.md): user rule B2 says skip when the
 introducing era needs a different DB (MariaDB here); the same user
 message explicitly says start with 2204's bug. Exception decision
 pending with the user via main (08:17 IST).
+
+## Append 08:19 - raw completeness archive (raws/ + line-map.json)
+
+New raws, all publisher-verified:
+- line-map.json: machine line map; numstat (1 add + 1 del) retained
+  SEPARATELY from semantic 1-modified-line, pending approved metric
+  definitions. Spec sha256 claims re-verified against the files:
+  head 223d902815dc...20b21de, base-committed
+  d67896e0482a...b90030a - both match. Status field:
+  decision_pending_db_exception.
+- raws/blame-fixed-line.txt: blame of the fixed line (b8cc0cef5,
+  Peter Bhat Harkins, 2026-06-19 12:40:29 -0500, line 777, exact
+  buggy content) - consistent with the live-API verification above.
+- raws/introducer-git-show.txt + raws/fix-hunk.diff: hunks match the
+  live GitHub patch data (@@ -759,7 +759,7 @@ introducing;
+  @@ -774,7 +774,7 @@ fix).
+- raws/introducer-ci-check.yml: byte-identical to the live file at
+  b8cc0cef (cmp). raws/introducer-pulls-api.json: [] (fetched
+  08:18:48). raws/introducer-ruby-version.txt: 4.0.0.
+- raws/sqlite-schema-failure.log: ACTUAL failure evidence for the
+  skip-rule assessment - "bin/rails aborted! ArgumentError: Unknown
+  key: :unsigned" at db/schema.rb:66 in the bug2204-intro-base tree
+  under the sqlite stack. Note: the footer's "exit=0" is the capture
+  wrapper's status, not the rails command's; the abort text is the
+  evidence.
+- Restoration proof (base-cache contamination check):
+  raws/base-git-status-before-restore.txt shows the temporary head
+  spec copy staged (M spec/models/story_spec.rb);
+  raws/base-git-status-after-restore.txt (08:18:44) shows it
+  reverted. Timeline verified from published measurements: the 2204
+  base whole-suite map (cache 76ba0df9) was built 07:37:49-07:42:35,
+  BEFORE the temporary head-spec copy (regression runs 08:14) and
+  the restore (08:18:44) - the built cache predates the copy, and
+  the restored tree no longer carries it, so no new base-cache
+  computation can include the head spec. Remaining working-tree
+  modifications (Gemfile/Gemfile.lock saboteur-gem environment
+  additions, untracked config/saboteur.rb) are the pre-existing
+  recorded environment state, not new contamination.
+
+The 4 earlier files (BUG.md, ENVIRONMENT.md, regression-*.txt) are
+byte-identical to this archive's copies (cmp) - left untouched.
+Still DECISION PENDING; no HIT/MISS; no metrics until definitions
+are approved.

@@ -1,0 +1,1 @@
+b8cc0cef5 (Peter Bhat Harkins 2026-06-19 12:40:29 -0500 777)     is_deleted? || (user.is_banned? && score < 0 && is_moderated = false)

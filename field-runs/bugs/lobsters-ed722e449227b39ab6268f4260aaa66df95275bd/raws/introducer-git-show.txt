@@ -1,0 +1,19 @@
+commit b8cc0cef58b3cf0c1d03dc0809c874b2e701b0b3
+Author: Peter Bhat Harkins <peter@push.cx>
+Date:   Fri Jun 19 12:40:29 2026 -0500
+
+    don't imply mod removed a story hidden by heavy flagging of banned user
+
+diff --git a/app/models/story.rb b/app/models/story.rb
+index 50640fd4..5bcb36dc 100644
+--- a/app/models/story.rb
++++ b/app/models/story.rb
+@@ -759,7 +759,7 @@ class Story < ApplicationRecord
+   end
+ 
+   def is_gone?
+-    is_deleted? || (user.is_banned? && score < 0)
++    is_deleted? || (user.is_banned? && score < 0 && is_moderated = false)
+   end
+ 
+   def is_hidden_by_user?(user)

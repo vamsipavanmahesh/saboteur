@@ -1,0 +1,13 @@
+diff --git a/app/models/story.rb b/app/models/story.rb
+index 5129b455..85f33ce8 100644
+--- a/app/models/story.rb
++++ b/app/models/story.rb
+@@ -774,7 +774,7 @@ class Story < ApplicationRecord
+   end
+ 
+   def is_gone?
+-    is_deleted? || (user.is_banned? && score < 0 && is_moderated = false)
++    is_deleted? || (user.is_banned? && score < 0 && is_moderated == false)
+   end
+ 
+   def is_hidden_by_user?(user)

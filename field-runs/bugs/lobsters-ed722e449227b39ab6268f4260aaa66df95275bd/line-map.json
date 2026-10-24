@@ -1,0 +1,44 @@
+{
+  "fix": {
+    "pr": 2204,
+    "base": "8f1b50061e5ef0b88ddbadc675395f7b5cf4eb76",
+    "merge": "ed722e449227b39ab6268f4260aaa66df95275bd",
+    "file": "app/models/story.rb",
+    "changed_line_base_coords": 777,
+    "changed_line_head_coords": 777,
+    "hunk": "@@ -774,7 +774,7 @@",
+    "numstat": {
+      "add": 1,
+      "del": 1
+    },
+    "semantic_modified_lines": 1,
+    "note": "numstat 1 add + 1 del retained separately from semantic 1-modified-line, pending metric definition"
+  },
+  "introducer": {
+    "commit": "b8cc0cef58b3cf0c1d03dc0809c874b2e701b0b3",
+    "parent": "7037494eb85003603ecd87fb00bde994e111f103",
+    "file": "app/models/story.rb",
+    "changed_line_coords": 762,
+    "hunk": "@@ -759,7 +759,7 @@",
+    "numstat": {
+      "add": 1,
+      "del": 1
+    },
+    "semantic_modified_lines": 1,
+    "pr_association": "none (pulls API []) - direct push to master"
+  },
+  "fixed_line_identity": {
+    "base": "is_deleted? || (user.is_banned? && score < 0 && is_moderated = false)",
+    "head": "is_deleted? || (user.is_banned? && score < 0 && is_moderated == false)"
+  },
+  "hashes": {
+    "story_spec_head_sha256": "223d902815dc3ce39dda44d7b3b1b2e1733d880ba51042be4eb98828720b21de",
+    "story_spec_base_committed_sha256": "d67896e0482accb8abe2449652376e66cf0c9522b529bfe3e42896023b90030a"
+  },
+  "regression": {
+    "test_id": "spec/models/story_spec.rb:510",
+    "before_fix": "FAIL (5 examples, 1 failure)",
+    "after_fix": "PASS (5 examples, 0 failures)"
+  },
+  "status": "decision_pending_db_exception"
+}

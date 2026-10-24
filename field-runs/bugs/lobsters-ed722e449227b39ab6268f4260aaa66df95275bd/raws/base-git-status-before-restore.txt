@@ -1,0 +1,4 @@
+ M Gemfile
+ M Gemfile.lock
+M  spec/models/story_spec.rb
+?? config/saboteur.rb
