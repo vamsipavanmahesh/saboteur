@@ -166,8 +166,12 @@ jobs:
           set -o pipefail
           MAKEFLAGS=-j1 bundle config set --local path vendor/bundle
           MAKEFLAGS=-j1 bundle install --jobs 1 --without development 2>&1 | tee ../receipts/bundle.log | tail -3
+          cp Gemfile.lock ../receipts/gemfile-lock-post.lock
+          git diff --no-index --stat ../receipts/gemfile-lock-pre.lock ../receipts/gemfile-lock-post.lock > ../receipts/gemfile-lock.diffstat || true
+          git diff --no-index ../receipts/gemfile-lock-pre.lock ../receipts/gemfile-lock-post.lock > ../receipts/gemfile-lock.diff || true
           {
             echo "gemfile_lock_sha256_post=$(sha256sum Gemfile.lock | cut -d' ' -f1)"
+            echo "lock_diff_lines=$(wc -l < ../receipts/gemfile-lock.diff)"
             echo "lock_saboteur_lines=$(grep -c 'saboteur' Gemfile.lock || true)"
           } | tee -a ../receipts/env.env
           grep -q "saboteur (0.12.3)" Gemfile.lock || { echo "lock_membership=MISSING" | tee -a ../receipts/env.env; exit 1; }
@@ -175,10 +179,12 @@ jobs:
 
       - name: Lockfile receipt (post-patch, pre-bundle)
         run: |
+          cp chatwoot/Gemfile.lock receipts/gemfile-lock-pre.lock
           {
             echo "gemfile_patch_lines=$(grep -c saboteur chatwoot/Gemfile || true)"
-            echo "gemfile_diff_stat=$(git -C chatwoot diff --shortstat -- Gemfile)"
+            echo "gemfile_diff_full=$(git -C chatwoot diff -- Gemfile | sha256sum | cut -d' ' -f1)"
           } | tee -a receipts/env.env
+          git -C chatwoot diff -- Gemfile > receipts/gemfile.diff
           grep -q "saboteur" chatwoot/Gemfile || { echo "gemfile_patch=MISSING" | tee -a receipts/env.env; exit 1; }
 
       - name: pnpm install (frozen lockfile)
