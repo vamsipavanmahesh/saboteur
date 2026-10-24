@@ -1,0 +1,17 @@
+{
+  "kind": "map",
+  "status": null,
+  "command": "bundle exec saboteur run --all --verbose --jobs 1 --no-cache",
+  "started_at": "2026-10-24T07:37:49.912699+05:30",
+  "ended_at": "2026-10-24T07:42:35.516085+05:30",
+  "wall_seconds": 285.6,
+  "wall_seconds_monotonic_suspect": 285.6,
+  "exit_code": 130,
+  "peak_rss_kb": 500376,
+  "base_sha": null,
+  "head_sha": null,
+  "pr_url": null,
+  "saboteur_version": "0.12.3",
+  "saboteur_sha": "6f87ccc98377bf0c23f3cf409006f0464c2aa67c",
+  "evidence_paths": []
+}
