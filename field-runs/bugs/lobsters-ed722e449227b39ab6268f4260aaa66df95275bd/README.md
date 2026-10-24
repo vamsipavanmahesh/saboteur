@@ -88,3 +88,31 @@ The 4 earlier files (BUG.md, ENVIRONMENT.md, regression-*.txt) are
 byte-identical to this archive's copies (cmp) - left untouched.
 Still DECISION PENDING; no HIT/MISS; no metrics until definitions
 are approved.
+
+## Append 08:21 - provenance corrections (main's audit)
+
+- introducer-pulls-api.json is NOT valid JSON as received (response
+  body + trailing fetch-timestamp line). Original preserved
+  byte-exact; derived valid-JSON response + metadata split out as
+  introducer-pulls-api.response-DERIVED.json /
+  .meta-DERIVED.txt (labeled, provenance above).
+- Certainty correction: the pulls API returning [] means NO
+  ASSOCIATED PR was returned by the API. It is NOT proof of a
+  "direct push to master" - no event evidence exists in this
+  packet. The "direct push" phrasing in BUG.md and in
+  line-map.json's pr_association is the worker's prose, preserved
+  raw, and should be read as unproven characterization; a
+  clarification lands with the user's exception decision.
+- SQLite schema-failure log: the "exit=0" footer is the capture
+  wrapper, not the rails command (kept qualified).
+- Cache-contamination claim STRENGTHENED to content level (no rerun
+  needed): the published 2204 base inputs snapshot
+  (reports/pr2204-replay-v2/base-inputs.json, map_key 76ba0df9)
+  pins spec/models/story_spec.rb at digest
+  d67896e0482accb8abe2449652376e66cf0c9522b529bfe3e42896023b90030a =
+  sha256 of the COMMITTED base spec (raws/story_spec-base-committed.rb),
+  NOT the head spec (223d9028...). The base map's inputs are the
+  committed base spec content - uncontaminated by the later
+  temporary head-spec copy by content, not only by timeline.
+
+Entry remains DECISION PENDING; no HIT/MISS.

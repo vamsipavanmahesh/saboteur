@@ -1,0 +1,8 @@
+Derived metadata, split from the original raw (provenance).
+Original: introducer-pulls-api.json (byte-preserved). It is NOT valid
+JSON as received: the API response body is followed by a trailing
+"fetched 2026-10-24T08:18:48+05:30" line. Derived into:
+- introducer-pulls-api.response-DERIVED.json = the response body ([]).
+- this file = the fetch timestamp + this note.
+Split by the publisher, 2026-10-24 08:20 IST; no byte of the original
+changed.
