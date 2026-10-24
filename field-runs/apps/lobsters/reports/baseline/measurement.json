@@ -1,0 +1,21 @@
+{
+  "kind": "baseline",
+  "status": "done",
+  "command": "bundle exec rspec --format progress --format json --out logs/baseline-rspec.json",
+  "started_at": "2026-10-23T21:54:30+0530",
+  "ended_at": "2026-10-23T21:55:06+0530",
+  "wall_seconds": 35.345,
+  "exit_code": 1,
+  "peak_rss_kb": 454056,
+  "base_sha": "407536444934ac7d78f4ce1c18f228e3891a8663",
+  "head_sha": null,
+  "pr_url": null,
+  "saboteur_version": null,
+  "saboteur_sha": null,
+  "examples": 913,
+  "failures": 2,
+  "pending": 0,
+  "rspec_duration_seconds": 29.936,
+  "known_failures": ["spec/extras/github_spec.rb:14", "spec/features/user_administration_spec.rb:39"],
+  "evidence_paths": ["logs/baseline-rspec.json", "logs/baseline-rspec.log", "logs/baseline-failures-recheck.log", "logs/bin-setup.log"]
+}

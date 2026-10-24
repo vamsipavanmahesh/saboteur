@@ -1,0 +1,8 @@
+{
+  "command": "bundle exec rspec spec/models/comment_spec.rb spec/requests/comments_spec.rb spec/mailers/email_reply_mailer_spec.rb --format progress --format json --out /home/sandbox/field-runs/saboteur-field-runs/apps/lobsters/logs/pr2231-base-specs.json",
+  "started_at": "2026-10-23T22:41:33+0530",
+  "ended_at": "2026-10-23T22:41:41+0530",
+  "wall_seconds": 8.056,
+  "exit_code": 0,
+  "peak_rss_kb": 341092
+}

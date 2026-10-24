@@ -1,0 +1,10 @@
+# Solidus PR replay selection (generated 2026-10-23T16:13:19Z)
+# Rule: scan first-parent merges newest-first from pin 07d5aff446586f6ab8ca024e2d8d08ee3e0463d8;
+# keep merges touching core/app or core/lib (>=1 line) with total diff <=300 lines; skip merges without a public PR number;
+# take first 5, requiring >=2 with core/spec changes (result: all 5 have spec changes).
+pr,base_sha,head_sha,src_lines,spec_lines,total_lines,url
+6691,7c1842d9099d76713b4d2a69001eac914a5f16d3,1514f27fc7b257ab1ae5bab5a3646a04f256b06a,10,36,46,https://github.com/solidusio/solidus/pull/6691
+6677,198c66c2f36fae2aab622851e2945cb66ce9b44b,4dd53128473a4e0c7b7fdbb6d152e35a5ca7bb1b,3,4,10,https://github.com/solidusio/solidus/pull/6677
+6697,5b47ff22b600011f369e8da0de60bfe60bb27039,8950d6cc6b4d79c65b8a58172e60453d4d5e1d95,15,60,75,https://github.com/solidusio/solidus/pull/6697
+6701,5158ea6d0ebf63d29acce4ae9bc8332d59e2c321,5b47ff22b600011f369e8da0de60bfe60bb27039,12,29,51,https://github.com/solidusio/solidus/pull/6701
+6692,78fb02ba19a443a6648aa870634700eb2c1a0a94,c27efd40c184eba0c758ecc9429cf23551000f5f,24,50,74,https://github.com/solidusio/solidus/pull/6692

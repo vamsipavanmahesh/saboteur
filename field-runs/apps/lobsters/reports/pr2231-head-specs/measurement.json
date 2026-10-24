@@ -1,0 +1,21 @@
+{
+  "kind": "verification",
+  "status": "done",
+  "scope": "PR head tree spec pre-verification (no saboteur involved): the PR's own spec files pass at its head SHA on its own required Ruby 4.0.0, so a later saboteur replay starts from green",
+  "command": "bundle exec rspec spec/models/comment_spec.rb spec/requests/comments_spec.rb spec/mailers/email_reply_mailer_spec.rb --format progress --format json --out logs/pr2231-head-specs.json",
+  "started_at": "2026-10-23T22:25:47+0530",
+  "ended_at": "2026-10-23T22:25:55+0530",
+  "wall_seconds": 8.498,
+  "exit_code": 0,
+  "peak_rss_kb": 314800,
+  "base_sha": "372345a2cca5ed8e5d3376dcdc7e0a33e7f4f17c",
+  "head_sha": "9fd8f5fca9b5f93a465a079cd0847b17b2acebe8",
+  "pr_url": "https://github.com/lobsters/lobsters/pull/2231",
+  "saboteur_version": null,
+  "saboteur_sha": null,
+  "ruby": "4.0.0 (tree's own .ruby-version)",
+  "examples": 44,
+  "failures": 0,
+  "pending": 0,
+  "evidence_paths": ["logs/pr2231-head-specs.json", "logs/pr2231-head-specs.log"]
+}

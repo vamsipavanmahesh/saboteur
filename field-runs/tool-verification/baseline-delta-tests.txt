@@ -1,0 +1,45 @@
+Syntax OK
+summarize fixture tests pass
+test_app_findings_missing (__main__.Contract) ... ok
+test_app_findings_present (__main__.Contract) ... ok
+test_baseline_missing (__main__.Contract) ... ok
+test_baseline_partial (__main__.Contract) ... ok
+test_baseline_present (__main__.Contract) ... ok
+test_changed_classification (__main__.Contract) ... ok
+test_changed_confirmation (__main__.Contract) ... ok
+test_changed_file (__main__.Contract) ... ok
+test_changed_kill_cause (__main__.Contract) ... ok
+test_changed_observation (__main__.Contract) ... ok
+test_changed_verdict (__main__.Contract) ... ok
+test_csv_counts (__main__.Contract) ... ok
+test_determinism_kind (__main__.Contract) ... ok
+test_duplicate_csv_fails (__main__.Contract) ... ok
+test_duplicate_mutants_fail (__main__.Contract) ... ok
+test_duplicate_test_ids_fail (__main__.Contract) ... ok
+test_empty_measured (__main__.Contract) ... ok
+test_equal_diff (__main__.Contract) ... ok
+test_foreign_csv_id_fails (__main__.Contract) ... ok
+test_header_only_csv_unknown (__main__.Contract) ... ok
+test_missing (__main__.Contract) ... ok
+test_no_selection_without_reports (__main__.Contract) ... ok
+test_scenario_identity (__main__.Contract) ... ok
+test_seed_caps_and_preservation (__main__.Contract) ... ok
+test_selection_missing_directory (__main__.Contract) ... ok
+test_status_counts_and_score (__main__.Contract) ... ok
+test_test_id_renumber (__main__.Contract) ... ok
+test_unknown_csv_class_fails (__main__.Contract) ... ok
+test_unknown_test_fails (__main__.Contract) ... ok
+
+----------------------------------------------------------------------
+Ran 29 tests in 2.072s
+
+OK
+test_nonzero (__main__.Measurement) ... ok
+test_signal (__main__.Measurement) ... ok
+test_spawn_failure_unknown_memory (__main__.Measurement) ... ok
+test_success (__main__.Measurement) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.172s
+
+OK

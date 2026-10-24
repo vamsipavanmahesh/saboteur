@@ -1,0 +1,213 @@
+=== pr2231 BASE_START 2026-10-23T22:41:16+05:30 ===
+Preparing worktree (detached HEAD 372345a2)
+HEAD is now at 372345a2 nostale label for slower PRs
+Bundle complete! 58 Gemfile dependencies, 180 gems now installed.
+Use `bundle info [gemname]` to see where a bundled gem is installed.
+4 installed gems you directly depend on are looking for funding.
+  Run `bundle fund` for details
+== Installing dependencies ==
+The Gemfile's dependencies are satisfied
+
+== Removing any old logs and tempfiles ==
+
+== Copying sample files ==
+
+== Removing old logs and tempfiles ==
+
+== Preparing database ==
+W, [2026-10-23T22:41:26.480645 #14096]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+Created database 'db/development/primary.sqlite3'
+Created database 'db/development/cache.sqlite3'
+Created database 'db/development/queue.sqlite3'
+Created database 'db/development/rack_attack.sqlite3'
+Created database 'db/test/primary.sqlite3'
+Created database 'db/test/cache.sqlite3'
+Created database 'db/test/queue.sqlite3'
+Created database 'db/test/rack_attack.sqlite3'
+
+== Restarting application server if running ==
+
+== You probably want to run 'rails fake_data' to have realistic data in dev
+W, [2026-10-23T22:41:36.353096 #14119]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+........................................
+
+Finished in 3.96 seconds (files took 3.61 seconds to load)
+40 examples, 0 failures
+
+Coverage report generated for RSpec to /home/sandbox/field-runs/pr-trees/pr2231-base/coverage.
+Line Coverage: 20.68% (1482 / 7167)
+{"command": "bundle exec rspec spec/models/comment_spec.rb spec/requests/comments_spec.rb spec/mailers/email_reply_mailer_spec.rb --format progress --format json --out /home/sandbox/field-runs/saboteur-field-runs/apps/lobsters/logs/pr2231-base-specs.json", "started_at": "2026-10-23T22:41:33+0530", "ended_at": "2026-10-23T22:41:41+0530", "wall_seconds": 8.056, "exit_code": 0, "peak_rss_kb": 341092}
+=== pr2231 BASE_RSPEC_EXIT=0 DONE 2026-10-23T22:41:41+05:30 ===
+=== pr2204 BASE_START 2026-10-23T22:41:41+05:30 ===
+Preparing worktree (detached HEAD 8f1b5006)
+HEAD is now at 8f1b5006 docs: fix typo conection -> connection
+Bundle complete! 58 Gemfile dependencies, 180 gems now installed.
+Use `bundle info [gemname]` to see where a bundled gem is installed.
+4 installed gems you directly depend on are looking for funding.
+  Run `bundle fund` for details
+== Installing dependencies ==
+The Gemfile's dependencies are satisfied
+
+== Removing any old logs and tempfiles ==
+
+== Copying sample files ==
+
+== Removing old logs and tempfiles ==
+
+== Preparing database ==
+W, [2026-10-23T22:41:51.624054 #14156]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+Created database 'db/development/primary.sqlite3'
+Created database 'db/development/cache.sqlite3'
+Created database 'db/development/queue.sqlite3'
+Created database 'db/development/rack_attack.sqlite3'
+Created database 'db/test/primary.sqlite3'
+Created database 'db/test/cache.sqlite3'
+Created database 'db/test/queue.sqlite3'
+Created database 'db/test/rack_attack.sqlite3'
+
+== Restarting application server if running ==
+
+== You probably want to run 'rails fake_data' to have realistic data in dev
+W, [2026-10-23T22:42:01.078756 #14179]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+............................................................................
+
+Finished in 4.74 seconds (files took 3.47 seconds to load)
+76 examples, 0 failures
+
+Coverage report generated for RSpec to /home/sandbox/field-runs/pr-trees/pr2204-base/coverage.
+Line Coverage: 17.18% (1312 / 7639)
+{"command": "bundle exec rspec spec/models/story_spec.rb --format progress --format json --out /home/sandbox/field-runs/saboteur-field-runs/apps/lobsters/logs/pr2204-base-specs.json", "started_at": "2026-10-23T22:41:58+0530", "ended_at": "2026-10-23T22:42:06+0530", "wall_seconds": 8.701, "exit_code": 0, "peak_rss_kb": 356552}
+=== pr2204 BASE_RSPEC_EXIT=0 DONE 2026-10-23T22:42:06+05:30 ===
+=== pr2156 BASE_START 2026-10-23T22:42:06+05:30 ===
+Preparing worktree (detached HEAD 9a773eac)
+HEAD is now at 9a773eac remove parent argument from styled_user_link
+Bundle complete! 58 Gemfile dependencies, 180 gems now installed.
+Use `bundle info [gemname]` to see where a bundled gem is installed.
+4 installed gems you directly depend on are looking for funding.
+  Run `bundle fund` for details
+== Installing dependencies ==
+The Gemfile's dependencies are satisfied
+
+== Removing any old logs and tempfiles ==
+
+== Copying sample files ==
+
+== Removing old logs and tempfiles ==
+
+== Preparing database ==
+W, [2026-10-23T22:42:17.276073 #14216]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+Created database 'db/development/primary.sqlite3'
+Created database 'db/development/cache.sqlite3'
+Created database 'db/development/queue.sqlite3'
+Created database 'db/development/rack_attack.sqlite3'
+Created database 'db/test/primary.sqlite3'
+Created database 'db/test/cache.sqlite3'
+Created database 'db/test/queue.sqlite3'
+Created database 'db/test/rack_attack.sqlite3'
+
+== Restarting application server if running ==
+
+== You probably want to run 'rails fake_data' to have realistic data in dev
+
+An error occurred while loading ./spec/controllers/settings_controller_spec.rb. - Did you mean?
+                    rspec ./spec/controllers/comments_controller_spec.rb
+                    rspec ./spec/controllers/messages_controller_spec.rb
+                    rspec ./spec/controllers/home_controller_spec.rb
+
+Failure/Error: __send__(method, file)
+
+LoadError:
+  cannot load such file -- /home/sandbox/field-runs/pr-trees/pr2156-base/spec/controllers/settings_controller_spec.rb
+# /home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/rspec-core-3.13.5/lib/rspec/core/configuration.rb:2144:in 'Kernel#load'
+# /home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/rspec-core-3.13.5/lib/rspec/core/configuration.rb:2144:in 'RSpec::Core::Configuration#load_file_handling_errors'
+# /home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/rspec-core-3.13.5/lib/rspec/core/configuration.rb:1643:in 'block in RSpec::Core::Configuration#load_spec_files'
+# /home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/rspec-core-3.13.5/lib/rspec/core/configuration.rb:1641:in 'Array#each'
+# /home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/rspec-core-3.13.5/lib/rspec/core/configuration.rb:1641:in 'RSpec::Core::Configuration#load_spec_files'
+# /home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/rspec-core-3.13.5/lib/rspec/core/runner.rb:102:in 'RSpec::Core::Runner#setup'
+# /home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/rspec-core-3.13.5/lib/rspec/core/runner.rb:86:in 'RSpec::Core::Runner#run'
+# /home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/rspec-core-3.13.5/lib/rspec/core/runner.rb:71:in 'RSpec::Core::Runner.run'
+# /home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/rspec-core-3.13.5/lib/rspec/core/runner.rb:45:in 'RSpec::Core::Runner.invoke'
+# /home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/rspec-core-3.13.5/exe/rspec:4:in '<top (required)>'
+# /home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/rubygems.rb:303:in 'Kernel#load'
+# /home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/rubygems.rb:303:in 'Gem.activate_and_load_bin_path'
+# /home/sandbox/field-runs/ruby/ruby-4.0.0/bin/rspec:25:in '<top (required)>'
+# /home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/bundler/cli/exec.rb:61:in 'Kernel.load'
+# /home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/bundler/cli/exec.rb:61:in 'Bundler::CLI::Exec#kernel_load'
+# /home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/bundler/cli/exec.rb:24:in 'Bundler::CLI::Exec#run'
+# /home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/bundler/cli.rb:500:in 'Bundler::CLI#exec'
+# /home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/bundler/vendor/thor/lib/thor/command.rb:28:in 'Bundler::Thor::Command#run'
+# /home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/bundler/vendor/thor/lib/thor/invocation.rb:127:in 'Bundler::Thor::Invocation#invoke_command'
+# /home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/bundler/vendor/thor/lib/thor.rb:538:in 'Bundler::Thor.dispatch'
+# /home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/bundler/cli.rb:35:in 'Bundler::CLI.dispatch'
+# /home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/bundler/vendor/thor/lib/thor/base.rb:584:in 'Bundler::Thor::Base::ClassMethods#start'
+# /home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/bundler/cli.rb:29:in 'Bundler::CLI.start'
+# /home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/bundler-4.0.3/exe/bundle:28:in 'block in <top (required)>'
+# /home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/bundler/friendly_errors.rb:118:in 'Bundler.with_friendly_errors'
+# /home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/bundler-4.0.3/exe/bundle:20:in '<top (required)>'
+# /home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/rubygems.rb:303:in 'Kernel#load'
+# /home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/rubygems.rb:303:in 'Gem.activate_and_load_bin_path'
+# /home/sandbox/field-runs/ruby/ruby-4.0.0/bin/bundle:25:in '<main>'
+#
+#   Showing full backtrace because every line was filtered out.
+#   See docs for RSpec::Configuration#backtrace_exclusion_patterns and
+#   RSpec::Configuration#backtrace_inclusion_patterns for more information.
+No examples found.
+
+
+Finished in 0.00006 seconds (files took 0.16992 seconds to load)
+0 examples, 0 failures, 1 error occurred outside of examples
+
+{"command": "bundle exec rspec spec/controllers/settings_controller_spec.rb --format progress --format json --out /home/sandbox/field-runs/saboteur-field-runs/apps/lobsters/logs/pr2156-base-specs.json", "started_at": "2026-10-23T22:42:24+0530", "ended_at": "2026-10-23T22:42:24+0530", "wall_seconds": 0.361, "exit_code": 1, "peak_rss_kb": 41152}
+=== pr2156 BASE_RSPEC_EXIT=1 DONE 2026-10-23T22:42:24+05:30 ===
+=== pr2143 BASE_START 2026-10-23T22:42:24+05:30 ===
+Preparing worktree (detached HEAD e72cf85f)
+HEAD is now at e72cf85f Remove MariaDB mention from CONTRIBUTING.md
+Bundle complete! 58 Gemfile dependencies, 178 gems now installed.
+Use `bundle info [gemname]` to see where a bundled gem is installed.
+4 installed gems you directly depend on are looking for funding.
+  Run `bundle fund` for details
+== Installing dependencies ==
+The Gemfile's dependencies are satisfied
+
+== Removing any old logs and tempfiles ==
+
+== Copying sample files ==
+
+== Removing old logs and tempfiles ==
+
+== Preparing database ==
+W, [2026-10-23T22:42:34.664598 #14273]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+Created database 'db/development/primary.sqlite3'
+Created database 'db/development/cache.sqlite3'
+Created database 'db/development/queue.sqlite3'
+Created database 'db/development/rack_attack.sqlite3'
+Created database 'db/test/primary.sqlite3'
+Created database 'db/test/cache.sqlite3'
+Created database 'db/test/queue.sqlite3'
+Created database 'db/test/rack_attack.sqlite3'
+
+== Restarting application server if running ==
+
+== You probably want to run 'rails fake_data' to have realistic data in dev
+W, [2026-10-23T22:42:44.210227 #14296]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+...........................................................................
+
+Finished in 5.2 seconds (files took 3.57 seconds to load)
+75 examples, 0 failures
+
+Coverage report generated for RSpec to /home/sandbox/field-runs/pr-trees/pr2143-base/coverage.
+Line Coverage: 17.3% (1306 / 7551)
+{"command": "bundle exec rspec spec/models/story_spec.rb --format progress --format json --out /home/sandbox/field-runs/saboteur-field-runs/apps/lobsters/logs/pr2143-base-specs.json", "started_at": "2026-10-23T22:42:41+0530", "ended_at": "2026-10-23T22:42:50+0530", "wall_seconds": 9.219, "exit_code": 0, "peak_rss_kb": 327968}
+=== pr2143 BASE_RSPEC_EXIT=0 DONE 2026-10-23T22:42:50+05:30 ===
+=== pr2090 BASE_START 2026-10-23T22:42:50+05:30 (reuse pr2143 tree, same SHA) ===
+W, [2026-10-23T22:42:53.522379 #14306]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+................................
+
+Finished in 4.3 seconds (files took 3.71 seconds to load)
+32 examples, 0 failures
+
+Coverage report generated for RSpec to /home/sandbox/field-runs/pr-trees/pr2143/coverage.
+Line Coverage: 17.34% (1242 / 7161)
+{"command": "bundle exec rspec spec/controllers/home_controller_spec.rb spec/routing/home_spec.rb --format progress --format json --out /home/sandbox/field-runs/saboteur-field-runs/apps/lobsters/logs/pr2090-base-specs.json", "started_at": "2026-10-23T22:42:50+0530", "ended_at": "2026-10-23T22:42:59+0530", "wall_seconds": 8.453, "exit_code": 0, "peak_rss_kb": 312268}
+=== pr2090 BASE_RSPEC_EXIT=0 DONE 2026-10-23T22:42:59+05:30 ===
+ALL_BASES_DONE 2026-10-23T22:42:59+05:30

@@ -1,0 +1,25 @@
+{
+  "kind": "verification",
+  "status": "done",
+  "scope": "PR BASE tree control check (no saboteur): the PR's spec files at base_sha on the base tree's required Ruby 4.0.0, as pre-mutation control",
+  "command": "bundle exec rspec spec/controllers/home_controller_spec.rb spec/routing/home_spec.rb --format progress --format json --out logs/pr2090-base-specs.json",
+  "started_at": "2026-10-23T22:42:50+0530",
+  "ended_at": "2026-10-23T22:42:59+0530",
+  "wall_seconds": 8.453,
+  "exit_code": 0,
+  "peak_rss_kb": 312268,
+  "base_sha": "81ba649e1a667afddd1c780d0aeb37bad37ac308",
+  "head_sha": "87e1e318fc7cc914646605c34dae39ff4d28ef34",
+  "pr_url": "https://github.com/lobsters/lobsters/pull/2090",
+  "saboteur_version": null,
+  "saboteur_sha": null,
+  "ruby": "4.0.0 (base tree's own .ruby-version)",
+  "examples": 32,
+  "failures": 0,
+  "pending": 0,
+  "note": "base tree is identical SHA to pr2143 head tree; ran in that worktree",
+  "evidence_paths": [
+    "logs/pr2090-base-specs.json",
+    "logs/pr2090-base-specs.log"
+  ]
+}

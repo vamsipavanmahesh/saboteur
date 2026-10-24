@@ -1,0 +1,58 @@
+{
+  "environment": {
+    "status": "done",
+    "reason": "toolchain source-built (documented deviation, no sudo available); app deps installed; pg+redis up; schema loaded; smoke spec green",
+    "evidence": [
+      "apps/chatwoot/ENV.md",
+      "apps/chatwoot/commands.sh"
+    ]
+  },
+  "baseline": {
+    "status": "done",
+    "reason": "3252 examples 0 failures 2 pending (enterprise-audit pending markers) exit 0, 213s; extra baseline 31/0/0 exit 0 for out-of-scope PR specs",
+    "evidence": [
+      "apps/chatwoot/reports/baseline/measurement.json",
+      "apps/chatwoot/reports/baseline-extra/measurement.json",
+      "apps/chatwoot/logs/baseline-rspec.json",
+      "apps/chatwoot/logs/baseline-extra-rspec.json",
+      "apps/chatwoot/reports/baseline/pending_examples.json"
+    ]
+  },
+  "documented_flow": {
+    "status": "not_done",
+    "reason": "Not started before the four-hour stop: verified saboteur 0.13.0 release identity was unavailable. Preparation controls are separate evidence, not a substitute.",
+    "evidence": []
+  },
+  "map": {
+    "status": "not_done",
+    "reason": "Not started before the four-hour stop: verified saboteur 0.13.0 release identity was unavailable. Preparation controls are separate evidence, not a substitute.",
+    "evidence": []
+  },
+  "pr_replays": {
+    "status": "not_done",
+    "reason": "Not started before the four-hour stop: verified saboteur 0.13.0 release identity was unavailable. Preparation controls are separate evidence, not a substitute.",
+    "evidence": [
+      "apps/chatwoot/selected_prs.json"
+    ]
+  },
+  "parallelism": {
+    "status": "not_done",
+    "reason": "Not started before the four-hour stop: verified saboteur 0.13.0 release identity was unavailable. Preparation controls are separate evidence, not a substitute.",
+    "evidence": []
+  },
+  "determinism": {
+    "status": "not_done",
+    "reason": "Not started before the four-hour stop: verified saboteur 0.13.0 release identity was unavailable. Preparation controls are separate evidence, not a substitute.",
+    "evidence": []
+  },
+  "triage": {
+    "status": "not_done",
+    "reason": "Not started: no versioned mutation reports exist to sample or independently verify. Findings unknown, not zero.",
+    "evidence": []
+  },
+  "kills": {
+    "status": "not_done",
+    "reason": "Not started: no versioned mutation reports exist to sample or independently verify. Findings unknown, not zero.",
+    "evidence": []
+  }
+}

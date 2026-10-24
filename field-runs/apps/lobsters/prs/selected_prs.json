@@ -1,0 +1,103 @@
+{
+  "app": "lobsters",
+  "repo": "https://github.com/lobsters/lobsters",
+  "pinned_sha": "407536444934ac7d78f4ce1c18f228e3891a8663",
+  "selected_at": "2026-10-23T21:48:00+05:30",
+  "selection_rule": "5 real merged PRs, each an ancestor of the pinned SHA, each touching app/ Ruby code WITH matching spec/ changes, small diffs (<=6 files), spread across models/controllers/routing/search. Verified via GitHub API (commit->PR association) and local git (ancestry, file lists).",
+  "prs": [
+    {
+      "number": 2231,
+      "url": "https://github.com/lobsters/lobsters/pull/2231",
+      "title": "Comment#parents: order by depth so no-JS reply/edit pages render ancestors root-first",
+      "merged_at": "2026-09-30T13:15:33Z",
+      "base_sha": "372345a2cca5ed8e5d3376dcdc7e0a33e7f4f17c",
+      "head_sha": "9fd8f5fca9b5f93a465a079cd0847b17b2acebe8",
+      "app_files": [
+        "app/models/comment.rb"
+      ],
+      "spec_files": [
+        "spec/mailers/email_reply_mailer_spec.rb",
+        "spec/models/comment_spec.rb",
+        "spec/requests/comments_spec.rb"
+      ]
+    },
+    {
+      "number": 2204,
+      "url": "https://github.com/lobsters/lobsters/pull/2204",
+      "title": "fix story #is_gone? condition",
+      "merged_at": "2026-09-04T20:37:45Z",
+      "base_sha": "8f1b50061e5ef0b88ddbadc675395f7b5cf4eb76",
+      "head_sha": "ed722e449227b39ab6268f4260aaa66df95275bd",
+      "app_files": [
+        "app/models/story.rb"
+      ],
+      "spec_files": [
+        "spec/models/story_spec.rb"
+      ]
+    },
+    {
+      "number": 2156,
+      "url": "https://github.com/lobsters/lobsters/pull/2156",
+      "title": "fix username moderation log",
+      "merged_at": "2026-09-14T01:31:17Z",
+      "base_sha": "9a773eac0b49fd86b16585ad503de9a51919c496",
+      "head_sha": "d9998c2555317db7b3cb9a159ef7878ff993ab78",
+      "app_files": [
+        "app/controllers/settings_controller.rb"
+      ],
+      "spec_files": [
+        "spec/controllers/settings_controller_spec.rb"
+      ]
+    },
+    {
+      "number": 2090,
+      "url": "https://github.com/lobsters/lobsters/pull/2090",
+      "title": "Adding redirects for /top rss endpoints to .rss versions",
+      "merged_at": "2026-07-16T15:03:06Z",
+      "base_sha": "81ba649e1a667afddd1c780d0aeb37bad37ac308",
+      "head_sha": "87e1e318fc7cc914646605c34dae39ff4d28ef34",
+      "app_files": [
+        "app/controllers/home_controller.rb",
+        "config/routes.rb"
+      ],
+      "spec_files": [
+        "spec/controllers/home_controller_spec.rb",
+        "spec/routing/home_spec.rb"
+      ]
+    },
+    {
+      "number": 2143,
+      "url": "https://github.com/lobsters/lobsters/pull/2143",
+      "title": "Remove ref tracking query param from submitted URLs",
+      "merged_at": "2026-07-15T12:40:32Z",
+      "base_sha": "e72cf85f041cfa82157173e0af82bce693e5c9d0",
+      "head_sha": "81ba649e1a667afddd1c780d0aeb37bad37ac308",
+      "app_files": [
+        "app/models/story.rb"
+      ],
+      "spec_files": [
+        "spec/models/story_spec.rb"
+      ],
+      "substitution_reason": "replaces #2053: #2053's head tree (2026-07-09) is MySQL/trilogy era and its documented bin/setup requires a MySQL server at 127.0.0.1:3306, unavailable in this no-sudo sandbox (F-ENV-2). #2143 is the nearest confirmed SQLite-era merged PR, ancestor of pin, story.rb + story_spec.rb."
+    }
+  ],
+  "spare": [
+    {
+      "number": 2102,
+      "url": "https://github.com/lobsters/lobsters/pull/2102",
+      "title": "RSS feed for user's comments",
+      "merged_at": "2026-07-09T21:11:15Z",
+      "base_sha": "6aec11c292fe9367720d069098c5e65754e1168b",
+      "head_sha": "34e7ca10043bed8d47e2510e00111db54e6db2ab",
+      "reason_kept_as_spare": "includes .rss.builder view template; usable if one of the 5 proves unrunnable"
+    },
+    {
+      "number": 2053,
+      "url": "https://github.com/lobsters/lobsters/pull/2053",
+      "title": "Fix title shortword search handling",
+      "base_sha": "04c0dc8a76983038e3f6e604f0c4cb195a78493e",
+      "head_sha": "3f81b9f3696e5d64153ab9254f6f9e45a39a72eb",
+      "reason_demoted": "head tree requires MySQL (trilogy) at 127.0.0.1:3306; bin/setup db:create fails without a server (F-ENV-2); usable only if MySQL is provisioned"
+    }
+  ]
+}

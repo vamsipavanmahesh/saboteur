@@ -1,0 +1,18 @@
+[
+ {
+  "id": "./spec/models/enterprise/audit/conversation_spec.rb[1:1:1]",
+  "file": "./spec/models/enterprise/audit/conversation_spec.rb",
+  "line": 13,
+  "description": "Conversation Audit audit logging on destroy creates an audit log when conversation is destroyed",
+  "status": "pending",
+  "pending_message": "Enterprise audit module not available"
+ },
+ {
+  "id": "./spec/models/enterprise/audit/conversation_spec.rb[1:1:2]",
+  "file": "./spec/models/enterprise/audit/conversation_spec.rb",
+  "line": 26,
+  "description": "Conversation Audit audit logging on destroy does not create audit log for other actions by default",
+  "status": "pending",
+  "pending_message": "Enterprise audit module not available"
+ }
+]

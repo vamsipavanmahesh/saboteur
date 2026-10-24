@@ -1,0 +1,58 @@
+{
+  "environment": {
+    "status": "done",
+    "reason": null,
+    "evidence": [
+      "apps/solidus/ENV.md",
+      "apps/solidus/logs/env-bundle-install.log",
+      "apps/solidus/logs/env-smoke.log"
+    ]
+  },
+  "baseline": {
+    "status": "done",
+    "reason": "exit 1: 4485 examples, 8 pre-existing failures in image-variant specs (system libvips missing, F-ENV-1); all 8 excluded with reasons in findings.md; outside replay scope",
+    "evidence": [
+      "apps/solidus/logs/baseline-rspec.json",
+      "apps/solidus/reports/baseline/measurement.json",
+      "apps/solidus/reports/baseline/stdout+stderr.log",
+      "apps/solidus/logs/baseline-failures-recheck.log"
+    ]
+  },
+  "documented_flow": {
+    "status": "not_done",
+    "reason": "saboteur 0.13.0 not released; waiting for verified SHA from main before install/ci-whole-suite-map steps",
+    "evidence": []
+  },
+  "map": {
+    "status": "not_done",
+    "reason": "depends on documented_flow",
+    "evidence": []
+  },
+  "pr_replays": {
+    "status": "not_done",
+    "reason": "depends on 0.13.0 SHA; 5 PRs pre-selected",
+    "evidence": [
+      "apps/solidus/selection.csv"
+    ]
+  },
+  "parallelism": {
+    "status": "not_done",
+    "reason": "depends on pr_replays",
+    "evidence": []
+  },
+  "determinism": {
+    "status": "not_done",
+    "reason": "depends on pr_replays",
+    "evidence": []
+  },
+  "triage": {
+    "status": "not_done",
+    "reason": "fresh-context triager assigned by main; this agent does no self-triage",
+    "evidence": []
+  },
+  "kills": {
+    "status": "not_done",
+    "reason": "fresh-context triager; sampled by fixed seed 20261023 from raw reports",
+    "evidence": []
+  }
+}

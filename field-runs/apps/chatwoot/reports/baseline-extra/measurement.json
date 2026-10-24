@@ -1,0 +1,25 @@
+{
+ "kind": "baseline",
+ "status": "done",
+ "command": "bundle exec rspec spec/mailboxes/imap/imap_mailbox_spec.rb spec/jobs/trigger_scheduled_items_job_spec.rb --format progress --format json --out logs/baseline-extra-rspec.json",
+ "started_at": "2026-10-23T22:12:21+05:30",
+ "ended_at": "2026-10-23T22:12:29+05:30",
+ "wall_seconds": 8,
+ "exit_code": 0,
+ "peak_rss_kb": null,
+ "base_sha": "7fe41fe03731fc2f5b1841b84351386962d2fd05",
+ "head_sha": null,
+ "pr_url": null,
+ "saboteur_version": null,
+ "saboteur_sha": null,
+ "examples": 31,
+ "failures": 0,
+ "pending": 0,
+ "scope": "additional baseline: exact PR-relevant specs outside models+services scope (PRs #15978, #16182)",
+ "evidence_paths": [
+  "apps/chatwoot/logs/baseline-extra-rspec.json",
+  "apps/chatwoot/logs/baseline-extra-rspec.log"
+ ],
+ "rspec_duration_seconds": 4.286946789,
+ "correction": "initial report said \"4.29s\" conflating wall with RSpec duration; actual wall 22:12:21-22:12:29 IST = 8s (meta.env), RSpec duration 4.2869s (formatter JSON)"
+}

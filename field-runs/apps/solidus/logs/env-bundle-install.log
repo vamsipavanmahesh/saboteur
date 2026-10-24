@@ -1,0 +1,890 @@
+BUNDLE_START 2026-10-23T16:12:38Z
+Fetching gem metadata from https://rubygems.org/.........
+Resolving dependencies...
+Fetching rake 13.4.2
+Installing rake 13.4.2
+Fetching base64 0.3.0
+Fetching bigdecimal 4.1.3
+Installing base64 0.3.0
+Fetching concurrent-ruby 1.3.8
+Installing bigdecimal 4.1.3 with native extensions
+Installing concurrent-ruby 1.3.8
+Fetching connection_pool 3.0.2
+Installing connection_pool 3.0.2
+Fetching drb 2.2.3
+Installing drb 2.2.3
+Fetching json 2.21.2
+Installing json 2.21.2 with native extensions
+Fetching logger 1.7.0
+Installing logger 1.7.0
+Fetching prism 1.9.0
+Installing prism 1.9.0 with native extensions
+Fetching securerandom 0.4.1
+Installing securerandom 0.4.1
+Fetching uri 1.1.2
+Installing uri 1.1.2
+Fetching builder 3.3.0
+Installing builder 3.3.0
+Fetching erubi 1.13.1
+Installing erubi 1.13.1
+Fetching crass 1.0.8
+Installing crass 1.0.8
+Fetching rack 2.2.24
+Installing rack 2.2.24
+Fetching useragent 0.16.11
+Installing useragent 0.16.11
+Fetching prettyprint 0.2.1
+Installing prettyprint 0.2.1
+Fetching erb 6.0.7
+Installing erb 6.0.7 with native extensions
+Fetching tsort 0.2.0
+Installing tsort 0.2.0
+Fetching io-console 0.9.4
+Installing io-console 0.9.4 with native extensions
+Fetching webrick 1.9.2
+Installing webrick 1.9.2
+Fetching thor 1.5.0
+Installing thor 1.5.0
+Fetching zeitwerk 2.8.3
+Installing zeitwerk 2.8.3
+Fetching nio4r 2.7.5
+Installing nio4r 2.7.5 with native extensions
+Fetching websocket-extensions 0.1.5
+Installing websocket-extensions 0.1.5
+Fetching timeout 0.6.1
+Installing timeout 0.6.1
+Fetching marcel 1.2.1
+Installing marcel 1.2.1
+Fetching mini_mime 1.1.5
+Installing mini_mime 1.1.5
+Fetching date 3.6.0
+Installing date 3.6.0 with native extensions
+Fetching rexml 3.4.4
+Installing rexml 3.4.4
+Fetching public_suffix 7.0.5
+Installing public_suffix 7.0.5
+Fetching ast 2.4.3
+Installing ast 2.4.3
+Fetching dumb_delegator 1.1.0
+Installing dumb_delegator 1.1.0
+Fetching benchmark 0.5.0
+Installing benchmark 0.5.0
+Fetching blueprinter 1.3.0
+Installing blueprinter 1.3.0
+Fetching cancancan 3.7.0
+Installing cancancan 3.7.0
+Fetching matrix 0.4.3
+Installing matrix 0.4.3
+Fetching regexp_parser 2.13.1
+Installing regexp_parser 2.13.1
+Fetching climate_control 1.2.0
+Installing climate_control 1.2.0
+Fetching csv 3.3.6
+Installing csv 3.3.6
+Fetching database_cleaner-core 2.1.0
+Installing database_cleaner-core 2.1.0
+Fetching rspec-support 3.13.7
+Installing rspec-support 3.13.7
+Fetching diff-lcs 1.6.2
+Installing diff-lcs 1.6.2
+Fetching prettier_print 1.2.1
+Installing prettier_print 1.2.1
+Fetching sqlite3 2.10.1 (x86_64-linux-gnu)
+Installing sqlite3 2.10.1 (x86_64-linux-gnu)
+Fetching ffi 1.17.4 (x86_64-linux-gnu)
+Installing ffi 1.17.4 (x86_64-linux-gnu)
+Fetching tilt 2.9.0
+Installing tilt 2.9.0
+Fetching rainbow 3.1.1
+Installing rainbow 3.1.1
+Fetching ruby-progressbar 1.13.0
+Installing ruby-progressbar 1.13.0
+Fetching unicode-emoji 4.3.0
+Installing unicode-emoji 4.3.0
+Fetching mini_magick 4.13.2
+Installing mini_magick 4.13.2
+Fetching kaminari-core 1.3.0
+Installing kaminari-core 1.3.0
+Fetching mime-types-data 3.2026.1020
+Installing mime-types-data 3.2026.1020
+Fetching language_server-protocol 3.17.0.6
+Installing language_server-protocol 3.17.0.6
+Fetching lint_roller 1.1.0
+Installing lint_roller 1.1.0
+Fetching method_source 1.1.0
+Installing method_source 1.1.0
+Fetching ostruct 0.6.3
+Installing ostruct 0.6.3
+Fetching parallel 2.3.0
+Installing parallel 2.3.0
+Fetching stringio 3.2.0
+Installing stringio 3.2.0 with native extensions
+Fetching ransack-enum 1.0.0
+Installing ransack-enum 1.0.0
+Fetching rubyzip 3.7.0
+Installing rubyzip 3.7.0
+Fetching websocket 1.2.11
+Installing websocket 1.2.11
+Fetching simplecov 1.3.2
+Installing simplecov 1.3.2
+Fetching state_machines 0.6.0
+Installing state_machines 0.6.0
+Fetching tailwindcss-ruby 3.4.19 (x86_64-linux)
+Installing tailwindcss-ruby 3.4.19 (x86_64-linux)
+Fetching yard 0.9.45
+Installing yard 0.9.45
+Fetching i18n 1.15.2
+Installing i18n 1.15.2
+Fetching tzinfo 2.0.6
+Installing tzinfo 2.0.6
+Fetching childprocess 5.1.0
+Installing childprocess 5.1.0
+Fetching execjs 2.10.2
+Installing execjs 2.10.2
+Fetching nokogiri 1.19.4 (x86_64-linux-gnu)
+Installing nokogiri 1.19.4 (x86_64-linux-gnu)
+Fetching rack-session 1.0.2
+Installing rack-session 1.0.2
+Fetching rack-test 2.3.0
+Installing rack-test 2.3.0
+Fetching sprockets 4.4.1
+Installing sprockets 4.4.1
+Fetching pp 0.6.4
+Installing pp 0.6.4
+Fetching reline 0.7.0
+Installing reline 0.7.0
+Fetching rackup 1.0.1
+Installing rackup 1.0.1
+Fetching puma 6.6.1
+Installing puma 6.6.1 with native extensions
+Fetching websocket-driver 0.8.2
+Installing websocket-driver 0.8.2 with native extensions
+Fetching net-protocol 0.4.0
+Installing net-protocol 0.4.0
+Fetching addressable 2.9.0
+Installing addressable 2.9.0
+Fetching parser 3.3.12.0
+Installing parser 3.3.12.0
+Fetching axe-core-api 4.14.0
+Installing axe-core-api 4.14.0
+Fetching terrapin 1.1.1
+Installing terrapin 1.1.1
+Fetching rspec-core 3.13.6
+Installing rspec-core 3.13.6
+Fetching rspec-expectations 3.13.5
+Installing rspec-expectations 3.13.5
+Fetching rspec-mocks 3.13.8
+Installing rspec-mocks 3.13.8
+Fetching syntax_tree 6.3.0
+Installing syntax_tree 6.3.0
+Fetching fast_sqlite 0.0.1
+Installing fast_sqlite 0.0.1
+Fetching ruby-vips 2.3.0
+Installing ruby-vips 2.3.0
+Fetching sassc 2.4.0
+Installing sassc 2.4.0 with native extensions
+Fetching unicode-display_width 3.3.0
+Installing unicode-display_width 3.3.0
+Fetching mime-types 3.7.0
+Installing mime-types 3.7.0
+Fetching omnes 0.2.3
+Installing omnes 0.2.3
+Fetching psych 5.5.0
+Installing psych 5.5.0 with native extensions
+Fetching selenium-webdriver 4.51.0
+Installing selenium-webdriver 4.51.0
+Fetching simplecov-cobertura 4.0.0
+Installing simplecov-cobertura 4.0.0
+Fetching money 6.19.0
+Installing money 6.19.0
+Fetching loofah 2.25.2
+Installing loofah 2.25.2
+Fetching xpath 3.2.0
+Installing xpath 3.2.0
+Fetching handlebars_assets 0.23.10
+Installing handlebars_assets 0.23.10
+Fetching highline 3.1.2
+Installing highline 3.1.2
+Fetching net-imap 0.6.8
+Installing net-imap 0.6.8
+Fetching net-smtp 0.5.2
+Installing net-smtp 0.5.2
+Fetching net-http 0.10.0
+Installing net-http 0.10.0
+Fetching launchy 3.1.1
+Installing launchy 3.1.1
+Fetching axe-core-capybara 4.14.0
+Installing axe-core-capybara 4.14.0
+Fetching axe-core-rspec 4.14.0
+Installing axe-core-rspec 4.14.0
+Fetching rspec-retry 0.6.2
+Installing rspec-retry 0.6.2
+Fetching rspec_junit_formatter 0.8.0
+Installing rspec_junit_formatter 0.8.0
+Fetching rspec 3.13.2
+Installing rspec 3.13.2
+Fetching erb-formatter 0.7.3
+Installing erb-formatter 0.7.3
+Fetching image_processing 1.14.0
+Installing image_processing 1.14.0
+Fetching minitest 6.0.6
+Installing minitest 6.0.6
+Fetching rbs 4.2.0
+Installing rbs 4.2.0 with native extensions
+Fetching rubocop-ast 1.50.0
+Installing rubocop-ast 1.50.0
+Fetching terminal-table 4.0.0
+Installing terminal-table 4.0.0
+Fetching monetize 1.13.0
+Installing monetize 1.13.0
+Fetching rails-html-sanitizer 1.7.1
+Installing rails-html-sanitizer 1.7.1
+Fetching capybara 3.40.0
+Installing capybara 3.40.0
+Fetching mail 2.9.1
+Installing mail 2.9.1
+Fetching faraday-net_http 3.5.0
+Installing faraday-net_http 3.5.0
+Fetching activesupport 8.1.4
+Installing activesupport 8.1.4
+Fetching rdoc 8.1.0
+Installing rdoc 8.1.0
+Fetching rubocop 1.91.0
+Installing rubocop 1.91.0
+Fetching capybara-screenshot 1.0.27
+Installing capybara-screenshot 1.0.27
+Fetching faraday 2.15.0
+Installing faraday 2.15.0
+Fetching rails-dom-testing 2.3.0
+Installing rails-dom-testing 2.3.0
+Fetching globalid 1.4.0
+Installing globalid 1.4.0
+Fetching activemodel 8.1.4
+Installing activemodel 8.1.4
+Fetching activemerchant 1.138.0
+Installing activemerchant 1.138.0
+Fetching carmen 1.1.3
+Installing carmen 1.1.3
+Fetching db-query-matchers 0.15.0
+Installing db-query-matchers 0.15.0
+Fetching factory_bot 6.6.0
+Installing factory_bot 6.6.0
+Fetching shoulda-matchers 5.3.0
+Installing shoulda-matchers 5.3.0
+Fetching view_component 3.27.0
+Installing view_component 3.27.0
+Fetching irb 1.18.0
+Installing irb 1.18.0
+Fetching rubocop-performance 1.26.1
+Installing rubocop-performance 1.26.1
+Fetching standard-custom 1.0.2
+Installing standard-custom 1.0.2
+Fetching faraday-retry 2.4.0
+Installing faraday-retry 2.4.0
+Fetching sawyer 0.9.3
+Installing sawyer 0.9.3
+Fetching actionview 8.1.4
+Installing actionview 8.1.4
+Fetching activejob 8.1.4
+Installing activejob 8.1.4
+Fetching activerecord 8.1.4
+Installing activerecord 8.1.4
+Fetching kt-paperclip 8.0.1
+Installing kt-paperclip 8.0.1
+Fetching rspec-activemodel-mocks 1.3.0
+Installing rspec-activemodel-mocks 1.3.0
+Fetching state_machines-activemodel 0.9.0
+Installing state_machines-activemodel 0.9.0
+Fetching debug 1.11.1
+Installing debug 1.11.1 with native extensions
+Fetching standard-performance 1.9.0
+Installing standard-performance 1.9.0
+Fetching octokit 7.2.0
+Installing octokit 7.2.0
+Fetching actionpack 8.1.4
+Installing actionpack 8.1.4
+Fetching jbuilder 2.15.1
+Installing jbuilder 2.15.1
+Fetching kaminari-actionview 1.3.0
+Installing kaminari-actionview 1.3.0
+Fetching acts_as_list 1.2.6
+Installing acts_as_list 1.2.6
+Fetching awesome_nested_set 3.9.0
+Installing awesome_nested_set 3.9.0
+Fetching database_cleaner-active_record 2.2.2
+Installing database_cleaner-active_record 2.2.2
+Fetching discard 2.0.0
+Installing discard 2.0.0
+Fetching friendly_id 5.7.0
+Installing friendly_id 5.7.0
+Fetching kaminari-activerecord 1.3.0
+Installing kaminari-activerecord 1.3.0
+Fetching ransack 4.4.3
+Installing ransack 4.4.3
+Fetching state_machines-activerecord 0.9.0
+Installing state_machines-activerecord 0.9.0
+Fetching standard 1.57.0
+Installing standard 1.57.0
+Fetching railties 8.1.4
+Installing railties 8.1.4
+Fetching actioncable 8.1.4
+Installing actioncable 8.1.4
+Fetching activestorage 8.1.4
+Installing activestorage 8.1.4
+Fetching actionmailer 8.1.4
+Installing actionmailer 8.1.4
+Fetching rails-controller-testing 1.0.5
+Installing rails-controller-testing 1.0.5
+Fetching sprockets-rails 3.5.2
+Installing sprockets-rails 3.5.2
+Fetching database_cleaner 2.1.0
+Installing database_cleaner 2.1.0
+Fetching kaminari 1.3.0
+Installing kaminari 1.3.0
+Fetching action_text-trix 2.1.19
+Installing action_text-trix 2.1.19
+Fetching factory_bot_rails 6.5.1
+Installing factory_bot_rails 6.5.1
+Fetching flickwerk 0.3.6
+Installing flickwerk 0.3.6
+Fetching font-awesome-rails 4.7.0.9
+Installing font-awesome-rails 4.7.0.9
+Fetching rails-i18n 8.1.0
+Installing rails-i18n 8.1.0
+Fetching importmap-rails 2.2.3
+Installing importmap-rails 2.2.3
+Fetching jquery-rails 4.6.1
+Installing jquery-rails 4.6.1
+Fetching responders 3.2.1
+Installing responders 3.2.1
+Fetching rspec-rails 8.0.4
+Installing rspec-rails 8.0.4
+Fetching stimulus-rails 1.3.4
+Installing stimulus-rails 1.3.4
+Fetching turbo-rails 2.0.23
+Installing turbo-rails 2.0.23
+Fetching tailwindcss-rails 3.3.2
+Installing tailwindcss-rails 3.3.2
+Fetching teaspoon 1.4.0
+Installing teaspoon 1.4.0
+Fetching actionmailbox 8.1.4
+Installing actionmailbox 8.1.4
+Fetching actiontext 8.1.4
+Installing actiontext 8.1.4
+Fetching i18n-tasks 1.1.2
+Installing i18n-tasks 1.1.2
+Fetching teaspoon-mocha 2.3.3
+Installing teaspoon-mocha 2.3.3
+Fetching rails 8.1.4
+Installing rails 8.1.4
+Gem::Ext::BuildError: ERROR: Failed to build gem native extension.
+
+current directory:
+/home/sandbox/ruby/x64/lib/ruby/gems/3.4.0/gems/psych-5.5.0/ext/psych
+/home/sandbox/ruby/x64/bin/ruby extconf.rb
+checking for pkg-config for yaml-0.1... not found
+checking for yaml.h... no
+yaml.h not found
+*** extconf.rb failed ***
+Could not create Makefile due to some reason, probably lack of necessary
+libraries and/or headers.  Check the mkmf.log file for more details.  You may
+need configuration options.
+
+Provided configuration options:
+	--with-opt-dir
+	--without-opt-dir
+	--with-opt-include=${opt-dir}/include
+	--without-opt-include
+	--with-opt-lib=${opt-dir}/lib
+	--without-opt-lib
+	--with-make-prog
+	--without-make-prog
+	--srcdir=.
+	--curdir
+	--ruby=/home/sandbox/ruby/x64/bin/$(RUBY_BASE_NAME)
+	--enable-libfyaml
+	--disable-libfyaml
+	--with-libyaml-source-dir
+	--without-libyaml-source-dir
+	--with-yaml-0.1-dir
+	--without-yaml-0.1-dir
+	--with-yaml-0.1-include=${yaml-0.1-dir}/include
+	--without-yaml-0.1-include
+	--with-yaml-0.1-lib=${yaml-0.1-dir}/lib
+	--without-yaml-0.1-lib
+	--with-yaml-0.1-config
+	--without-yaml-0.1-config
+	--with-pkg-config
+	--without-pkg-config
+	--with-libyaml-dir
+	--without-libyaml-dir
+	--with-libyaml-include=${libyaml-dir}/include
+	--without-libyaml-include
+	--with-libyaml-lib=${libyaml-dir}/lib
+	--without-libyaml-lib
+
+To see why this extension failed to compile, please check the mkmf.log which can
+be found here:
+
+/home/sandbox/ruby/x64/lib/ruby/gems/3.4.0/extensions/x86_64-linux/3.4.0/psych-5.5.0/mkmf.log
+
+extconf failed, exit code 1
+
+Gem files will remain installed in
+/home/sandbox/ruby/x64/lib/ruby/gems/3.4.0/gems/psych-5.5.0 for inspection.
+Results logged to
+/home/sandbox/ruby/x64/lib/ruby/gems/3.4.0/extensions/x86_64-linux/3.4.0/psych-5.5.0/gem_make.out
+
+/home/sandbox/ruby/x64/lib/ruby/3.4.0/rubygems/ext/builder.rb:125:in
+'Gem::Ext::Builder.run'
+/home/sandbox/ruby/x64/lib/ruby/3.4.0/rubygems/ext/ext_conf_builder.rb:30:in
+'Gem::Ext::ExtConfBuilder.build'
+/home/sandbox/ruby/x64/lib/ruby/3.4.0/rubygems/ext/builder.rb:206:in
+'Gem::Ext::Builder#build_extension'
+/home/sandbox/ruby/x64/lib/ruby/3.4.0/rubygems/ext/builder.rb:240:in 'block in
+Gem::Ext::Builder#build_extensions'
+/home/sandbox/ruby/x64/lib/ruby/3.4.0/rubygems/ext/builder.rb:237:in
+'Array#each'
+/home/sandbox/ruby/x64/lib/ruby/3.4.0/rubygems/ext/builder.rb:237:in
+'Gem::Ext::Builder#build_extensions'
+/home/sandbox/ruby/x64/lib/ruby/3.4.0/rubygems/installer.rb:844:in
+'Gem::Installer#build_extensions'
+/home/sandbox/ruby/x64/lib/ruby/3.4.0/bundler/rubygems_gem_installer.rb:111:in
+'Bundler::RubyGemsGemInstaller#build_extensions'
+/home/sandbox/ruby/x64/lib/ruby/3.4.0/bundler/rubygems_gem_installer.rb:30:in
+'Bundler::RubyGemsGemInstaller#install'
+/home/sandbox/ruby/x64/lib/ruby/3.4.0/bundler/source/rubygems.rb:220:in
+'Bundler::Source::Rubygems#install'
+/home/sandbox/ruby/x64/lib/ruby/3.4.0/bundler/installer/gem_installer.rb:55:in
+'Bundler::GemInstaller#install'
+/home/sandbox/ruby/x64/lib/ruby/3.4.0/bundler/installer/gem_installer.rb:17:in
+'Bundler::GemInstaller#install_from_spec'
+/home/sandbox/ruby/x64/lib/ruby/3.4.0/bundler/installer/parallel_installer.rb:133:in
+'Bundler::ParallelInstaller#do_install'
+/home/sandbox/ruby/x64/lib/ruby/3.4.0/bundler/installer/parallel_installer.rb:124:in
+'block in Bundler::ParallelInstaller#worker_pool'
+/home/sandbox/ruby/x64/lib/ruby/3.4.0/bundler/worker.rb:62:in
+'Bundler::Worker#apply_func'
+/home/sandbox/ruby/x64/lib/ruby/3.4.0/bundler/worker.rb:57:in 'block in
+Bundler::Worker#process_queue'
+  <internal:kernel>:168:in 'Kernel#loop'
+/home/sandbox/ruby/x64/lib/ruby/3.4.0/bundler/worker.rb:54:in
+'Bundler::Worker#process_queue'
+/home/sandbox/ruby/x64/lib/ruby/3.4.0/bundler/worker.rb:90:in 'block (2
+levels) in Bundler::Worker#create_threads'
+
+An error occurred while installing psych (5.5.0), and Bundler cannot continue.
+
+In Gemfile:
+  solidus was resolved to 4.9.0.dev, which depends on
+    solidus_backend was resolved to 4.9.0.dev, which depends on
+      solidus_api was resolved to 4.9.0.dev, which depends on
+        solidus_core was resolved to 4.9.0.dev, which depends on
+          psych
+BUNDLE_RESUME 2026-10-23T16:15:50Z
+Fetching gem metadata from https://rubygems.org/.........
+Resolving dependencies...
+Fetching sassc-rails 2.1.2
+Installing psych 5.5.0 with native extensions
+Installing sassc-rails 2.1.2
+Fetching solidus_support 0.15.0
+Installing solidus_support 0.15.0
+Bundle complete! 41 Gemfile dependencies, 202 gems now installed.
+Use `bundle info [gemname]` to see where a bundled gem is installed.
+1 installed gem you directly depend on is looking for funding.
+  Run `bundle fund` for details
+BUNDLE_REINSTALL_NEWRUNTIME 2026-10-23T16:18:32Z
+Fetching gem metadata from https://rubygems.org/........
+Fetching rake 13.4.2
+Installing rake 13.4.2
+Fetching base64 0.3.0
+Fetching bigdecimal 4.1.3
+Installing base64 0.3.0
+Fetching concurrent-ruby 1.3.8
+Installing bigdecimal 4.1.3 with native extensions
+Installing concurrent-ruby 1.3.8
+Fetching connection_pool 3.0.2
+Installing connection_pool 3.0.2
+Fetching drb 2.2.3
+Installing drb 2.2.3
+Fetching json 2.21.2
+Installing json 2.21.2 with native extensions
+Fetching logger 1.7.0
+Fetching prism 1.9.0
+Installing logger 1.7.0
+Fetching securerandom 0.4.1
+Installing securerandom 0.4.1
+Fetching uri 1.1.2
+Installing uri 1.1.2
+Installing prism 1.9.0 with native extensions
+Fetching builder 3.3.0
+Installing builder 3.3.0
+Fetching erubi 1.13.1
+Installing erubi 1.13.1
+Fetching crass 1.0.8
+Installing crass 1.0.8
+Fetching rack 2.2.24
+Installing rack 2.2.24
+Fetching useragent 0.16.11
+Installing useragent 0.16.11
+Fetching prettyprint 0.2.1
+Installing prettyprint 0.2.1
+Fetching erb 6.0.7
+Installing erb 6.0.7 with native extensions
+Fetching tsort 0.2.0
+Installing tsort 0.2.0
+Fetching io-console 0.9.4
+Installing io-console 0.9.4 with native extensions
+Fetching webrick 1.9.2
+Installing webrick 1.9.2
+Fetching thor 1.5.0
+Installing thor 1.5.0
+Fetching zeitwerk 2.8.3
+Installing zeitwerk 2.8.3
+Fetching nio4r 2.7.5
+Installing nio4r 2.7.5 with native extensions
+Fetching websocket-extensions 0.1.5
+Installing websocket-extensions 0.1.5
+Fetching timeout 0.6.1
+Installing timeout 0.6.1
+Fetching marcel 1.2.1
+Installing marcel 1.2.1
+Fetching mini_mime 1.1.5
+Installing mini_mime 1.1.5
+Fetching date 3.6.0
+Installing date 3.6.0 with native extensions
+Fetching rexml 3.4.4
+Installing rexml 3.4.4
+Fetching public_suffix 7.0.5
+Installing public_suffix 7.0.5
+Fetching ast 2.4.3
+Installing ast 2.4.3
+Fetching dumb_delegator 1.1.0
+Installing dumb_delegator 1.1.0
+Fetching benchmark 0.5.0
+Installing benchmark 0.5.0
+Fetching blueprinter 1.3.0
+Installing blueprinter 1.3.0
+Fetching cancancan 3.7.0
+Installing cancancan 3.7.0
+Fetching matrix 0.4.3
+Installing matrix 0.4.3
+Fetching regexp_parser 2.13.1
+Installing regexp_parser 2.13.1
+Fetching climate_control 1.2.0
+Installing climate_control 1.2.0
+Fetching csv 3.3.6
+Installing csv 3.3.6
+Fetching database_cleaner-core 2.1.0
+Installing database_cleaner-core 2.1.0
+Fetching rspec-support 3.13.7
+Installing rspec-support 3.13.7
+Fetching diff-lcs 1.6.2
+Installing diff-lcs 1.6.2
+Fetching prettier_print 1.2.1
+Installing prettier_print 1.2.1
+Fetching sqlite3 2.10.1 (x86_64-linux-gnu)
+Installing sqlite3 2.10.1 (x86_64-linux-gnu)
+Fetching ffi 1.17.4 (x86_64-linux-gnu)
+Installing ffi 1.17.4 (x86_64-linux-gnu)
+Fetching tilt 2.9.0
+Installing tilt 2.9.0
+Fetching rainbow 3.1.1
+Installing rainbow 3.1.1
+Fetching ruby-progressbar 1.13.0
+Installing ruby-progressbar 1.13.0
+Fetching unicode-emoji 4.3.0
+Installing unicode-emoji 4.3.0
+Fetching mini_magick 4.13.2
+Installing mini_magick 4.13.2
+Fetching kaminari-core 1.3.0
+Installing kaminari-core 1.3.0
+Fetching mime-types-data 3.2026.1020
+Installing mime-types-data 3.2026.1020
+Fetching language_server-protocol 3.17.0.6
+Installing language_server-protocol 3.17.0.6
+Fetching lint_roller 1.1.0
+Installing lint_roller 1.1.0
+Fetching method_source 1.1.0
+Installing method_source 1.1.0
+Fetching ostruct 0.6.3
+Installing ostruct 0.6.3
+Fetching parallel 2.3.0
+Installing parallel 2.3.0
+Fetching stringio 3.2.0
+Installing stringio 3.2.0 with native extensions
+Fetching ransack-enum 1.0.0
+Installing ransack-enum 1.0.0
+Fetching rubyzip 3.7.0
+Installing rubyzip 3.7.0
+Fetching websocket 1.2.11
+Installing websocket 1.2.11
+Fetching simplecov 1.3.2
+Installing simplecov 1.3.2
+Fetching state_machines 0.6.0
+Installing state_machines 0.6.0
+Fetching tailwindcss-ruby 3.4.19 (x86_64-linux)
+Installing tailwindcss-ruby 3.4.19 (x86_64-linux)
+Fetching yard 0.9.45
+Installing yard 0.9.45
+Fetching i18n 1.15.2
+Installing i18n 1.15.2
+Fetching tzinfo 2.0.6
+Installing tzinfo 2.0.6
+Fetching execjs 2.10.2
+Installing execjs 2.10.2
+Fetching childprocess 5.1.0
+Installing childprocess 5.1.0
+Fetching nokogiri 1.19.4 (x86_64-linux-gnu)
+Installing nokogiri 1.19.4 (x86_64-linux-gnu)
+Fetching rack-session 1.0.2
+Installing rack-session 1.0.2
+Fetching rack-test 2.3.0
+Installing rack-test 2.3.0
+Fetching sprockets 4.4.1
+Installing sprockets 4.4.1
+Fetching pp 0.6.4
+Installing pp 0.6.4
+Fetching reline 0.7.0
+Installing reline 0.7.0
+Fetching rackup 1.0.1
+Installing rackup 1.0.1
+Fetching puma 6.6.1
+Installing puma 6.6.1 with native extensions
+Fetching websocket-driver 0.8.2
+Installing websocket-driver 0.8.2 with native extensions
+Fetching net-protocol 0.4.0
+Installing net-protocol 0.4.0
+Fetching addressable 2.9.0
+Installing addressable 2.9.0
+Fetching parser 3.3.12.0
+Installing parser 3.3.12.0
+Fetching axe-core-api 4.14.0
+Installing axe-core-api 4.14.0
+Fetching terrapin 1.1.1
+Installing terrapin 1.1.1
+Fetching rspec-core 3.13.6
+Installing rspec-core 3.13.6
+Fetching rspec-expectations 3.13.5
+Installing rspec-expectations 3.13.5
+Fetching rspec-mocks 3.13.8
+Installing rspec-mocks 3.13.8
+Fetching syntax_tree 6.3.0
+Installing syntax_tree 6.3.0
+Fetching fast_sqlite 0.0.1
+Installing fast_sqlite 0.0.1
+Fetching ruby-vips 2.3.0
+Installing ruby-vips 2.3.0
+Fetching sassc 2.4.0
+Installing sassc 2.4.0 with native extensions
+Fetching unicode-display_width 3.3.0
+Installing unicode-display_width 3.3.0
+Fetching mime-types 3.7.0
+Installing mime-types 3.7.0
+Fetching omnes 0.2.3
+Installing omnes 0.2.3
+Fetching psych 5.5.0
+Installing psych 5.5.0 with native extensions
+Fetching selenium-webdriver 4.51.0
+Installing selenium-webdriver 4.51.0
+Fetching simplecov-cobertura 4.0.0
+Installing simplecov-cobertura 4.0.0
+Fetching money 6.19.0
+Installing money 6.19.0
+Fetching loofah 2.25.2
+Installing loofah 2.25.2
+Fetching xpath 3.2.0
+Installing xpath 3.2.0
+Fetching handlebars_assets 0.23.10
+Installing handlebars_assets 0.23.10
+Fetching highline 3.1.2
+Installing highline 3.1.2
+Fetching net-imap 0.6.8
+Installing net-imap 0.6.8
+Fetching net-smtp 0.5.2
+Installing net-smtp 0.5.2
+Fetching net-http 0.10.0
+Installing net-http 0.10.0
+Fetching launchy 3.1.1
+Installing launchy 3.1.1
+Fetching axe-core-capybara 4.14.0
+Installing axe-core-capybara 4.14.0
+Fetching axe-core-rspec 4.14.0
+Installing axe-core-rspec 4.14.0
+Fetching rspec-retry 0.6.2
+Installing rspec-retry 0.6.2
+Fetching rspec_junit_formatter 0.8.0
+Installing rspec_junit_formatter 0.8.0
+Fetching rspec 3.13.2
+Installing rspec 3.13.2
+Fetching erb-formatter 0.7.3
+Installing erb-formatter 0.7.3
+Fetching image_processing 1.14.0
+Installing image_processing 1.14.0
+Fetching minitest 6.0.6
+Installing minitest 6.0.6
+Fetching rbs 4.2.0
+Installing rbs 4.2.0 with native extensions
+Fetching rubocop-ast 1.50.0
+Installing rubocop-ast 1.50.0
+Fetching terminal-table 4.0.0
+Installing terminal-table 4.0.0
+Fetching monetize 1.13.0
+Installing monetize 1.13.0
+Fetching rails-html-sanitizer 1.7.1
+Installing rails-html-sanitizer 1.7.1
+Fetching capybara 3.40.0
+Installing capybara 3.40.0
+Fetching mail 2.9.1
+Installing mail 2.9.1
+Fetching faraday-net_http 3.5.0
+Installing faraday-net_http 3.5.0
+Fetching activesupport 8.1.4
+Installing activesupport 8.1.4
+Fetching rdoc 8.1.0
+Installing rdoc 8.1.0
+Fetching rubocop 1.91.0
+Installing rubocop 1.91.0
+Fetching capybara-screenshot 1.0.27
+Installing capybara-screenshot 1.0.27
+Fetching faraday 2.15.0
+Installing faraday 2.15.0
+Fetching rails-dom-testing 2.3.0
+Installing rails-dom-testing 2.3.0
+Fetching globalid 1.4.0
+Installing globalid 1.4.0
+Fetching activemodel 8.1.4
+Installing activemodel 8.1.4
+Fetching activemerchant 1.138.0
+Installing activemerchant 1.138.0
+Fetching carmen 1.1.3
+Installing carmen 1.1.3
+Fetching db-query-matchers 0.15.0
+Installing db-query-matchers 0.15.0
+Fetching factory_bot 6.6.0
+Installing factory_bot 6.6.0
+Fetching shoulda-matchers 5.3.0
+Installing shoulda-matchers 5.3.0
+Fetching view_component 3.27.0
+Installing view_component 3.27.0
+Fetching irb 1.18.0
+Installing irb 1.18.0
+Fetching rubocop-performance 1.26.1
+Installing rubocop-performance 1.26.1
+Fetching standard-custom 1.0.2
+Installing standard-custom 1.0.2
+Fetching faraday-retry 2.4.0
+Installing faraday-retry 2.4.0
+Fetching sawyer 0.9.3
+Installing sawyer 0.9.3
+Fetching actionview 8.1.4
+Installing actionview 8.1.4
+Fetching activejob 8.1.4
+Installing activejob 8.1.4
+Fetching activerecord 8.1.4
+Installing activerecord 8.1.4
+Fetching kt-paperclip 8.0.1
+Installing kt-paperclip 8.0.1
+Fetching rspec-activemodel-mocks 1.3.0
+Installing rspec-activemodel-mocks 1.3.0
+Fetching state_machines-activemodel 0.9.0
+Installing state_machines-activemodel 0.9.0
+Fetching debug 1.11.1
+Installing debug 1.11.1 with native extensions
+Fetching standard-performance 1.9.0
+Installing standard-performance 1.9.0
+Fetching octokit 7.2.0
+Installing octokit 7.2.0
+Fetching actionpack 8.1.4
+Installing actionpack 8.1.4
+Fetching jbuilder 2.15.1
+Installing jbuilder 2.15.1
+Fetching kaminari-actionview 1.3.0
+Installing kaminari-actionview 1.3.0
+Fetching acts_as_list 1.2.6
+Installing acts_as_list 1.2.6
+Fetching awesome_nested_set 3.9.0
+Installing awesome_nested_set 3.9.0
+Fetching database_cleaner-active_record 2.2.2
+Installing database_cleaner-active_record 2.2.2
+Fetching discard 2.0.0
+Installing discard 2.0.0
+Fetching friendly_id 5.7.0
+Installing friendly_id 5.7.0
+Fetching kaminari-activerecord 1.3.0
+Installing kaminari-activerecord 1.3.0
+Fetching ransack 4.4.3
+Installing ransack 4.4.3
+Fetching state_machines-activerecord 0.9.0
+Installing state_machines-activerecord 0.9.0
+Fetching standard 1.57.0
+Installing standard 1.57.0
+Fetching railties 8.1.4
+Installing railties 8.1.4
+Fetching actioncable 8.1.4
+Installing actioncable 8.1.4
+Fetching activestorage 8.1.4
+Installing activestorage 8.1.4
+Fetching actionmailer 8.1.4
+Installing actionmailer 8.1.4
+Fetching rails-controller-testing 1.0.5
+Installing rails-controller-testing 1.0.5
+Fetching sprockets-rails 3.5.2
+Installing sprockets-rails 3.5.2
+Fetching database_cleaner 2.1.0
+Installing database_cleaner 2.1.0
+Fetching kaminari 1.3.0
+Installing kaminari 1.3.0
+Fetching action_text-trix 2.1.19
+Installing action_text-trix 2.1.19
+Fetching factory_bot_rails 6.5.1
+Installing factory_bot_rails 6.5.1
+Fetching flickwerk 0.3.6
+Installing flickwerk 0.3.6
+Fetching font-awesome-rails 4.7.0.9
+Installing font-awesome-rails 4.7.0.9
+Fetching rails-i18n 8.1.0
+Installing rails-i18n 8.1.0
+Fetching importmap-rails 2.2.3
+Installing importmap-rails 2.2.3
+Fetching jquery-rails 4.6.1
+Installing jquery-rails 4.6.1
+Fetching responders 3.2.1
+Installing responders 3.2.1
+Fetching rspec-rails 8.0.4
+Installing rspec-rails 8.0.4
+Fetching stimulus-rails 1.3.4
+Installing stimulus-rails 1.3.4
+Fetching turbo-rails 2.0.23
+Installing turbo-rails 2.0.23
+Fetching tailwindcss-rails 3.3.2
+Installing tailwindcss-rails 3.3.2
+Fetching teaspoon 1.4.0
+Installing teaspoon 1.4.0
+Fetching actionmailbox 8.1.4
+Installing actionmailbox 8.1.4
+Fetching actiontext 8.1.4
+Installing actiontext 8.1.4
+Fetching i18n-tasks 1.1.2
+Installing i18n-tasks 1.1.2
+Fetching teaspoon-mocha 2.3.3
+Installing teaspoon-mocha 2.3.3
+Fetching solidus_support 0.15.0
+Installing solidus_support 0.15.0
+Fetching rails 8.1.4
+Installing rails 8.1.4
+Fetching sassc-rails 2.1.2
+Installing sassc-rails 2.1.2
+Bundle complete! 41 Gemfile dependencies, 202 gems now installed.
+Use `bundle info [gemname]` to see where a bundled gem is installed.
+Post-install message from handlebars_assets:
+Remember to rake assets:clean or rake assets:purge on update! this is required because of handlebars updates
+Post-install message from i18n-tasks:
+# Install default configuration:
+cp $(bundle exec i18n-tasks gem-path)/templates/config/i18n-tasks.yml config/
+# Add an RSpec for missing and unused keys:
+cp $(bundle exec i18n-tasks gem-path)/templates/rspec/i18n_spec.rb spec/
+# Or for minitest:
+cp $(bundle exec i18n-tasks gem-path)/templates/minitest/i18n_test.rb test/
+1 installed gem you directly depend on is looking for funding.
+  Run `bundle fund` for details

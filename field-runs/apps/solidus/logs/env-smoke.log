@@ -1,0 +1,93 @@
+SMOKE_START 2026-10-23T16:21:36Z
+
+Spree
+  .solidus_version
+    returns a string
+  .solidus_gem_version
+    returns a Gem::Version
+    can be compared
+
+Finished in 0.00298 seconds (files took 0.07944 seconds to load)
+3 examples, 0 failures
+
+SMOKE2_START 2026-10-23T16:22:03Z
+Run options: include {focus: true}
+
+All examples were filtered out; ignoring {focus: true}
+
+Randomized with seed 11304
+
+Spree::Address
+  .immutable_merge
+    no existing address supplied
+      and there is a matching address in the database
+        returns the matching address
+      and there is not a matching address in the database
+        returns new Address matching attributes given
+    with existing address
+      returns a new Address of merged data
+      and no changes to attributes
+        returns existing address
+      and changed address matches an existing address
+        returns the matching address
+  .value_attributes
+    with symbols and strings
+      stringifies and merges the keys
+    with database-only attributes
+      removes the database-only addresses
+  #requires_phone
+    is expected to be require phone
+  ensure fields are stored
+    saves email correctly
+    saves vat_id correctly
+  enum reverse_charge_status
+    defines the expected enum values
+    raises an error for invalid values
+    allows valid values
+      has enabled value
+      has not_validated value
+      has disabled value
+  .taxation_attributes
+    taxation attributes are blank
+      returns a subset of the attributes with the correct keys and nil values
+    both taxation and non-taxation attributes are present
+      returns only the taxation attributes
+      removes the non-taxation attributes
+  #state_text
+    state is blank
+      is expected to eq "virginia"
+    only name is present
+      is expected to eq "virginia"
+    both name and abbr is present
+      is expected to eq "va"
+  .factory
+    with attributes that use setters defined in Address
+      uses the setters
+  #country_iso=
+    raises an exception if the iso is not found
+    sets the country to the country with the matching iso code
+  #name
+    is included in json representation
+  .build_default
+    no user given
+      raises ActiveRecord::RecordNotFound if :default_country_iso is set to an invalid value
+      has a default country
+        sets up a new record with Spree::Config.default_country_iso
+        can override the country
+        accepts a block
+        accepts other attributes
+  validation
+    requires phone
+    requires zipcode
+    state validation
+      performs the state validation
+      calls the state validator
+    phone not required
+      is valid when phone is blank
+    zipcode not required
+      shows no errors when zipcode is blank
+
+Finished in 0.62267 seconds (files took 5.02 seconds to load)
+36 examples, 0 failures
+
+Randomized with seed 11304
