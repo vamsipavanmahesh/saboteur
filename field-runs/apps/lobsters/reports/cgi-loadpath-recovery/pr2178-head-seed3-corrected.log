@@ -1,0 +1,13 @@
+/home/sandbox/field-runs/pr-trees/pr2178/app/models/story_image.rb:62: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+W, [2026-10-24T13:31:48.879631 #8511]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+
+Randomized with seed 3
+..........................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................
+
+Finished in 34.77 seconds (files took 5.76 seconds to load)
+842 examples, 0 failures
+
+Randomized with seed 3
+
+Coverage report generated for RSpec to /home/sandbox/field-runs/pr-trees/pr2178/coverage.
+Line Coverage: 64.58% (3963 / 6137)

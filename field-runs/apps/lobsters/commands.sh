@@ -65,5 +65,6 @@ for i in 1 2; do bundle exec rspec spec/extras/github_spec.rb spec/features/user
 
 # --- 8. factual cause checks (read-only) ---
 ruby -e 'require "cgi"; puts CGI.respond_to?(:parse)'   # -> false (cgi 0.5.1 in Ruby 4.0.9)
+# CORRECTION 2026-10-24: the false above came from the core-dir RUBYLIB ordering loading Ruby's cgi stub, not from cgi 0.5.1 (which defines CGI.parse, core.rb:396). See reports/cgi-loadpath-recovery/RECOVERY.md.
 grep -n 'CGI.parse' extras/github.rb                     # -> line 21
 sed -n '36,50p' spec/features/user_administration_spec.rb # failing expectation = line 50 sent_emails.size eq 1

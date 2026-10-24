@@ -11,15 +11,13 @@ requires libvips 8.13 or later and ruby-vips 2.2.1 or later." Verified twice in 
 instruction alone does not produce a bootable app on this common LTS. Environment/docs finding,
 not necessarily an app bug.
 
-## F-BASE-1: spec/extras/github_spec.rb:14 observed failing repeatedly on the pinned tree + required Ruby (3 runs; non-flakiness not proven)
-- Command: bundle exec rspec spec/extras/github_spec.rb (also in full-suite baseline, logs/baseline-rspec.json)
-- Error: NoMethodError: undefined method 'parse' for class CGI
-- Cause verified: Ruby 4.0.9 (the version .ruby-version REQUIRES at this pin) ships cgi 0.5.1,
-  where CGI.parse no longer exists (ruby -e 'require "cgi"; p CGI.respond_to?(:parse)' => false).
-- Real code path affected: extras/github.rb:21 `ps = CGI.parse(res)` inside
-  Github.token_and_user_from_code (GitHub account linking). The spec comment says it exists to
-  prove CGI.parse is loaded. On the required Ruby this feature would raise at runtime.
-- Observed failing in the original full-suite baseline plus 2 subsequent isolated reruns (3 observed runs total; logs/baseline-failures-recheck.log). Repeated failures observed; 3 runs do not prove non-flakiness.
+## F-BASE-1 (CORRECTED 2026-10-24): spec/extras/github_spec.rb:14 failed because of the load path, not because of cgi 0.5.1
+- Observed: spec/extras/github_spec.rb:14 failed repeatedly (3 runs) with NoMethodError: undefined method 'parse' for class CGI (logs/baseline-failures-recheck.log, logs/baseline-rspec.log). Those logs are kept unchanged as historical environment failures.
+- RETRACTED: the earlier statement that cgi 0.5.1 no longer has CGI.parse, and the statement that extras/github.rb:21 (`CGI.parse(res)`) would raise at runtime on the required Ruby. Both are wrong. The locked cgi 0.5.1 gem (sha256 e93fcafc69b8a934fe1e6146121fa35430efa8b4a4047c4893764067036f18e9) defines CGI.parse at lib/cgi/core.rb:396.
+- Cause: the published env.sh prepends Ruby's core library directories to RUBYLIB. That loaded Ruby 4's cgi.rb compatibility stub instead of the activated lock-pinned cgi gem, and the stub has no CGI.parse. The failure is an environment load-path artifact; it is not an application defect and no upstream defect claim stands.
+- Correction control: env400.sh prepends the locked gem's lib directory before the core directories; no gem version or app file changed. Fresh controls with it are in reports/cgi-loadpath-recovery/ (2178 HEAD/BASE 842 examples / 0 failures each; 2158 HEAD/BASE 837 / 0 each; fresh database, seed 3). These are new controls, not replacements for earlier measurement artifacts.
+- Impact on published rows: no affected row identified. spec/extras/github_spec.rb is the only spec that calls CGI.parse, extras/github.rb is outside the mutation scope (app/ and lib/), and a scan of published mutant report subject/statusReason/replacement fields and Github file paths found no CGI or Github matches. Residual caveat: every published row ran with the same RUBYLIB ordering, and whole-suite effects of one extra baseline-red spec are not established. This is not an exoneration of the 13 rows.
+- reports/baseline_measurement.json known_failures lists this spec; read that entry as an environment load-path failure, not an application finding.
 
 ## F-BASE-2: spec/features/user_administration_spec.rb:39 "banning" observed failing repeatedly (3 runs; non-flakiness not proven)
 - Command: bundle exec rspec spec/features/user_administration_spec.rb (also in full-suite baseline)
