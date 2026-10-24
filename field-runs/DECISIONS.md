@@ -109,3 +109,68 @@ pointers are to files on this branch.
   from stored verified records.
 - Reversible: contract changes land as new revisions with new
   entries here.
+
+## D8 - 07:14 - Whole-app map2 mutation phase truncated
+- Decision: stop the extra whole-app mutation phase after its map
+  cache completed (117/11984 mutants observed, exit 130).
+- Reason: ETA exceeded the then-current window.
+- Effect: map stage "partly", no aggregate mutation score; partial
+  verdicts are not full-app results. (Backfilled from author log.)
+
+## D9 - 07:16 - map2 clock discrepancy preserved unresolved
+- Decision: keep both values (envelope span 1213.27s vs wrapper
+  502.41s) with no causal stall or timeout-accounting claim.
+- Reason: later aligned probes do not explain the earlier window.
+  (Backfilled from author log.)
+
+## D10 - 07:31 - map3 uncontended build, stopped at map boundary
+- Decision: run an uncontended map build and stop at the map
+  boundary (295.52s through boundary); not a pure coverage phase.
+  (Backfilled from author log.)
+
+## D11 - 07:43-07:52 - v2 supported-base-map rebuilds for 2204/2156
+- Decision: rebuild legitimate PR-base maps and restore supported
+  cache artifacts; v2 counts unchanged, all four survivors remain
+  unconfirmed at edited lines; other three original replays remain
+  scoped; no universal product failure inferred. (Backfilled.)
+
+## D12 - 07:49 - Kill-cause classification requirements
+- Decision: do not accept kill-cause classification from operator
+  name or killed count alone; corrected lock-pinned reruns with
+  verbose logs/JSON required; earlier non-lock-pinned evidence
+  preserved with its limitation. (Backfilled from author log.)
+
+## D13 - 07:56 - Privacy-safe environment/stage records
+- Decision: publish qualified stage records with "partial" labels
+  where warranted; raw originals retained separately; no private
+  identifiers in published artifacts. (Backfilled from author log.)
+
+## D14 - 08:12 - Three apps in parallel, measured runs isolated
+- Decision: run lobsters, chatwoot, human-essentials in parallel
+  with each app's measured runs isolated; no cross-app contention
+  in reported timings; no finish-time promise. (Backfilled.)
+
+## D15 - 08:22 - Bug-eligibility window and timestamp conventions
+- Decision: six-month window anchored 2026-04-24 (original request
+  2026-10-24); PR eligibility by merged_at; introducing-commit age
+  by committed timestamp, authored timestamp preserved when
+  different. (Backfilled from author log.)
+
+## D16 - 08:22 - Zero-mutant PRs retained
+- Decision: zero-mutant results stay zero-mutant with score N/A,
+  not coverage success; rates require verified eligible completed
+  denominators. (Backfilled from author log.)
+
+## D17 - 08:23 - Noise attempt 2 ruled INVALID SELECTION
+- Decision: attempt 2 (noise/lobsters/attempt-2/) is not adopted;
+  merger live verification found 7 eligible in-window PRs omitted
+  (2157, 2156, 2158, 2143, 2134, 2136, 1927) and 2 count-datum
+  mismatches (2182, 2078). Corrected collection pending; execution
+  queue against attempt 2 halted. See attempt-2/README.md.
+
+## D18 - 06:52 - EX-1 original decision record (backfill)
+- Decision: exclude only spec/features/user_administration_spec.rb
+  via rspec_args for field runs; no app spec edits; the CGI failure
+  was a runtime artifact, not a second exclusion.
+- Evidence: user approval 06:52 (WhatsApp) and pin-baseline red
+  state; scoped to verified-red trees per D5.

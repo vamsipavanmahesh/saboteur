@@ -1,0 +1,22 @@
+MERGER VERIFICATION of noise attempt-2 ledger, 2026-10-24 08:23 IST, live GitHub API
+check1 search merged>2026-10-04 total_count: 0
+check2 live merged>=2026-06-01 count: 82
+check3 ledger rows: 45 merged_at mismatches: []
+check4 file-count mismatches (pr, ledger, live): [(2078, '13', 3), (2182, '1', 2)]
+check5 merged PRs MISSING from ledger inside window (>=2073 merged_at): 15
+  1903 merged 2026-09-15T12:38:13Z rubyfiles=0
+  2157 merged 2026-09-14T01:32:33Z rubyfiles=1 WOULD-ENTER
+  2156 merged 2026-09-14T01:31:17Z rubyfiles=1 WOULD-ENTER
+  2144 merged 2026-09-14T00:46:54Z rubyfiles=0
+  2158 merged 2026-07-18T16:15:00Z rubyfiles=1 WOULD-ENTER
+  2143 merged 2026-07-15T12:40:32Z rubyfiles=1 WOULD-ENTER
+  2148 merged 2026-07-14T15:59:48Z rubyfiles=0
+  2145 merged 2026-07-14T14:29:17Z rubyfiles=0
+  2142 merged 2026-07-13T22:58:25Z rubyfiles=0
+  2133 merged 2026-07-13T15:46:49Z rubyfiles=0
+  2137 merged 2026-07-12T14:19:12Z rubyfiles=0
+  2134 merged 2026-07-11T21:13:07Z rubyfiles=1 WOULD-ENTER
+  2136 merged 2026-07-11T21:09:19Z rubyfiles=1 WOULD-ENTER
+  1927 merged 2026-07-11T15:22:50Z rubyfiles=13 WOULD-ENTER
+  2132 merged 2026-07-10T18:54:59Z rubyfiles=0
+check6 SELECTION VIOLATIONS: [2157, 2156, 2158, 2143, 2134, 2136, 1927]
