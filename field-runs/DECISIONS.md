@@ -334,3 +334,11 @@ pointers are to files on this branch.
   regression work per this contract; consistent denominators across
   lobsters, chatwoot, human-essentials; no zero-mutant fabrication,
   no auto-exclusion.
+
+## D31 - 08:46 - Bug outcome unit: one verified behavior per fix PR
+
+- Decision: Adopt the study lead's bug-unit addendum verbatim (field-runs/BUG-UNIT.md). Primary unit = one behaviorally verified bug record per fix PR; splits only with pre-registered distinct witnesses; dominant-introducer-first is scheduling only; HE #5692's two blame records resolve to one PR #5587 replay; component HIT witness != completed aggregate rate; dedup flag lines per introducing PR.
+- Reason: Fixes can blame to multiple introducing commits; counting per blame record would inflate denominators and mix units.
+- Evidence: BUG-UNIT.md; HE ledger v3 (20 candidates: 13 mechanical old-only, 7 pending-regression, all denominator_included=false, outcome=null - provisional, not audit-verified; referenced line-maps/blame receipts not in packet, worker to send).
+- Impact: All bug rates are per-verified-behavior with aggregate fix-PR counts beside; component table kept separate from primary denominators; pooled flag rate deduplicated per introducing PR.
+- Reversibility: Contract addition; any later split requires pre-result recorded witnesses.
