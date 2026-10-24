@@ -263,3 +263,11 @@ pointers are to files on this branch.
   list needs the same filter audit. Frozen HEAD and population
   reconciliation (141/129/128) verified.
 - Evidence: noise/human-essentials/attempt-1/.
+
+## D25a - 08:38 - Root cause of the SHA incident: hand-typed identifiers
+- Amendment to D25: the wrong tails were typed from memory, not
+  tool-derived; original ledger always correct. New study-wide
+  rule: opaque IDs read programmatically from source with an exact
+  40-char check before execution binds a tree. Alarm window on
+  record: ~5 min (08:34-08:38); "25 min loss" claim ungrounded;
+  no user alarm sent.

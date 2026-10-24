@@ -48,3 +48,27 @@ Minor datum caveat: skip-row PR 2202's API merge_commit_sha is not
 an ancestor of main (compare diverged, behind_by=1) - merged
 elsewhere or history note; 2202 stays excluded on its 0-Ruby-file
 ground either way.
+
+## Root cause confirmed 08:38 IST (study lead + producer)
+
+The 10 wrong full SHAs were not produced by any tool or derivation
+bug: their 32-char tails were typed by hand from remembered 8-char
+prefixes - fabricated identifiers. The original attempt-3 ledger
+was always correct (consistent with the merger's 15/15 live audit).
+Every "not our ref" / 422 came from those invalid typed IDs; there
+was never a force-push, object loss, or hash collision. The real
+objects resolve after unshallowing the worker's partial clone;
+trees for 2175/2178/2158 were never actually created and are being
+rebuilt programmatically from the ledger. The 2231 worktree is at
+the correct 9fd8f5fca9b5f93a465a079cd0847b17b2acebe8 (raw proof
+packet pending from the worker).
+
+Cost accounting: the alarm window is 08:34 -> 08:38 IST (~5 min) on
+the record; the worker's "25 min loss" figure is not grounded in
+any earlier timestamped evidence. No user-facing alarm was sent.
+
+Procedural rule now in force (study-wide): opaque identifiers
+(SHAs, digests, IDs) are read from source programmatically, never
+typed from memory; an exact 40-char check against source runs
+before any execution that binds a tree. The invalid commands and
+outputs remain preserved above for audit.
