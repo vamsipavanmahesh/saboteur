@@ -1,0 +1,284 @@
+{
+ "frozen_head": "e5e69704fc49babacb2684bf846560dcb2e63988",
+ "window_start": "2026-04-24T00:00:00+05:30",
+ "counts": {
+  "first_parent_prs_total": 2795,
+  "window_prs": 128,
+  "noise_selected": 15,
+  "bugfix_selected": 20
+ },
+ "noise": [
+  {
+   "sha": "e5e69704fc49babacb2684bf846560dcb2e63988",
+   "date": "2026-10-18T07:57:39-07:00",
+   "subject": "Merge pull request #5743 from geographybuff/5611-add-another-item-blank-row",
+   "pr": 5743
+  },
+  {
+   "sha": "ace6151d2296a3b252d5ccdbcc4a838caf2d388c",
+   "date": "2026-10-16T15:59:47-04:00",
+   "subject": "Clean up old kit table and items.kit_id column (#5679) (#5723)",
+   "pr": 5723
+  },
+  {
+   "sha": "6453a3de3150592dc5708d4fafb3aa7e3df3270e",
+   "date": "2026-10-12T15:57:36-04:00",
+   "subject": "Fix typos in comments, docs and spec descriptions (#5742)",
+   "pr": 5742
+  },
+  {
+   "sha": "6b5bc26be9f6d31818959bb77e16a573e18e920e",
+   "date": "2026-10-11T07:59:33-07:00",
+   "subject": "Merge pull request #5656 from pcbeingused333/5593-alphabetize-participant-dropdowns",
+   "pr": 5656
+  },
+  {
+   "sha": "1085e87e8fda78a75910063cc59201c288e578f5",
+   "date": "2026-09-27T16:19:09-04:00",
+   "subject": "Merge pull request #5727 from augustocbx/5666-include-added-items-in-distribution-emails",
+   "pr": 5727
+  },
+  {
+   "sha": "2493ab00eae8d71732d24380bee7440b9ead473c",
+   "date": "2026-09-20T07:22:49-07:00",
+   "subject": "Merge pull request #5541 from cielf/add-filters-to-distribution-by-county",
+   "pr": 5541
+  },
+  {
+   "sha": "3099fc2884b91a7dab6e26cc8e70cfdad749842e",
+   "date": "2026-09-19T20:27:31-04:00",
+   "subject": "Merge pull request #5721 from rubyforgood/guide/14-agentic-update-docs",
+   "pr": 5721
+  },
+  {
+   "sha": "306c0ae8402f9baf5b8e6d411b6c1319d7c91448",
+   "date": "2026-09-19T16:41:14-04:00",
+   "subject": "Merge pull request #5722 from rubyforgood/domain-agnostic-urls",
+   "pr": 5722
+  },
+  {
+   "sha": "de30126d3e8fdb5469719f16e52046d84ee01698",
+   "date": "2026-09-13T10:34:49-04:00",
+   "subject": "Merge pull request #5602 from augustocbx/5556-make-item-dropdown-responsive-on-resize",
+   "pr": 5602
+  },
+  {
+   "sha": "22ec91eb2befbd0ce6c0e05b48724d5e22ad4481",
+   "date": "2026-08-30T10:12:45-04:00",
+   "subject": "Merge pull request #5695 from rubyforgood/5688_more_human_version",
+   "pr": 5695
+  },
+  {
+   "sha": "2857b48f59b58770660a3cc120d25f2170e4c1bf",
+   "date": "2026-08-30T09:53:56-04:00",
+   "subject": "Merge pull request #5386 from rubyforgood/request-limit-on-forms",
+   "pr": 5386
+  },
+  {
+   "sha": "76f2c6d251789f3d306c21fe47e2b826adc1999b",
+   "date": "2026-08-29T20:20:24-04:00",
+   "subject": "Merge pull request #5274 from douten/4987-annual-report-export-range",
+   "pr": 5274
+  },
+  {
+   "sha": "d61f0280a93fa0a2b64f734453b668298ac06080",
+   "date": "2026-08-29T20:12:05-04:00",
+   "subject": "Merge pull request #5604 from augustocbx/5560-reorder-rename-transfer-action-buttons",
+   "pr": 5604
+  },
+  {
+   "sha": "46420673724f20bb7abe83022e869a42f7295dbf",
+   "date": "2026-08-29T20:00:51-04:00",
+   "subject": "Merge pull request #5171 from McEileen/em/5056-import-partners",
+   "pr": 5171
+  },
+  {
+   "sha": "fbaa7e42a2bf7522e5ab0c4e09fe5804212272c8",
+   "date": "2026-08-29T19:43:38-04:00",
+   "subject": "Merge pull request #5606 from augustocbx/5564-send-request-cancellation-to-request-sender",
+   "pr": 5606
+  }
+ ],
+ "bugfix": [
+  {
+   "sha": "e5e69704fc49babacb2684bf846560dcb2e63988",
+   "date": "2026-10-18T07:57:39-07:00",
+   "subject": "Merge pull request #5743 from geographybuff/5611-add-another-item-blank-row",
+   "pr": 5743,
+   "signal_fix_title": false,
+   "signal_linked_issue": true,
+   "signal_test_plus_code": true
+  },
+  {
+   "sha": "6453a3de3150592dc5708d4fafb3aa7e3df3270e",
+   "date": "2026-10-12T15:57:36-04:00",
+   "subject": "Fix typos in comments, docs and spec descriptions (#5742)",
+   "pr": 5742,
+   "signal_fix_title": true,
+   "signal_linked_issue": false,
+   "signal_test_plus_code": true
+  },
+  {
+   "sha": "6b5bc26be9f6d31818959bb77e16a573e18e920e",
+   "date": "2026-10-11T07:59:33-07:00",
+   "subject": "Merge pull request #5656 from pcbeingused333/5593-alphabetize-participant-dropdowns",
+   "pr": 5656,
+   "signal_fix_title": false,
+   "signal_linked_issue": false,
+   "signal_test_plus_code": true
+  },
+  {
+   "sha": "1085e87e8fda78a75910063cc59201c288e578f5",
+   "date": "2026-09-27T16:19:09-04:00",
+   "subject": "Merge pull request #5727 from augustocbx/5666-include-added-items-in-distribution-emails",
+   "pr": 5727,
+   "signal_fix_title": false,
+   "signal_linked_issue": false,
+   "signal_test_plus_code": true
+  },
+  {
+   "sha": "2493ab00eae8d71732d24380bee7440b9ead473c",
+   "date": "2026-09-20T07:22:49-07:00",
+   "subject": "Merge pull request #5541 from cielf/add-filters-to-distribution-by-county",
+   "pr": 5541,
+   "signal_fix_title": false,
+   "signal_linked_issue": false,
+   "signal_test_plus_code": true
+  },
+  {
+   "sha": "3099fc2884b91a7dab6e26cc8e70cfdad749842e",
+   "date": "2026-09-19T20:27:31-04:00",
+   "subject": "Merge pull request #5721 from rubyforgood/guide/14-agentic-update-docs",
+   "pr": 5721,
+   "signal_fix_title": false,
+   "signal_linked_issue": false,
+   "signal_test_plus_code": true
+  },
+  {
+   "sha": "306c0ae8402f9baf5b8e6d411b6c1319d7c91448",
+   "date": "2026-09-19T16:41:14-04:00",
+   "subject": "Merge pull request #5722 from rubyforgood/domain-agnostic-urls",
+   "pr": 5722,
+   "signal_fix_title": false,
+   "signal_linked_issue": false,
+   "signal_test_plus_code": true
+  },
+  {
+   "sha": "de30126d3e8fdb5469719f16e52046d84ee01698",
+   "date": "2026-09-13T10:34:49-04:00",
+   "subject": "Merge pull request #5602 from augustocbx/5556-make-item-dropdown-responsive-on-resize",
+   "pr": 5602,
+   "signal_fix_title": false,
+   "signal_linked_issue": false,
+   "signal_test_plus_code": true
+  },
+  {
+   "sha": "22ec91eb2befbd0ce6c0e05b48724d5e22ad4481",
+   "date": "2026-08-30T10:12:45-04:00",
+   "subject": "Merge pull request #5695 from rubyforgood/5688_more_human_version",
+   "pr": 5695,
+   "signal_fix_title": false,
+   "signal_linked_issue": true,
+   "signal_test_plus_code": true
+  },
+  {
+   "sha": "2857b48f59b58770660a3cc120d25f2170e4c1bf",
+   "date": "2026-08-30T09:53:56-04:00",
+   "subject": "Merge pull request #5386 from rubyforgood/request-limit-on-forms",
+   "pr": 5386,
+   "signal_fix_title": false,
+   "signal_linked_issue": false,
+   "signal_test_plus_code": true
+  },
+  {
+   "sha": "76f2c6d251789f3d306c21fe47e2b826adc1999b",
+   "date": "2026-08-29T20:20:24-04:00",
+   "subject": "Merge pull request #5274 from douten/4987-annual-report-export-range",
+   "pr": 5274,
+   "signal_fix_title": false,
+   "signal_linked_issue": false,
+   "signal_test_plus_code": true
+  },
+  {
+   "sha": "d61f0280a93fa0a2b64f734453b668298ac06080",
+   "date": "2026-08-29T20:12:05-04:00",
+   "subject": "Merge pull request #5604 from augustocbx/5560-reorder-rename-transfer-action-buttons",
+   "pr": 5604,
+   "signal_fix_title": false,
+   "signal_linked_issue": false,
+   "signal_test_plus_code": true
+  },
+  {
+   "sha": "46420673724f20bb7abe83022e869a42f7295dbf",
+   "date": "2026-08-29T20:00:51-04:00",
+   "subject": "Merge pull request #5171 from McEileen/em/5056-import-partners",
+   "pr": 5171,
+   "signal_fix_title": false,
+   "signal_linked_issue": false,
+   "signal_test_plus_code": true
+  },
+  {
+   "sha": "fbaa7e42a2bf7522e5ab0c4e09fe5804212272c8",
+   "date": "2026-08-29T19:43:38-04:00",
+   "subject": "Merge pull request #5606 from augustocbx/5564-send-request-cancellation-to-request-sender",
+   "pr": 5606,
+   "signal_fix_title": false,
+   "signal_linked_issue": false,
+   "signal_test_plus_code": true
+  },
+  {
+   "sha": "d58875f12bb93bdece948af84382ee18aa0f8d36",
+   "date": "2026-08-29T19:01:04-04:00",
+   "subject": "Merge pull request #5628 from rodrigovirgilio/fix/kit-allocation-history-display",
+   "pr": 5628,
+   "signal_fix_title": true,
+   "signal_linked_issue": true,
+   "signal_test_plus_code": true
+  },
+  {
+   "sha": "6de5d2cacfcb72801f9bd998797e6a8e06b2b20c",
+   "date": "2026-08-29T18:47:38-04:00",
+   "subject": "Merge pull request #5693 from rubyforgood/emailDocs",
+   "pr": 5693,
+   "signal_fix_title": false,
+   "signal_linked_issue": false,
+   "signal_test_plus_code": true
+  },
+  {
+   "sha": "23841081aa6299ec9cc2480d4d395da90265ae34",
+   "date": "2026-08-29T18:46:30-04:00",
+   "subject": "Merge pull request #5690 from rubyforgood/fix-stale-session-role-on-sign-in",
+   "pr": 5690,
+   "signal_fix_title": true,
+   "signal_linked_issue": false,
+   "signal_test_plus_code": true
+  },
+  {
+   "sha": "558a2351dadcab3abaec75359bb9a27ceb45c482",
+   "date": "2026-08-29T18:45:27-04:00",
+   "subject": "Merge pull request #5692 from rubyforgood/5683-Audit-status",
+   "pr": 5692,
+   "signal_fix_title": false,
+   "signal_linked_issue": false,
+   "signal_test_plus_code": true
+  },
+  {
+   "sha": "e2c82669d98223740ed7173decdfdf751bf6a746",
+   "date": "2026-08-29T16:37:27-04:00",
+   "subject": "Merge pull request #5686 from rubyforgood/5668_disable_reminders",
+   "pr": 5686,
+   "signal_fix_title": false,
+   "signal_linked_issue": true,
+   "signal_test_plus_code": true
+  },
+  {
+   "sha": "99ed41b75eddca66a5584d48ff34f0b2a7eff55d",
+   "date": "2026-08-29T16:24:26-04:00",
+   "subject": "Merge pull request #5684 from rubyforgood/alphabetize",
+   "pr": 5684,
+   "signal_fix_title": false,
+   "signal_linked_issue": false,
+   "signal_test_plus_code": true
+  }
+ ]
+}

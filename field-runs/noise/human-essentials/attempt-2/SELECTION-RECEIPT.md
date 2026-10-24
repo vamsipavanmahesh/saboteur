@@ -1,0 +1,1 @@
+- SELECTION v2 08:40: attempt 1 INVALIDATED (diff-tree -m both-parent contamination), regenerated with git diff sha^1 sha; populations in this receipt remain valid; selected lists superseded by selection-v2.json.

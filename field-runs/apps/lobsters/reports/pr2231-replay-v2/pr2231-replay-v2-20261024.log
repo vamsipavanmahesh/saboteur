@@ -1,0 +1,23 @@
+saboteur: preset 'pr': --baseline-passes 1 --max-duration 10m --since 372345a2cca5ed8e5d3376dcdc7e0a33e7f4f17c (explicit flags override)
+saboteur: warning: 186 uncommitted or untracked change(s) in the working tree: none inside the mutation scope, 185 outside it (2 tracked, 183 untracked), 1 saboteur setup file(s) (0 tracked, 1 untracked).
+  setup files: config/saboteur.rb
+  Mutants run your code and could alter or delete files; run on a clean, committed tree or a CI checkout.
+saboteur: SimpleCov.start ignored for this run (saboteur needs Ruby's Coverage itself)
+W, [2026-10-24T08:28:15.073916 #19677]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+saboteur 0.12.3 · --since 372345a2cca5ed8e5d3376dcdc7e0a33e7f4f17c · seed 1 · 37 operators (--list-operators)
+saboteur: coverage cache miss: settings, Ruby or saboteur version changed; the map build runs the selected specs once
+saboteur: building coverage map (runs the selected specs once)
+✓ baseline green (1 pass, 3.9s)  ✓ coverage map: 44 tests
+spec inference: 3 spec files (details: --verbose)
+.:killed S:survived T:timeout E:error s:skipped L:resource limit
+....  4/4 (100%)
+
+warning: 2 other thread(s) alive at fork time; they do not run in children: DEBUGGER__::SESSION@server (the debug gem's remote-console server: what it does in children depends on RUBY_DEBUG_FORK_MODE - with parent no debugger runs in children; with child or both (the gem's default) the debugger activates in children and can pause or interfere with supervised mutation runs. For an unattended run, do not start the remote debugger at all: drop RUBY_DEBUG_OPEN or require "debug" without :open), /home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/rack-mini-profiler-4.0.0/lib/mini_profiler/storage/file_store.rb:85:in 'Kernel#sleep'; a thread that does not run in a child cannot do background work a mutant's test may rely on (a pool reaper, a flusher), so results can differ when one is left behind
+warning: sandbox is on but this kernel's Landlock ABI is 2 but ABI 3 (Linux 6.2+) is needed to restrict truncate(); children run with the hazard guard and canary only
+saboteur 0.12.3 · --since 372345a2cca5ed8e5d3376dcdc7e0a33e7f4f17c · seed 1
+
+✓ 4/4 mutants killed · score 100.0% · 32.2s total
+speed footer: done in 32.2s - baseline 3.9s · map 17.5s · mutants 5.3s (jobs=1)
+
+Reports: /home/sandbox/field-runs/saboteur-field-runs/apps/lobsters/reports/pr2231-replay-v2/report.json (JSON), /home/sandbox/field-runs/saboteur-field-runs/apps/lobsters/reports/pr2231-replay-v2/report.html (HTML)
+MEASURED exit=0 wall=32.8s rss_kb=377856

@@ -283,3 +283,23 @@ pointers are to files on this branch.
   from ~08:45 to 09:10-09:15 (08:29 finding: user_administration
   spec GREEN at 2204/2156 heads inclusively, requiring no-EX1 maps
   for both); stale checkpoints are not reported.
+
+## D28 - 08:41 - HE noise-15 v2 QUALIFIED + bug-candidate scope rule
+- Decision: adopt noise/human-essentials/attempt-2/ (exact match
+  with the merger's independent live list). Bug-candidate scope:
+  the user's three signals as written; app/lib-Ruby is a NOISE
+  requirement, NOT a bug-candidate requirement; candidates without
+  fixed Ruby lines resolve to UNMAPPABLE. 5743/5695 (linked-issue
+  signal, .erb-only) retained as unmappable is consistent, not a
+  contradiction. 5681 verified pure-addition (+6/-0), unmappable.
+- Impact: HE replays may start on the 10+5 verified PRs once
+  baseline lands; bug regressions (5386<-5685, 5685<-5563) pending
+  execution; no denominators or scores yet.
+
+## D29 - 08:41 - 2231 v2 replay published with cache-miss qualification
+- Decision: the 2231 v2 replay did NOT consume the restored
+  whole-suite base map (tool-reported cache miss; own 44-test
+  inferred map). Published as a second selected-spec replay, NOT a
+  whole-suite-map replay; the restore failure is a recorded
+  finding. Kills are tool verdicts; cause classes pending
+  independent proof (D12).

@@ -1,0 +1,8 @@
+2231 tree identity proof (2026-10-24T03:09:39Z)
+worktree pr2231      HEAD: 9fd8f5fca9b5f93a465a079cd0847b17b2acebe8
+worktree pr2231-base HEAD: 372345a2cca5ed8e5d3376dcdc7e0a33e7f4f17c
+ledger row: 2231,9fd8f5fca9b5f93a465a079cd0847b17b2acebe8
+merger API audit: 15/15 ledger merge SHAs == /pulls/N merge_commit_sha (main relay 08:36)
+worktree status (expected saboteur injection only):  M Gemfile  M Gemfile.lock ?? bin/saboteur ?? config/saboteur.rb ?? vendor/cache/ 
+report.json: mutants=0 killed= rejectedKills=0 findings.order=[]
+fake-kill: user_administration string occurrences in report.json: 0

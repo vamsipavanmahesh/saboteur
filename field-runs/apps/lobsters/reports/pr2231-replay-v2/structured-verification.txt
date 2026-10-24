@@ -1,0 +1,14 @@
+== 2231 replay qualification (2026-10-24T03:10:14Z)
+report.json schema: files.<path>.mutants[] with killedBy/coveredBy/executed; saboteur.findings.survivors
+FAKE-KILL GATE: 0 user_administration kills; rejectedKills=0
+survivors=0 order=[] -> top finding N/A (no live unignored survivors)
+0: {"id":"0","name":"./spec/mailers/email_reply_mailer_spec.rb[1:1]"}
+7: {"id":"7","name":"./spec/models/comment_spec.rb[1:10:3]"}
+{
+  "id": "0",
+  "name": "./spec/mailers/email_reply_mailer_spec.rb[1:1]"
+}
+{
+  "id": "7",
+  "name": "./spec/models/comment_spec.rb[1:10:3]"
+}

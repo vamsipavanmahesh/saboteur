@@ -1,0 +1,6 @@
+== base-map run exit-70 causal context (2231-base)
+watcher: BOUNDARY_STOP_MAP_CACHED pr2231-base 2026-10-24T08:27:54+05:30 (intentional SIGINT at map-cached boundary)
+map completed BEFORE stop: '741 subjects, 882 tests in coverage map' (log line 20); baselines 2x green (882/0 failures)
+crash AFTER stop, in shutdown diagnostics: Errno::ENOENT /tmp/saboteur-progress20261024-19094-vvwtpy at diagnostics.rb:389 painted_file_glyphs (log lines 23-27) -> exit 70
+causal hypothesis: SIGINT cleanup race - progress tmpfile removed while diagnostics painter still reading; consistent with intentional stop, not random tmpfile loss. Saboteur bug; merger filing after dedup.
+qualification: map cache COMPLETE and consumed by replay (exit 0); map run itself = FAILED exit 70, NOT a clean PASS. Cached map qualified-after-crash-path, not full-command PASS.
