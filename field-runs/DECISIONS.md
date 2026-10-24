@@ -456,3 +456,10 @@ pointers are to files on this branch.
 - Evidence: apps/lobsters/reports/pr2157-map-replay-c1/ (+ map-artifacts/, gapfix/), apps/lobsters/reports/pr2157-independent-triage/.
 - Ledger: STRICT-QUALIFIED = 3/45 (2231, 2204, 2157); QUALIFIED-WITH-DEVIATION = 0. No per-app interval or overall claim until the lobsters 15-row block completes.
 - Reversibility: Publication only; raws immutable.
+
+## D47 - 10:24 - PR 2156 row QUALIFIED WITH DISCLOSED DEVIATION (producer-tree lock unreceipted); upgrade path = bounded-lock backfill
+
+- Decision: PR 2156 noise row qualifies with one disclosed deviation: map+replay+bridge+triage all verified from raws (7 = 6K + 1 confirmed REAL-GAP survivor; bridge actual - pointer-sourced requests/settings_spec.rb confirmation; kill IDs == verifier frozen pool; binding chain verified), but the producer's 2156 tree lock is unreceipted (headmap2 preamble gap). Survivor classification is bump-free via the verifier lane; producer kill set carries the caveat. Strict admission on the 2157-style posthoc bounded-lock backfill.
+- Reason: Evidence closes every load-bearing gate except environment receipting for the producer tree; holding the row entirely would waste valid triage, hiding the gap would violate the lock-preservation rule.
+- Ledger: STRICT = 3/45 (2231, 2204, 2157); WITH-DEVIATION = 1/45 (2156); complete evidence = 4/45.
+- Reversibility: Publication only; upgrade on backfill receipt.
