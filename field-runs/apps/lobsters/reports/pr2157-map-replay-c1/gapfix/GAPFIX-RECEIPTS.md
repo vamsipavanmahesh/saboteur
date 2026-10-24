@@ -1,0 +1,7 @@
+# 2157 provenance gap receipts (post-hoc captures labeled with capture time)
+
+1. "Empty driver log": BY DESIGN, not missing - headmap2.sh writes its full preamble + MEASURED envelope + HEADMAP exit into the MAP log (${T}-map-${AID}.log), nothing to stdout, so the shell-redirect driver log is 0 bytes for BOTH 2204 and 2157. The attempt-start receipts live in the map log preamble (attached: map-log-preamble.txt): runner sha256, attempt id, tree HEAD, start timestamp, PGID, T0. NOT captured anywhere at run time: bundle resolution proof + report schema - runner gap, fixed in headmap3.sh for row-4+ (preamble adds lock sha256 + `bundle list` digest + saboteur version line; post-R adds schemaVersion). For THIS row the bundle proof is post-hoc (bounded lock 6b3775bd attached + git diff vs era, captured 10:07) and schemaVersion is read post-hoc from report.json (attached).
+
+2. Pointer post-R (post-hoc capture 2026-10-24 10:07:24 IST): content = 4969a381d449168f220f5e9ef5bdaf268a20e3d37116a8863c9946270b9730c6 (unchanged M key), mtime 2026-10-24 10:01:57.833 +0530 (M's write; R launched 10:02:40 - R did NOT rewrite the pointer), file sha256 53a12c9f24c8c95d8bf06c0afe33c13e2a7487dfcff0352ac5781cbb3f862484.
+
+3. Lock version diff era->bounded: actual git diff attached (lock-diff-era-to-bounded.txt): ONLY +fiddle (1.1.8), +saboteur (0.12.3) + prism dep line + DEPENDENCIES entries; zero version changes to any pre-existing gem. era=9efe9531 (git-preserved), bounded=6b3775bd (attached full file).

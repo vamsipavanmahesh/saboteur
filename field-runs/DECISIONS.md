@@ -425,3 +425,10 @@ pointers are to files on this branch.
 - Reason: Merger-independent population arithmetic + live-API spot checks + ledger count verification all matched; the v1/v2 contaminations (diff-tree -m; mixed-offset string dates) are documented and preserved as superseded, not deleted.
 - Evidence: noise/human-essentials/attempt-3/ (README-AUDIT.md).
 - Reversibility: Publication only; raws immutable.
+
+## D43 - 10:08 - Kill-cause gate = closed 10-of-36 seeded sample; all-kill cause verification exceeds the user contract
+
+- Decision: The kill-confidence gate for lobsters noise rows is the seeded 10-of-36 sample, now closed 10/10 (8 assertion + 2 crash/RuntimeError, 0 fake/timeout/DB). Remaining kills keep tool-reported classes with the sample as the stated confidence basis. No all-19/all-36 per-kill cause requirement.
+- Reason: The user contract (08:11:34, verbatim re-read) requires fresh-context triage of EVERY survivor, a 95% interval, top-finding real-gap verdicts, and every number recomputable from files - it does not require per-kill cause verification at any count. The sample was our own added gate; extending it to every kill adds cost without a contract basis (user delegated such calls 08:20:52).
+- Evidence: tool-verification/verify-packet-2a/, verify-packet-2b/ (raws + audits).
+- Reversibility: If any future kill shows anomaly signs (fake-kill suspicion, red-credited kill), that row is held and its causes verified individually per the standing fake-kill rule.

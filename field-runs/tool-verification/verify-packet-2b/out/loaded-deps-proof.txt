@@ -1,0 +1,52 @@
+LOADED-DEPS EQUIVALENCE PROOF (box platform: x86_64-linux)
+Shared GEM_HOME across the 4 trees. Bare saboteur runs resolve latest-installed; bundle exec resolves the lockfile exactly. Only gems where latest-installed != locked are listed.
+
+=== tree-2204 (185 locked specs) ===
+BARE-DIVERGES bigdecimal lock=3.3.1 bare-picks=4.0.1
+BARE-DIVERGES brakeman lock=8.0.5 bare-picks=8.0.6
+BARE-DIVERGES matrix lock=0.4.2 bare-picks=0.4.3
+=== tree-2156 (185 locked specs) ===
+BARE-DIVERGES bigdecimal lock=3.3.1 bare-picks=4.0.1
+BARE-DIVERGES matrix lock=0.4.2 bare-picks=0.4.3
+=== tree-2231 (185 locked specs) ===
+BARE-DIVERGES bigdecimal lock=3.3.1 bare-picks=4.0.1
+BARE-DIVERGES matrix lock=0.4.2 bare-picks=0.4.3
+=== tree-2090 (186 locked specs) ===
+BARE-DIVERGES actioncable lock=8.0.5 bare-picks=8.1.3.1
+BARE-DIVERGES actionmailbox lock=8.0.5 bare-picks=8.1.3.1
+BARE-DIVERGES actionmailer lock=8.0.5 bare-picks=8.1.3.1
+BARE-DIVERGES actionpack lock=8.0.5 bare-picks=8.1.3.1
+BARE-DIVERGES actiontext lock=8.0.5 bare-picks=8.1.3.1
+BARE-DIVERGES actionview lock=8.0.5 bare-picks=8.1.3.1
+BARE-DIVERGES activejob lock=8.0.5 bare-picks=8.1.3.1
+BARE-DIVERGES activemodel lock=8.0.5 bare-picks=8.1.3.1
+BARE-DIVERGES activerecord lock=8.0.5 bare-picks=8.1.3.1
+BARE-DIVERGES activestorage lock=8.0.5 bare-picks=8.1.3.1
+BARE-DIVERGES activesupport lock=8.0.5 bare-picks=8.1.3.1
+BARE-DIVERGES bigdecimal lock=3.3.1 bare-picks=4.0.1
+BARE-DIVERGES brakeman lock=8.0.5 bare-picks=8.0.6
+BARE-DIVERGES concurrent-ruby lock=1.3.7 bare-picks=1.3.8
+BARE-DIVERGES crass lock=1.0.6 bare-picks=1.0.7
+BARE-DIVERGES ffi lock=1.17.2 bare-picks=1.17.4
+BARE-DIVERGES globalid lock=1.3.0 bare-picks=1.4.0
+BARE-DIVERGES hashie lock=5.0.0 bare-picks=5.1.0
+BARE-DIVERGES i18n lock=1.14.8 bare-picks=1.15.2
+BARE-DIVERGES json lock=2.9.1 bare-picks=2.21.2
+BARE-DIVERGES loofah lock=2.25.1 bare-picks=2.25.2
+BARE-DIVERGES mail lock=2.9.0 bare-picks=2.9.1
+BARE-DIVERGES marcel lock=1.1.0 bare-picks=1.2.1
+BARE-DIVERGES matrix lock=0.4.2 bare-picks=0.4.3
+BARE-DIVERGES minitest lock=6.0.3 bare-picks=6.0.6
+BARE-DIVERGES net-imap lock=0.6.4.1 bare-picks=0.6.6
+BARE-DIVERGES net-protocol lock=0.2.2 bare-picks=0.3.0
+BARE-DIVERGES oauth lock=1.1.2 bare-picks=1.1.8
+BARE-DIVERGES oauth-tty lock=1.0.6 bare-picks=1.0.13
+BARE-DIVERGES rails lock=8.0.5 bare-picks=8.1.3.1
+BARE-DIVERGES rails-html-sanitizer lock=1.7.0 bare-picks=1.7.1
+BARE-DIVERGES railties lock=8.0.5 bare-picks=8.1.3.1
+BARE-DIVERGES ruby-vips lock=2.2.5 bare-picks=2.3.0
+BARE-DIVERGES snaky_hash lock=2.0.3 bare-picks=2.0.7
+BARE-DIVERGES sqlite3 lock=2.7.4 bare-picks=2.9.5
+BARE-DIVERGES version_gem lock=1.1.9 bare-picks=1.1.15
+BARE-DIVERGES websocket-driver lock=0.8.0 bare-picks=0.8.2
+== end ==

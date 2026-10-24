@@ -1,0 +1,6 @@
+RUNNER headmap2.sh sha256=255d0ae9e5523370e8bc85d85b25af3a7ab3424bc04de8b02089ffa246f8888b attempt=c1 tree=pr2157 head=8e46ece70245f834e4f43a5563cd9b90efc6e1d0 started=2026-10-24T09:49:21+05:30
+PGID=25735
+T0=1792815561
+saboteur: warning: 185 uncommitted or untracked change(s) in the working tree: none inside the mutation scope, 184 outside it (2 tracked, 182 untracked), 1 saboteur setup file(s) (0 tracked, 1 untracked).
+  setup files: config/saboteur.rb
+saboteur 0.12.3: 1 subject, 11 mutants, wall 53.92 s, seed 1 (repeat with --seed 1)
