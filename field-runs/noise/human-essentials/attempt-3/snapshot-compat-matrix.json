@@ -1,0 +1,157 @@
+{
+ "snap1": {
+  "snapshot": "ace6151d2296a3b252d5ccdbcc4a838caf2d388c",
+  "members": {
+   "5723": {
+    "sha": "ace6151d2296a3b252d5ccdbcc4a838caf2d388c",
+    "commits_member_to_snapshot": 0,
+    "Gemfile": "b5afae36a49a6aeb",
+    "Gemfile.lock": "664e253b7da73541",
+    "config_diff_vs_snapshot": []
+   }
+  },
+  "snapshot_hashes": {
+   "Gemfile": "b5afae36a49a6aeb",
+   "Gemfile.lock": "664e253b7da73541"
+  }
+ },
+ "snap2": {
+  "snapshot": "6453a3de3150592dc5708d4fafb3aa7e3df3270e",
+  "members": {
+   "5742": {
+    "sha": "6453a3de3150592dc5708d4fafb3aa7e3df3270e",
+    "commits_member_to_snapshot": 0,
+    "Gemfile": "b5afae36a49a6aeb",
+    "Gemfile.lock": "78ce7f9ffe24abea",
+    "config_diff_vs_snapshot": []
+   },
+   "5656": {
+    "sha": "6b5bc26be9f6d31818959bb77e16a573e18e920e",
+    "commits_member_to_snapshot": 1,
+    "Gemfile": "63ddd3a8ff414134",
+    "Gemfile.lock": "78ce7f9ffe24abea",
+    "config_diff_vs_snapshot": []
+   }
+  },
+  "snapshot_hashes": {
+   "Gemfile": "b5afae36a49a6aeb",
+   "Gemfile.lock": "78ce7f9ffe24abea"
+  }
+ },
+ "snap3": {
+  "snapshot": "1085e87e8fda78a75910063cc59201c288e578f5",
+  "members": {
+   "5727": {
+    "sha": "1085e87e8fda78a75910063cc59201c288e578f5",
+    "commits_member_to_snapshot": 0,
+    "Gemfile": "4e56c118824fc1f8",
+    "Gemfile.lock": "122d305c1640a345",
+    "config_diff_vs_snapshot": []
+   },
+   "5541": {
+    "sha": "2493ab00eae8d71732d24380bee7440b9ead473c",
+    "commits_member_to_snapshot": 2,
+    "Gemfile": "4e56c118824fc1f8",
+    "Gemfile.lock": "122d305c1640a345",
+    "config_diff_vs_snapshot": []
+   },
+   "5722": {
+    "sha": "306c0ae8402f9baf5b8e6d411b6c1319d7c91448",
+    "commits_member_to_snapshot": 24,
+    "Gemfile": "4e56c118824fc1f8",
+    "Gemfile.lock": "122d305c1640a345",
+    "config_diff_vs_snapshot": []
+   }
+  },
+  "snapshot_hashes": {
+   "Gemfile": "4e56c118824fc1f8",
+   "Gemfile.lock": "122d305c1640a345"
+  }
+ },
+ "snap4": {
+  "snapshot": "2857b48f59b58770660a3cc120d25f2170e4c1bf",
+  "members": {
+   "5386": {
+    "sha": "2857b48f59b58770660a3cc120d25f2170e4c1bf",
+    "commits_member_to_snapshot": 0,
+    "Gemfile": "15edc5118052ceac",
+    "Gemfile.lock": "de1b4172e28bdf01",
+    "config_diff_vs_snapshot": []
+   },
+   "5274": {
+    "sha": "76f2c6d251789f3d306c21fe47e2b826adc1999b",
+    "commits_member_to_snapshot": 19,
+    "Gemfile": "15edc5118052ceac",
+    "Gemfile.lock": "de1b4172e28bdf01",
+    "config_diff_vs_snapshot": []
+   },
+   "5171": {
+    "sha": "46420673724f20bb7abe83022e869a42f7295dbf",
+    "commits_member_to_snapshot": 37,
+    "Gemfile": "15edc5118052ceac",
+    "Gemfile.lock": "de1b4172e28bdf01",
+    "config_diff_vs_snapshot": [
+     "config/routes.rb"
+    ]
+   },
+   "5606": {
+    "sha": "fbaa7e42a2bf7522e5ab0c4e09fe5804212272c8",
+    "commits_member_to_snapshot": 59,
+    "Gemfile": "15edc5118052ceac",
+    "Gemfile.lock": "de1b4172e28bdf01",
+    "config_diff_vs_snapshot": [
+     "config/routes.rb"
+    ]
+   },
+   "5628": {
+    "sha": "d58875f12bb93bdece948af84382ee18aa0f8d36",
+    "commits_member_to_snapshot": 65,
+    "Gemfile": "15edc5118052ceac",
+    "Gemfile.lock": "de1b4172e28bdf01",
+    "config_diff_vs_snapshot": [
+     "config/routes.rb"
+    ]
+   },
+   "5690": {
+    "sha": "23841081aa6299ec9cc2480d4d395da90265ae34",
+    "commits_member_to_snapshot": 71,
+    "Gemfile": "15edc5118052ceac",
+    "Gemfile.lock": "de1b4172e28bdf01",
+    "config_diff_vs_snapshot": [
+     "config/routes.rb"
+    ]
+   },
+   "5692": {
+    "sha": "558a2351dadcab3abaec75359bb9a27ceb45c482",
+    "commits_member_to_snapshot": 73,
+    "Gemfile": "15edc5118052ceac",
+    "Gemfile.lock": "de1b4172e28bdf01",
+    "config_diff_vs_snapshot": [
+     "config/routes.rb"
+    ]
+   },
+   "5686": {
+    "sha": "e2c82669d98223740ed7173decdfdf751bf6a746",
+    "commits_member_to_snapshot": 76,
+    "Gemfile": "15edc5118052ceac",
+    "Gemfile.lock": "de1b4172e28bdf01",
+    "config_diff_vs_snapshot": [
+     "config/routes.rb"
+    ]
+   },
+   "5684": {
+    "sha": "99ed41b75eddca66a5584d48ff34f0b2a7eff55d",
+    "commits_member_to_snapshot": 88,
+    "Gemfile": "15edc5118052ceac",
+    "Gemfile.lock": "de1b4172e28bdf01",
+    "config_diff_vs_snapshot": [
+     "config/routes.rb"
+    ]
+   }
+  },
+  "snapshot_hashes": {
+   "Gemfile": "15edc5118052ceac",
+   "Gemfile.lock": "de1b4172e28bdf01"
+  }
+ }
+}
