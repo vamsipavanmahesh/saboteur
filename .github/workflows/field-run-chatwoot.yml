@@ -72,10 +72,12 @@ jobs:
           ruby-version: ${{ env.RUBY_VERSION }}
           bundler: ${{ env.BUNDLER_VERSION }}
 
-      - name: Set up Node + pnpm
+      - name: Set up Node
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+
+      - name: Enable pnpm via corepack
         run: |
           corepack enable
           corepack prepare pnpm@${{ env.PNPM_VERSION }} --activate
