@@ -35,19 +35,36 @@ same commit, not byte-reproducible vs producer's 7f5b8949...).
   extras); every kill log's Replay line matches its filename ID.
 - All 10 sample logs + 4 survivor logs show the killed verdict with
   diffs; 0 timeouts/errors/infra failures observed in the sample.
+  QUALIFIED (main's audit, load-bearing): this is reproduction of the
+  TOOL KILL VERDICT ONLY. The packet has no per-mutant report.json and
+  no failure backtraces, so cause checks are NOT complete and no
+  aggregate PASS is claimed.
 - Fake-kill: zero "user_administration" occurrences in every packet
   file except DEVIATIONS.md naming the EX-1 pattern itself.
-- The logs do NOT contain the failing-test output (no RSpec failure
-  bodies): the 8-assertion / 2-mutation-induced-raise cause split is
-  WORKER-REPORTED from the observed sample. Structurally, the 2
-  body_raise mutants (2204:c48b2d39, 2231:a40b6c22) are the
-  raise-inducing pair, consistent with that split - by operator
-  semantics, not by observed output. Final per-sample cause awaits
-  logs with actual failure output.
+- UNVERIFIED CAUSE: the logs do NOT contain failing-test output (no
+  RSpec failure bodies, no backtraces, no per-mutant JSON). The
+  8-assertion / 2-mutation-induced-raise split is WORKER-REPORTED and
+  UNVERIFIED. The body_raise operator on 2204:c48b2d39 and
+  2231:a40b6c22 is NOT cause evidence. Per-sample cause awaits
+  bundle-exec reruns with report JSON failure causes.
+- UNVERIFIED ENVIRONMENT: every packet log warns "Gemfile.lock found
+  but Bundler is not loaded: gems resolve to whatever is installed,
+  not the lockfile's versions" and the actual invocation is absent
+  from the logs. These runs are NOT lock-equivalent reproductions of
+  the producer's pinned environment. The 4 survivor killability
+  proofs carry the same bundle-context caveat: preserved as tool
+  verdicts, pending verified bundle-exec reruns. The producer/fresh
+  worker has been asked to rerun under bundle exec with report JSON
+  failure causes, pinned identity, and the packet algorithm/seed
+  embedded for repro.
 - Killability proven != real-gap classification: the 4 survivor
   proofs used NEW specimen tests; classification as genuine test gaps
   requires the whole-HEAD existing-tests confirmation (EX-1 only),
   which was still running at packet time.
+- Sample selection: the original 20261023 handoff specifies Ruby
+  shuffle then sorted-unique on (scenario, id); this packet did not
+  embed the algorithm/seed file, so the selection is not reproducible
+  from the packet alone (requested from the worker).
 - EX-2 event per worker ack (DEVIATIONS.md item 6): an EX-2
   github_spec exclusion was DRAFTED in config, STOPPED before any run
   used it, and reverted (07:44-07:45). Unapproved attempt, not a
