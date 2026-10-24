@@ -1,4 +1,4 @@
-# Verifier packet 3 - open crash kill 21af923ed1980e24 - merger audit: REAL KILL (2026-10-24 11:27 IST)
+# Verifier packet 3 - open crash kill 21af923ed1980e24 - independent audit: REAL KILL (2026-10-24 11:27 IST)
 
 Question (user review item 3, 11:21 IST): is the accepted crash kill 21af923ed1980e24 (RecordInvalid, same exception class as the 6 rejected Domain-collision kills) a fake kill? Verdict from the attached raws: NO - REAL KILL. The 2204 row stands: 19 killed (18 assertion + this 1 crash), 3 survivors, no metric change.
 

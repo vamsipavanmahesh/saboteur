@@ -1,4 +1,4 @@
-# Known-survivor canary PR 2204 (c1) - merger audit: SURVIVOR-CONFIRMATION MECHANISM PROVEN (2026-10-24 09:46 IST)
+# Known-survivor canary PR 2204 (c1) - independent audit: SURVIVOR-CONFIRMATION MECHANISM PROVEN (2026-10-24 09:46 IST)
 
 Raw canary packet (R-side report.json + run log + whole-suite-map-v2 pointer file). M-side receipts (map coverage file, 747-subject/861-test count, owned fresh boundary exit 130) are asserted by the worker and NOT in this packet; they gate the 2204 ROW, not this protocol verdict.
 

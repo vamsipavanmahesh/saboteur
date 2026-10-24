@@ -2,7 +2,7 @@
 
 # Bug-replay classification addendum
 
-Decision: 2026-10-24 08:42 IST. Original request inspected: October 24 08:11:34 WhatsApp bug-fix replay instructions. This addendum defines classification, not measured results.
+Decision: 2026-10-24 08:42 IST. Original request inspected: October 24 08:11:34 IST bug-fix replay instructions. This addendum defines classification, not measured results.
 
 ## Separate candidate selection, verification and replay outcomes
 

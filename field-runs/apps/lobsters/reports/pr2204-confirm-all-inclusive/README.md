@@ -1,4 +1,4 @@
-# PR 2204 inclusive whole-suite confirmation (lobsters) - merger audit 2026-10-24 09:25 IST
+# PR 2204 inclusive whole-suite confirmation (lobsters) - independent audit 2026-10-24 09:25 IST
 
 Raw verifier packet (immutable, hashes in RAWS.sha256) + this derived audit. Verifier lane, worker-run; merger verified every number below by directly reading the attached report JSON and log.
 

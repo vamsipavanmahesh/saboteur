@@ -3,13 +3,13 @@
 Status change: DECISION PENDING -> SKIP (not a HIT, not a MISS, not
 in either denominator).
 
-Authority chain: user delegated decisions 08:20:52 (user's WhatsApp message of 08:20:52 IST);
+Authority chain: user delegated decisions 08:20:52 (user's message of 08:20:52 IST);
 main resolved 08:21:15: follow the different-DB/Ruby skip rule for
 this MariaDB-era introducer; no MariaDB exception setup.
 
 Provenance resolution (revised 08:25): the worker phrases "user
 rule B2" and "user explicitly says start with 2204's bug" are
-authenticated after all: the user's 08:11 WhatsApp scope message
+authenticated after all: the user's 08:11 IST scope message
 contains the different-DB/Ruby skip rule (section B, point 2:
 "Skip if it's older than 6 months or needs a different DB or Ruby;
 record the skip") and the instruction to start with lobsters PR

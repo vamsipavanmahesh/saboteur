@@ -1,6 +1,6 @@
 # human-essentials bug ledger v3 - frozen-cutoff invariance proof (2026-10-24 08:49 IST)
 
-Independent merger audit of the worker's bug-ledger.json v3 + 20 line-map/blame raw packets.
+Independent audit of the produced bug-ledger.json v3 + 20 line-map/blame raw packets.
 
 ## Verified (live API + raw raws)
 - All 20 fix_sha values equal the live merge_commit_sha of their PRs (20/20).

@@ -1,4 +1,4 @@
-# PR 2156 map+replay attempt c1 (lobsters) - merger audit: QUALIFIED WITH DISCLOSED DEVIATION (lock receipt pending) (2026-10-24 10:24 IST)
+# PR 2156 map+replay attempt c1 (lobsters) - independent audit: QUALIFIED WITH DISCLOSED DEVIATION (lock receipt pending) (2026-10-24 10:24 IST)
 
 Producer packet verified from raws:
 

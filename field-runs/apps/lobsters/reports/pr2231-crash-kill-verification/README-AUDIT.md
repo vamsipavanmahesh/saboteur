@@ -1,4 +1,4 @@
-# PR 2231 crash-kill independent verification - merger audit + QUALIFIED row (2026-10-24 09:33 IST)
+# PR 2231 crash-kill independent verification - independent audit + QUALIFIED row (2026-10-24 09:33 IST)
 
 Raw independent-tester packet V2 (immutable; original MANIFEST.sha256 covers the packet as received, including provenance/saboteur-0.12.3.gem, which is NOT duplicated here - the byte-identical artifact, sha256 7f5b8949bce9bda19a584c079631d3b76ad37e700935285b550b7bb1c30689fa, is already published at field-runs/runs/2026-10-24-main-6f87ccc9/artifacts/saboteur-0.12.3.gem and its hash was re-verified at publication). V2 supersedes V1: the only delta is the corrected packaged-files enumeration (238 files, missing=0, full hash map); the 12 targeted run verdicts are byte-identical (results.json unchanged). V1 was received 09:33 and never published; supersession recorded here, nothing silently deleted.
 

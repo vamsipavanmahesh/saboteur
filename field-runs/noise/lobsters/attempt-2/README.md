@@ -1,12 +1,12 @@
-# Lobsters noise-15 selection ATTEMPT 2 - INVALID SELECTION (merger live verification 08:23 IST)
+# Lobsters noise-15 selection ATTEMPT 2 - INVALID SELECTION (independent live verification 08:23 IST)
 
 Published raw immediately per the evidence rules. This attempt is
 NOT a metric selection and MUST NOT drive the base-map/replay
 queue. Attempt 1 (noise/lobsters/attempt-1/) stays UNQUALIFIED;
 both are preserved for audit.
 
-What passed verification (merger's own live GitHub checks, raw
-transcript in verification-20261024T0823IST.txt):
+What passed verification (independent live GitHub checks, raw
+log in verification-20261024T0823IST.txt):
 - cutoff: search is:merged merged:>2026-10-04 = 0 results, so no
   merged PR newer than the candidates is missing;
 - all 45 ledger rows' merged_at values match live;
@@ -24,7 +24,7 @@ What FAILED verification:
   1927 (2026-07-11T15:22:50Z, 13).
 - File-count datum mismatches: 2182 ledger=1 live=2 (eligibility
   unchanged), 2078 ledger=13 live=3 (below cutoff, datum wrong).
-- Merger's recomputation (verification finding, NOT a replacement
+- Independent recomputation (verification finding, NOT a replacement
   selection): the first 15 eligible under the stated rule appear to
   be 2231, 2171, 2157, 2156, 2172, 2183, 2197, 2182, 2175, 2103,
   2205, 2174, 2204, 2178, 2158 - i.e. 2157/2156/2158 would enter

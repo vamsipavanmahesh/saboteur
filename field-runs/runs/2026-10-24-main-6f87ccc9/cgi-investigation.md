@@ -2,7 +2,7 @@
 
 **Verdict: the CGI.parse removal is known upstream and was fixed in January 2026 (issue #1845, PR #1846). Our observed failure is a sandbox environment artifact, not an app bug and not a cgi-gem regression. No new upstream issue is warranted on current evidence. A conditional standby draft is included at the bottom.**
 
-Investigator: Instinct field-run support agent. All upstream reads were public and unauthenticated (GitHub REST API, raw.githubusercontent.com, rubygems.org). Nothing was posted upstream.
+Investigator: field-run support. All upstream reads were public and unauthenticated (GitHub REST API, raw.githubusercontent.com, rubygems.org). Nothing was posted upstream.
 
 ## 1. What we observed (raw evidence)
 

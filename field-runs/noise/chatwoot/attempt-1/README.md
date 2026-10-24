@@ -1,6 +1,6 @@
-# Chatwoot noise-15 selection attempt 1 - QUALIFIED (merger live verification 08:25 IST)
+# Chatwoot noise-15 selection attempt 1 - QUALIFIED (independent live verification 08:25 IST)
 
-Verified against live GitHub before adoption; raw transcript in
+Verified against live GitHub before adoption; raw log in
 verification-20261024T0825IST.txt:
 - develop HEAD at collection: 98a9ed710ad7334b07e96ca6c1da0b7e8ebc686a
   matches live branches/develop exactly;

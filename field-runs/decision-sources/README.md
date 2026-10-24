@@ -8,7 +8,7 @@ Authority-prose resolution (publisher, revised 08:25): the source
 logs' authority phrases are now ALL traced to user-channel
 originals: the different-DB/Ruby skip rule ("user rule B2") and the
 "start with lobsters PR 2204's bug" instruction are verbatim in the
-user's 08:11 WhatsApp scope message (section B.2 and closing
+user's 08:11 IST scope message (section B.2 and closing
 paragraph); the EX-1 exclusion traces to the user's 06:52 approval;
 "run the app's suite (or the directories you'll use)" to the user's
 21:37 Oct 23 task message; operating-decision delegation to the

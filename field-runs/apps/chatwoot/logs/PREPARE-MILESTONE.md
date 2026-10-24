@@ -1,4 +1,4 @@
-# Chatwoot PREPARE milestone - merger audit (2026-10-24 10:17 IST)
+# Chatwoot PREPARE milestone - independent audit (2026-10-24 10:17 IST)
 
 PREPARE v2 ec=0, verified from the raw log: ruby 3.4.4 (a38531fd3f), openssl 3.0.16, psych ok, psql 16.10, redis PONG, node v24.13.0, pnpm 10.2.0, TREE_CHECK 98a9ed710ad7334b07e96ca6c1da0b7e8ebc686a (matches develop), ENV 10:00:33, BUNDLE_OK 10:07:06 (6m32s), pnpm 14.1s, db created, smoke account_spec 74 examples 0 failures in 2.81s, PREPARE_DONE 10:07:45. (Early fiddle LoadError line is the pre-bundle rubygems warning path; psych ok after; bundle succeeded.)
 

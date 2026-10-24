@@ -1,4 +1,4 @@
-# PR 2157 map+replay attempt c1 (lobsters) - merger audit: QUALIFIED PARTIAL, survivors CONFIRMED-but-UNCLASSIFIED (2026-10-24 10:05 IST)
+# PR 2157 map+replay attempt c1 (lobsters) - independent audit: QUALIFIED PARTIAL, survivors CONFIRMED-but-UNCLASSIFIED (2026-10-24 10:05 IST)
 
 Producer packet (report.json + 4 logs). Verified from raws:
 
@@ -14,7 +14,7 @@ PROVENANCE GAPS (provenance NOT yet qualified; packet holds logs+report only):
 3. No POST-replay pointer-unchanged receipt on the replay (consumption is proven by stdout; integrity-after is not receipted).
 4. No Gemfile.lock/prefix receipts for the 2157 era trees.
 
-Environment notes (informational): tool reports Ruby 4.0.0 path (ruby/ruby-4.0.0) on this lane; Landlock ABI 2 < 3 - sandbox runs hazard-guard + canary only (restriction of truncate() unavailable). Neither affects the counts; both stay disclosed.
+Environment notes (informational): tool reports Ruby 4.0.0 path (ruby/ruby-4.0.0) on this run; Landlock ABI 2 < 3 - sandbox runs hazard-guard + canary only (restriction of truncate() unavailable). Neither affects the counts; both stay disclosed.
 
 Counts: study qualified count unchanged 1/45 (2231 only) until kill-cause and survivor-triage proofs land.
 

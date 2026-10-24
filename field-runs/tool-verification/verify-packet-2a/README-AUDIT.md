@@ -1,4 +1,4 @@
-# Verifier packet 2a - merger audit (2026-10-24 10:06 IST)
+# Verifier packet 2a - independent audit (2026-10-24 10:06 IST)
 
 Raw packet: 8 valid case report JSONs + rerun logs, 2 specimen-pass logs, 2 specimen spec sources, 6 fabricated-ID exit-2 logs (preserved), DEVIATIONS.md, SELECTION.md, id-verification.txt, targeted-verdicts.md, frozen pool + selection with SHA256s.
 

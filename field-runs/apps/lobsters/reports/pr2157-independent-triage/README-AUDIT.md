@@ -1,4 +1,4 @@
-# PR 2157 independent triage - merger audit: ALL GATES PASS, row STRICT-QUALIFIED (2026-10-24 10:13 IST)
+# PR 2157 independent triage - independent audit: ALL GATES PASS, row STRICT-QUALIFIED (2026-10-24 10:13 IST)
 
 Raw packet (147 files): 11 evidence dirs (45 raw RSpec run JSONs+logs), REVIEW.md, triage.csv, kills.csv, computed-summary.json, source-report.json (unchanged), independent_pr2157_meta_spec.rb, provenance/ (exact-edits.json, extract_edits.rb, instrumentation.diff, Gemfile.lock, runtime proofs, three-way-packaged-files.json, driver logs, final-app.diff).
 

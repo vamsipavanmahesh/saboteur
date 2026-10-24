@@ -27,7 +27,7 @@ original replay (reports/pr2204-replay/) plus reruns det1 and det2
   wrapper envelope spans recompute to the same wall times. Wrapper
   status remains null / evidence_paths [] (known limitation, raw kept
   immutable; enriched copies still owed by the author).
-- Gap comparison: gap-comparison.md (worker) + publisher verification.
+- Gap comparison: gap-comparison.md (producer) + publisher verification.
   No gap field exists in report.json (schema enumerated) so JSON gap
   is N/A. The TEXT survivor blocks of all five pr2204-family logs
   (serial, det1, det2, jobs2, jobs2-repeat) are byte-identical -

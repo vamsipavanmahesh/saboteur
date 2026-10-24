@@ -11,4 +11,4 @@ Rule: sort 95 candidates by merged_at DESC (tie-break: PR number); keep those wh
 SELECTED 15 (merged_at desc): 2231, 2157, 2156, 2171, 2172, 2183, 2197, 2182, 2175, 2103, 2205, 2174, 2204, 2178, 2158.
 All 15 are sqlite-era ruby 4.0.0 (2158 verified: 0 unsigned refs in schema.rb, .ruby-version 4.0.0; others verified earlier). NO MariaDB-blocked rows in the corrected selection.
 
-Below cutoff (eligible, ranked 16+): 2090, 2143, 2134, 2136, 1927, 2102, 2073, 2078, ... (full ledger). Skips: 0-file rows in ledger. Datum discrepancies vs merger audit: 2182 app/lib count = 1 (story.rb; its other changed file is spec/helpers/users_helper_spec.rb, not app/lib) vs merger's 2 - eligibility unchanged; 2078 = 13 by anchored git diff vs merger's 3 - below cutoff, no impact.
+Below cutoff (eligible, ranked 16+): 2090, 2143, 2134, 2136, 1927, 2102, 2073, 2078, ... (full ledger). Skips: 0-file rows in ledger. Datum discrepancies vs independent audit: 2182 app/lib count = 1 (story.rb; its other changed file is spec/helpers/users_helper_spec.rb, not app/lib) vs the audit's 2 - eligibility unchanged; 2078 = 13 by anchored git diff vs the audit's 3 - below cutoff, no impact.

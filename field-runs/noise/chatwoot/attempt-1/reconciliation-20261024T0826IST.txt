@@ -8,5 +8,5 @@ SET MATCH: True
 walk skips == packet skips: False | walk-only: set() | packet-only: {16071, 16234, 16269, 16301, 16272, 16276, 16123}
 below-cutoff scan: examined 76 total; eligible-below-15 found: 20 [16183, 16312, 15807, 16297, 16299, 16292, 16279, 16230, 15978, 16253, 16254, 16228, 16007, 16078, 16126, 15603, 16162, 15988, 16148, 16154]
 zero-ruby below cutoff in that scan: 23
-worker claims: 76 examined, 35 eligible, 15 selected, 25 skipped => eligible-below-15 = 20, examined-not-classified = 76-15-25-20-? => 16 unaccounted by those numbers
+producer claims: 76 examined, 35 eligible, 15 selected, 25 skipped => eligible-below-15 = 20, examined-not-classified = 76-15-25-20-? => 16 unaccounted by those numbers
 oldest selected merged_at: 2026-10-19T14:34:16Z ; window rows >= that: 33

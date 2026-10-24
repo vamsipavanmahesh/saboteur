@@ -163,7 +163,7 @@ pointers are to files on this branch.
 
 ## D17 - 08:23 - Noise attempt 2 ruled INVALID SELECTION
 - Decision: attempt 2 (noise/lobsters/attempt-2/) is not adopted;
-  merger live verification found 7 eligible in-window PRs omitted
+  independent live verification found 7 eligible in-window PRs omitted
   (2157, 2156, 2158, 2143, 2134, 2136, 1927) and 2 count-datum
   mismatches (2182, 2078). Corrected collection pending; execution
   queue against attempt 2 halted. See attempt-2/README.md.
@@ -172,12 +172,12 @@ pointers are to files on this branch.
 - Decision: exclude only spec/features/user_administration_spec.rb
   via rspec_args for field runs; no app spec edits; the CGI failure
   was a runtime artifact, not a second exclusion.
-- Evidence: user approval 06:52 (WhatsApp) and pin-baseline red
+- Evidence: user approval 06:52 IST and pin-baseline red
   state; scoped to verified-red trees per D5.
 
 ## D19 - 08:25 - Chatwoot noise-15 selection QUALIFIED
 - Decision: adopt noise/chatwoot/attempt-1/ as the chatwoot metric
-  selection after merger live verification: develop HEAD
+  selection after independent live verification: develop HEAD
   98a9ed710ad7334b07e96ca6c1da0b7e8ebc686a exact match; full window
   enumeration (33 PRs) found zero omissions; 15/15 selected file
   lists and 25/25 skip file counts verified live.
@@ -286,7 +286,7 @@ pointers are to files on this branch.
 
 ## D28 - 08:41 - HE noise-15 v2 QUALIFIED + bug-candidate scope rule
 - Decision: adopt noise/human-essentials/attempt-2/ (exact match
-  with the merger's independent live list). Bug-candidate scope:
+  with the independent live list). Bug-candidate scope:
   the user's three signals as written; app/lib-Ruby is a NOISE
   requirement, NOT a bug-candidate requirement; candidates without
   fixed Ruby lines resolve to UNMAPPABLE. 5743/5695 (linked-issue
@@ -387,7 +387,7 @@ pointers are to files on this branch.
 ## D37 - 09:25 - PR 2204 inclusive confirmation accepted as QUALIFIED PARTIAL; rejected-kill class handled by tool
 
 - Decision: The verifier's 2204 inclusive whole-suite packet (861 examples, no EX-1) is published and accepted as a qualified partial row: 22 mutants = 16 Killed / 0 Survived / 6 rejected kills, exit 0. The 6 RuntimeError verdicts are UNRESOLVED (tool-rejected: killing tests fail on unchanged code with a Domain-collision RecordInvalid); the three earlier scoped "survivors" fall inside this set and are no longer survivor candidates. Accepted crash kill 21af923e (same RecordInvalid class) is flagged for the verifier's specimen rerun before per-mutant settlement; the row-level score is insensitive to that outcome.
-- Reason: Independent merger audit of the attached report JSON + log matched every verifier count; the tool's own unchanged-method check caught the pollution class (fake-kill guard working as designed).
+- Reason: Independent audit of the attached report JSON + log matched every verifier count; the tool's own unchanged-method check caught the pollution class (fake-kill guard working as designed).
 - Evidence: apps/lobsters/reports/pr2204-confirm-all-inclusive/ (RAWS.sha256); open items 1-3 in its README (21af923e rerun, complete:false semantics, 490s-vs-48min timing gap).
 - Reversibility: Publication only; raws immutable.
 
@@ -436,7 +436,7 @@ pointers are to files on this branch.
 ## D44 - 10:09 - PR 2204 row QUALIFIED WITH DISCLOSED DEVIATION; strict-era rerun not required; ledger keeps two explicit tiers
 
 - Decision: PR 2204's noise row is resolved as QUALIFIED WITH DISCLOSED DEVIATION: 22 mutants (18 assertion + 1 crash + 3 survivors), 3/3 survivors REAL GAP (independent bump-free proof), row noise 0/3 = 0%, top finding 56ec2857eb8103bd REAL GAP, 3 survivors = 1 finding group (Story#is_gone?, story.rb:777). The producer lock's brakeman/matrix bumps are a disclosed environment deviation with unassessed impact on kill counts; survivor-side evidence is bump-free. No strict-era rerun: the user-contract outputs (survivor triage, noise, top-finding verdict, recomputability) do not depend on the bumped gems, and the kill-confidence gate closed via the 10-sample (D43). The row reopens if an anomaly implicates those gems.
-- Reason: Main's explicit ruling request; user delegation 08:20:52; holding a finished row for a rerun whose outcome cannot change any contract number would be fake work.
+- Reason: the study's explicit ruling request; user delegation 08:20:52; holding a finished row for a rerun whose outcome cannot change any contract number would be fake work.
 - Ledger tiers (explicit, consistent from here): STRICT-QUALIFIED rows = 1/45 (2231). QUALIFIED-WITH-DEVIATION rows = 1/45 (2204). Rows with complete evidence = 2/45. No per-app interval or overall claim until each app's noise block completes.
 - Evidence: apps/lobsters/reports/pr2204-replay-v2/ (row), pr2204-canary-c1/ (bridge), tool-verification/verify-packet-2a|2b/ (triage + sample).
 - Reversibility: Deviation reopen rule stated above; publication only.
@@ -444,7 +444,7 @@ pointers are to files on this branch.
 ## D45 - 10:10 - 2204 lock-bump impact source-assessed NIL; row STRICT-QUALIFIED; ledger tiers updated
 
 - Decision: After reading the actual upstream diffs (matrix v0.4.2...v0.4.3 = comments + version only, zero executable change, sole era dependent capybara unaffected; brakeman v8.0.5...v8.0.6 = scanner internals only, never required by app/spec code, load-only via Bundler.require), the 2204 producer lock bumps are assessed NIL-impact. PR 2204 moves from QUALIFIED-WITH-DEVIATION to STRICT-QUALIFIED. The lock-preservation process violation stays disclosed (conservative-versions gate going forward).
-- Reason: Main's correction of the earlier unproven claim required source grounding; the assessment now provides it. Matrix cannot change any outcome (no behavior delta); brakeman's delta is unreachable from the test path (verified by code search at the era tree).
+- Reason: the study's correction of the earlier unproven claim required source grounding; the assessment now provides it. Matrix cannot change any outcome (no behavior delta); brakeman's delta is unreachable from the test path (verified by code search at the era tree).
 - Ledger (explicit): STRICT-QUALIFIED = 2/45 (2231, 2204). QUALIFIED-WITH-DEVIATION = 0. Complete-evidence rows = 2/45. Descriptive row metrics unchanged: 2204 noise 0/3 = 0%, 3/3 real_gap, top finding 56ec2857eb8103bd (one finding group, story.rb:777); PR-cluster 95% N/A (<2 informative PRs); no per-app interval until the 15-row lobsters block completes.
 - Evidence: diffs read live from ruby/matrix and presidentbeef/brakeman; era lock c63fe92b0212003b9a25acf3c1d39fed5c2d8900d9d10947370f765a6b4c9950 (sha256 matches the fetched ed722e44 Gemfile.lock).
 - Reversibility: Assessment reopens if new evidence shows a load/execution path was missed.
@@ -497,7 +497,7 @@ pointers are to files on this branch.
 
 ## D51 - User review directives adopted: per-gap noise unit, out-of-scope recording, snapshot-reuse CI flow, interim table (2026-10-24 11:21 IST)
 
-- Source: user review message 2026-10-24 11:21 IST (WhatsApp), five items after recomputing the 10 survivors from raw reports and verifying all 10 kill receipts.
+- Source: user review message 2026-10-24 11:21 IST, five items after recomputing the 10 survivors from raw reports and verifying all 10 kill receipts.
 - Item 1 (metric unit): noise is counted per GAP (survivors grouped by statement or behavior) as the primary rate unit; per-mutant remains as secondary. Adopted via explicit supersession in METRICS.md (old unit sentence preserved, revision header added). No silent rewrite: all stored per-mutant triage records remain the raw input; gap counts derive by grouping them.
 - Item 2 (out-of-scope recording): every lobsters row now records its changed production Ruby files outside the app/+lib/ mutation scope. Full 15-PR scan published (merger-verified against the live API, matching the producer's claim): ONLY 2157 (extras/routes.rb, story_image_or_logo_url) and 2172 (extras/github.rb, row not yet executed) are affected; 13 PRs have no out-of-scope production Ruby. 2157's routes.rb skip is recorded as a field-run instance of the out-of-scope changed-file class. Receipt: apps/lobsters/reports/out-of-scope-scan-20261024.md.
 - Item 3 (open crash kill 21af923ed1980e24, RecordInvalid): routed to the independent verifier lane (original-pass / mutant-fail / isolation). Not resolved here; no claim made.

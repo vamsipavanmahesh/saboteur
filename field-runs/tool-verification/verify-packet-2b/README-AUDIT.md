@@ -1,4 +1,4 @@
-# Verifier packet 2b (corrective-6) - merger audit (2026-10-24 10:08 IST)
+# Verifier packet 2b (corrective-6) - independent audit (2026-10-24 10:08 IST)
 
 Raws: 6 corrective report JSONs + rerun logs, loaded-specs manifests, loaded-deps proof, classifications.md, DECISIONS.md (verifier), DEVIATIONS.md, ex1-audit-bundle.txt.
 

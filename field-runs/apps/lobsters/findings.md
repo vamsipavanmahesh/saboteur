@@ -29,7 +29,7 @@ not necessarily an app bug.
 - Context: pinned history includes 2026-10-21 commit e646f63a "restore transactional +
   notifications email; not yet mailing list mode"; the pinned tree appears mid-repair of the
   email subsystem. Not investigated further - root-cause triage is reserved for the independent
-  fresh-context triager per protocol.
+  independent triage per protocol.
 - Observed failing in the original full-suite baseline plus 2 subsequent isolated reruns (3 observed runs total; same log). Repeated failures observed; 3 runs do not prove non-flakiness.
 
 ## Impact on downstream stages

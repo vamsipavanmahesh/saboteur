@@ -3,10 +3,10 @@
 This selection is NOT confirmed and MUST NOT be used as a metric
 input. It is preserved raw because the skip ledger must stay
 auditable. A fixed collection (live PR merged_at-desc, last 15
-eligible per the user's actual rule) is being produced after main
+eligible per the user's actual rule) is being produced after the review
 halted the run queue at 08:17 IST.
 
-Why unqualified (main's ruling 08:20):
+Why unqualified (review ruling 08:20):
 - The applied rule adds "merge commit is an ancestor of pin
   40753644" - a convenience restriction for the existing field
   stack that the user's rule does NOT contain ("the last 15 merged
@@ -26,15 +26,15 @@ Publisher spot-verification of the raw data (live GitHub, 08:21):
   the SELECTION is about the rule, not this datum.
 - Fake-kill: zero "user_administration" occurrences in both files.
 
-Load-bearing qualification for any historic/base replay rows (main
+Load-bearing qualification for any historic/base replay rows (review
 08:20): EX-1 (exclude spec/features/user_administration_spec.rb)
 was approved for the pin tree's red state; that approval is not
 proof the excluded test is red in every historical tree. The
-worker will run a targeted spec check per actual tree before
+the producing run will run a targeted spec check per actual tree before
 applying EX-1 there, so green coverage is not silently excluded.
 The fresh verifier is being notified to confirm EX-1 historical
 test state.
 
-Contents: SELECTION-RULE.md (worker), noise-ledger.csv (44-row
+Contents: SELECTION-RULE.md (producing run), noise-ledger.csv (44-row
 candidate ledger with skips), this index. No replacements or new PR
 options are invented by the publisher.

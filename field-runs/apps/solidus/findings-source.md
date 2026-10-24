@@ -16,4 +16,4 @@ Reason (verified, logs/baseline-failures-recheck.log):
 - The app's own escape hatch (ACTIVE_STORAGE_VARIANT_PROCESSOR=mini_magick, same file:140) does NOT clear them: 19 examples, 6 failures, different error (ActiveStorage UnsupportedImageProcessingMethod: saver - Solidus passes a vips-only `saver:` transformation). Recorded as fact; not used as a workaround.
 
 ## Status by stage
-environment done; baseline done (exit 1, 8 exclusions above); documented_flow/map/pr_replays/parallelism/determinism not_done pending verified saboteur 0.13.0 SHA; triage/kills assigned to a fresh-context triager (not this agent).
+environment done; baseline done (exit 1, 8 exclusions above); documented_flow/map/pr_replays/parallelism/determinism not_done pending verified saboteur 0.13.0 SHA; triage/kills assigned to independent triage.

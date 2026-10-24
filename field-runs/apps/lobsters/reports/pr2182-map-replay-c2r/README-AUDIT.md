@@ -1,4 +1,4 @@
-# PR 2182 row (snapshot-reuse protocol, D54) - merger audit: STRICT-QUALIFIED, zero-mutant row (2026-10-24 11:33 IST)
+# PR 2182 row (snapshot-reuse protocol, D54) - independent audit: STRICT-QUALIFIED, zero-mutant row (2026-10-24 11:33 IST)
 
 First row under the snapshot-reuse flow. Result: 0 subjects, 0 mutants, score N/A, exit 0, wall 11.42s (R only; snapshot map cost amortized at the 2171 row, not here). Noise 0/0 UNDEFINED per the metric contract. Zero-mutant is recorded as zero-mutant - NOT coverage success.
 

@@ -1,4 +1,4 @@
-# 2204-c1 M-side receipts - merger audit: ROW PROVENANCE VERIFIED (2026-10-24 09:47 IST)
+# 2204-c1 M-side receipts - independent audit: ROW PROVENANCE VERIFIED (2026-10-24 09:47 IST)
 
 Raw M-side packet (coverage + inputs + map/driver/observer logs + worker's M-RECEIPTS.md). Every number below re-verified from the raws:
 
