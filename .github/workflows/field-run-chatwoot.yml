@@ -107,7 +107,7 @@ jobs:
             echo "psql=$(psql --version)"
             echo "gemfile_lock_sha256_pre=$(sha256sum chatwoot/Gemfile.lock | cut -d' ' -f1)"
             echo "ruby_version_file=$(cat chatwoot/.ruby-version)"
-            echo "node_version_file=$(cat chatwoot/.node-version)"
+            echo "nvmrc=$(cat chatwoot/.nvmrc)"
           } | tee -a receipts/env.env
           if [ "$CW_HEAD" != "${{ env.CHATWOOT_SHA }}" ]; then echo "checkout_match=MISMATCH" | tee -a receipts/env.env; exit 1; fi
           echo "checkout_match=YES" | tee -a receipts/env.env
