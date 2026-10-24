@@ -351,3 +351,11 @@ pointers are to files on this branch.
 - Correction logged: an earlier staging-side reading required the map to be built at the BASE tree specifically; that was over-specific. The user's words require whole-suite completeness with the era tree's specs, which the documented map-job route satisfies. This is a main-agent correction of an internal interpretation, not a change to user intent.
 - Impact: 2231/2204/2156 v2 rows remain PROVISIONAL until re-run; no noise-row execution before canary raws show HIT + active confirmation on 2231; the same route applies to chatwoot and human-essentials.
 - Reversibility: Protocol document; rows re-run under it replace provisional rows as new labeled evidence, raws preserved.
+
+## D33 - 08:49 - B2 six-month cutoff confirmed as the frozen request-anchored day boundary
+
+- Decision: CONFIRM the existing METRICS.md (08:22) definition: B2 "older than 6 months" uses the frozen request-anchored window with day boundary 2026-04-24T00:00:00+05:30, identical to the population freeze. Not a new choice; a per-fix-relative reading is not the contract. The day boundary (not 08:11:34 exactly) is preserved deliberately for population stability.
+- Reason: The user's 08:11 words ("from the last 6 months" / "Skip if it's older than 6 months") name one shared window; a rolling per-fix anchor would make the rule incomparable across candidates.
+- Evidence: field-runs/noise/human-essentials/BUG-LEDGER-V3-CUTOFF-INVARIANCE.md - full recompute of the 20 HE line-map raws: classification invariant for any cutoff in (2026-03-13, 2026-05-29]; 13-old/7-pending holds exactly.
+- Impact: HE bug ledger v3 temporal classification qualified as audited (13 B2-old, 7 pending-regression) with the #5171/doc-line/spec-line caveats recorded; lobsters and chatwoot bug lanes use the same frozen boundary at blame time.
+- Reversibility: Definition confirmation; raw raws preserved for recompute under any cutoff.
