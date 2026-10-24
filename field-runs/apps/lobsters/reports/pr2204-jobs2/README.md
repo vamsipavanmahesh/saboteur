@@ -29,3 +29,10 @@ envelope 07:26:07.200621 -> 07:26:38.920319 = 31.72s agrees.
   The per-worker-DB requirement is PARTIAL pending the worker's trace.
 - Wrapper measurement published raw (status null / empty evidence_paths
   in the source record).
+
+Producer follow-up (07:27): after the jobs-2 run, db/test contained only
+the primary/cache/queue SQLite files - no worker-suffixed DB files. The
+per-worker DB mechanism is therefore unknown (the config comment did not
+manifest as visible files). DB isolation remains UNPROVEN; do not read
+the 22/22 zero-diff parity as evidence of isolated or safe sharing. A
+worker connection trace / code inspection is pending.
