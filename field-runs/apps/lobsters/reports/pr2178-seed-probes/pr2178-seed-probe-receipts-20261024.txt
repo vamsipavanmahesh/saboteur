@@ -19,4 +19,4 @@ HEAD tree probes (~/field-runs/pr-trees/pr2178):
 9. [12:34:43] db:drop+create+schema:load + rspec --seed 4   -> 842 examples, 1 failure
 
 DISCLOSURE (verbatim): seed 3 chosen AFTER testing 1/2/4 red and 3 green = baseline-order workaround, NOT a root-cause fix and NOT universal stability. Fixed at 3 for all 2178/2158 measured runs; no additional wide seed search.
-PENDING before causal row admission (main 12:37 ruling): pr2178-BASE clean db + seed 3 full-suite PASS - deferred until the running c2 M completes (serial-measured rule; probe would contaminate the measured wall). pr2158 head+base seed-3 clean verification likewise before its build.
+PENDING before causal row admission [public copy redacted: administrative narration removed; technical receipts unchanged]: pr2178-BASE clean db + seed 3 full-suite PASS - deferred until the running c2 M completes (serial-measured rule; probe would contaminate the measured wall). pr2158 head+base seed-3 clean verification likewise before its build.
