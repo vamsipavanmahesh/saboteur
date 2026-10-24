@@ -20,7 +20,7 @@
     },
     "baseline": {
       "status": "done",
-      "measurement": "reports/baseline-postfix/measurement.json",
+      "measurement": "runs/2026-10-24-main-6f87ccc9/reports/baseline-postfix/measurement.json",
       "result": "913 ex, 1 failure (EX-1 file), exit 1, 41.93s"
     },
     "documented_flow": {
@@ -63,5 +63,10 @@
       "note": "Seeded10-kill sample reruns recorded; individual cause/dependency-equivalence proof under qualification. Earlier runs warn Bundler not loaded; corrected verification awaited."
     }
   },
-  "updated_at": "2026-10-24T07:56:00+05:30"
+  "updated_at": "2026-10-24T07:56:00+05:30",
+  "evidence_path_root": "field-runs/ at repository root",
+  "environment_evidence": {
+    "cgi_before": "runs/2026-10-24-main-6f87ccc9/logs/env-fix-before.log",
+    "cgi_after": "runs/2026-10-24-main-6f87ccc9/logs/env-fix-after.log"
+  }
 }
