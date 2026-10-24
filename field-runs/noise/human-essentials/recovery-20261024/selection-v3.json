@@ -1,0 +1,391 @@
+{
+ "version": 3,
+ "anchor": "2026-10-24T08:11:00+05:30",
+ "cutoff": "2026-04-24T00:00:00+05:30",
+ "contract": "common ANY-3 (fix-title shared regex | linked-issue body | test+any-nonspec-nondoc-code); noise app/lib-rb filter; aware-datetime ordering; frozen before results",
+ "noise": [
+  {
+   "pr": 5723,
+   "sha": "ace6151d2296a3b252d5ccdbcc4a838caf2d388c",
+   "merged_at": "2026-10-16T19:59:48+00:00",
+   "title": "Clean up old kit table and items.kit_id column (#5679)"
+  },
+  {
+   "pr": 5742,
+   "sha": "6453a3de3150592dc5708d4fafb3aa7e3df3270e",
+   "merged_at": "2026-10-12T19:57:37+00:00",
+   "title": "Resolves #5741: Fix typos in comments, docs and spec descriptions"
+  },
+  {
+   "pr": 5656,
+   "sha": "6b5bc26be9f6d31818959bb77e16a573e18e920e",
+   "merged_at": "2026-10-11T14:59:33+00:00",
+   "title": "Alphabetize the Product Drive Participant drop-downs (#5593)"
+  },
+  {
+   "pr": 5727,
+   "sha": "1085e87e8fda78a75910063cc59201c288e578f5",
+   "merged_at": "2026-09-27T20:19:09+00:00",
+   "title": "Include added items in distribution change emails (5666)"
+  },
+  {
+   "pr": 5541,
+   "sha": "2493ab00eae8d71732d24380bee7440b9ead473c",
+   "merged_at": "2026-09-20T14:22:50+00:00",
+   "title": "Add filters to distribution by county and take into account kitted items"
+  },
+  {
+   "pr": 5722,
+   "sha": "306c0ae8402f9baf5b8e6d411b6c1319d7c91448",
+   "merged_at": "2026-09-19T20:41:14+00:00",
+   "title": "Make generated URLs domain-agnostic"
+  },
+  {
+   "pr": 5386,
+   "sha": "2857b48f59b58770660a3cc120d25f2170e4c1bf",
+   "merged_at": "2026-08-30T13:53:56+00:00",
+   "title": "Allow a hard limit on number of specific items per request"
+  },
+  {
+   "pr": 5274,
+   "sha": "76f2c6d251789f3d306c21fe47e2b826adc1999b",
+   "merged_at": "2026-08-30T00:20:24+00:00",
+   "title": "[4987] Annual Reports range Export"
+  },
+  {
+   "pr": 5171,
+   "sha": "46420673724f20bb7abe83022e869a42f7295dbf",
+   "merged_at": "2026-08-30T00:00:51+00:00",
+   "title": "Enable csv import of partners with six fields"
+  },
+  {
+   "pr": 5606,
+   "sha": "fbaa7e42a2bf7522e5ab0c4e09fe5804212272c8",
+   "merged_at": "2026-08-29T23:43:38+00:00",
+   "title": "Send request cancellation email to the request sender as well as the partner (5564)"
+  },
+  {
+   "pr": 5628,
+   "sha": "d58875f12bb93bdece948af84382ee18aa0f8d36",
+   "merged_at": "2026-08-29T23:01:05+00:00",
+   "title": "#5568 Fix kit allocation/deallocation history display direction (fixes #5568)"
+  },
+  {
+   "pr": 5690,
+   "sha": "23841081aa6299ec9cc2480d4d395da90265ae34",
+   "merged_at": "2026-08-29T22:46:31+00:00",
+   "title": "Fix lockout from stale session[:current_role] when a different user signs in"
+  },
+  {
+   "pr": 5692,
+   "sha": "558a2351dadcab3abaec75359bb9a27ceb45c482",
+   "merged_at": "2026-08-29T22:45:28+00:00",
+   "title": "Rename audit status confimr to pending finalization"
+  },
+  {
+   "pr": 5686,
+   "sha": "e2c82669d98223740ed7173decdfdf751bf6a746",
+   "merged_at": "2026-08-29T20:37:27+00:00",
+   "title": "Resolves #5668 Org level disable reminder emails"
+  },
+  {
+   "pr": 5684,
+   "sha": "99ed41b75eddca66a5584d48ff34f0b2a7eff55d",
+   "merged_at": "2026-08-29T20:24:27+00:00",
+   "title": "Natural Alphabetization of Product drive oarticipants"
+  }
+ ],
+ "noise_boundary_audit": {
+  "p15": {
+   "pr": 5684,
+   "merged_at": "2026-08-29T20:24:27+00:00"
+  },
+  "p16": {
+   "pr": 5689,
+   "merged_at": "2026-08-29T20:00:31+00:00"
+  }
+ },
+ "bug_candidates": [
+  {
+   "pr": 5743,
+   "sha": "e5e69704fc49babacb2684bf846560dcb2e63988",
+   "merged_at": "2026-10-18T14:57:40+00:00",
+   "title": "Resolves #5611: Render a blank Add Another Item row after a failed partner request",
+   "signals": [
+    "fix-title",
+    "linked-issue"
+   ],
+   "source_types": null
+  },
+  {
+   "pr": 5723,
+   "sha": "ace6151d2296a3b252d5ccdbcc4a838caf2d388c",
+   "merged_at": "2026-10-16T19:59:48+00:00",
+   "title": "Clean up old kit table and items.kit_id column (#5679)",
+   "signals": [
+    "linked-issue"
+   ],
+   "source_types": null
+  },
+  {
+   "pr": 5742,
+   "sha": "6453a3de3150592dc5708d4fafb3aa7e3df3270e",
+   "merged_at": "2026-10-12T19:57:37+00:00",
+   "title": "Resolves #5741: Fix typos in comments, docs and spec descriptions",
+   "signals": [
+    "fix-title",
+    "linked-issue"
+   ],
+   "source_types": null
+  },
+  {
+   "pr": 5656,
+   "sha": "6b5bc26be9f6d31818959bb77e16a573e18e920e",
+   "merged_at": "2026-10-11T14:59:33+00:00",
+   "title": "Alphabetize the Product Drive Participant drop-downs (#5593)",
+   "signals": [
+    "test-added-code"
+   ],
+   "source_types": [
+    "Gemfile",
+    "Gemfile.lock",
+    "app",
+    "db",
+    "spec"
+   ]
+  },
+  {
+   "pr": 5727,
+   "sha": "1085e87e8fda78a75910063cc59201c288e578f5",
+   "merged_at": "2026-09-27T20:19:09+00:00",
+   "title": "Include added items in distribution change emails (5666)",
+   "signals": [
+    "linked-issue"
+   ],
+   "source_types": null
+  },
+  {
+   "pr": 5541,
+   "sha": "2493ab00eae8d71732d24380bee7440b9ead473c",
+   "merged_at": "2026-09-20T14:22:50+00:00",
+   "title": "Add filters to distribution by county and take into account kitted items",
+   "signals": [
+    "test-added-code"
+   ],
+   "source_types": [
+    "app",
+    "docs",
+    "spec"
+   ]
+  },
+  {
+   "pr": 5722,
+   "sha": "306c0ae8402f9baf5b8e6d411b6c1319d7c91448",
+   "merged_at": "2026-09-19T20:41:14+00:00",
+   "title": "Make generated URLs domain-agnostic",
+   "signals": [
+    "test-added-code"
+   ],
+   "source_types": [
+    ".env.example",
+    "app",
+    "config",
+    "spec"
+   ]
+  },
+  {
+   "pr": 5709,
+   "sha": null,
+   "merged_at": "2026-09-19T18:14:43+00:00",
+   "title": "User guide: fix typos, broken links and stale labels",
+   "signals": [
+    "fix-title"
+   ],
+   "source_types": null
+  },
+  {
+   "pr": 5602,
+   "sha": "de30126d3e8fdb5469719f16e52046d84ee01698",
+   "merged_at": "2026-09-13T14:34:50+00:00",
+   "title": "Make item dropdown width responsive to window resizing (5556)",
+   "signals": [
+    "linked-issue"
+   ],
+   "source_types": null
+  },
+  {
+   "pr": 5695,
+   "sha": "22ec91eb2befbd0ce6c0e05b48724d5e22ad4481",
+   "merged_at": "2026-08-30T14:12:45+00:00",
+   "title": "Resolves #5688 Camera now opens on barcode_items/new",
+   "signals": [
+    "fix-title",
+    "linked-issue"
+   ],
+   "source_types": null
+  },
+  {
+   "pr": 5386,
+   "sha": "2857b48f59b58770660a3cc120d25f2170e4c1bf",
+   "merged_at": "2026-08-30T13:53:56+00:00",
+   "title": "Allow a hard limit on number of specific items per request",
+   "signals": [
+    "test-added-code"
+   ],
+   "source_types": [
+    "app",
+    "db",
+    "spec"
+   ]
+  },
+  {
+   "pr": 5274,
+   "sha": "76f2c6d251789f3d306c21fe47e2b826adc1999b",
+   "merged_at": "2026-08-30T00:20:24+00:00",
+   "title": "[4987] Annual Reports range Export",
+   "signals": [
+    "linked-issue"
+   ],
+   "source_types": null
+  },
+  {
+   "pr": 5604,
+   "sha": "d61f0280a93fa0a2b64f734453b668298ac06080",
+   "merged_at": "2026-08-30T00:12:06+00:00",
+   "title": "Reorder and relabel transfer action buttons to Undo (5560)",
+   "signals": [
+    "linked-issue"
+   ],
+   "source_types": null
+  },
+  {
+   "pr": 5171,
+   "sha": "46420673724f20bb7abe83022e869a42f7295dbf",
+   "merged_at": "2026-08-30T00:00:51+00:00",
+   "title": "Enable csv import of partners with six fields",
+   "signals": [
+    "linked-issue"
+   ],
+   "source_types": null
+  },
+  {
+   "pr": 5606,
+   "sha": "fbaa7e42a2bf7522e5ab0c4e09fe5804212272c8",
+   "merged_at": "2026-08-29T23:43:38+00:00",
+   "title": "Send request cancellation email to the request sender as well as the partner (5564)",
+   "signals": [
+    "linked-issue"
+   ],
+   "source_types": null
+  },
+  {
+   "pr": 5628,
+   "sha": "d58875f12bb93bdece948af84382ee18aa0f8d36",
+   "merged_at": "2026-08-29T23:01:05+00:00",
+   "title": "#5568 Fix kit allocation/deallocation history display direction (fixes #5568)",
+   "signals": [
+    "fix-title",
+    "linked-issue"
+   ],
+   "source_types": null
+  },
+  {
+   "pr": 5690,
+   "sha": "23841081aa6299ec9cc2480d4d395da90265ae34",
+   "merged_at": "2026-08-29T22:46:31+00:00",
+   "title": "Fix lockout from stale session[:current_role] when a different user signs in",
+   "signals": [
+    "fix-title"
+   ],
+   "source_types": null
+  },
+  {
+   "pr": 5692,
+   "sha": "558a2351dadcab3abaec75359bb9a27ceb45c482",
+   "merged_at": "2026-08-29T22:45:28+00:00",
+   "title": "Rename audit status confimr to pending finalization",
+   "signals": [
+    "test-added-code"
+   ],
+   "source_types": [
+    "app",
+    "spec"
+   ]
+  },
+  {
+   "pr": 5686,
+   "sha": "e2c82669d98223740ed7173decdfdf751bf6a746",
+   "merged_at": "2026-08-29T20:37:27+00:00",
+   "title": "Resolves #5668 Org level disable reminder emails",
+   "signals": [
+    "fix-title",
+    "linked-issue"
+   ],
+   "source_types": null
+  },
+  {
+   "pr": 5689,
+   "sha": "61921fbfb992fe8a47f8f06d980584d32d2e15c1",
+   "merged_at": "2026-08-29T20:00:31+00:00",
+   "title": "update password reset email to include datetime and signature",
+   "signals": [
+    "linked-issue"
+   ],
+   "source_types": null
+  }
+ ],
+ "window_counts": {
+  "in_window": 141,
+  "eligible": 60,
+  "unresolved": [
+   {
+    "pr": 5720,
+    "reason": "no git commit reference"
+   },
+   {
+    "pr": 5718,
+    "reason": "no git commit reference"
+   },
+   {
+    "pr": 5717,
+    "reason": "no git commit reference"
+   },
+   {
+    "pr": 5716,
+    "reason": "no git commit reference"
+   },
+   {
+    "pr": 5715,
+    "reason": "no git commit reference"
+   },
+   {
+    "pr": 5714,
+    "reason": "no git commit reference"
+   },
+   {
+    "pr": 5713,
+    "reason": "no git commit reference"
+   },
+   {
+    "pr": 5712,
+    "reason": "no git commit reference"
+   },
+   {
+    "pr": 5711,
+    "reason": "no git commit reference"
+   },
+   {
+    "pr": 5710,
+    "reason": "no git commit reference"
+   },
+   {
+    "pr": 5642,
+    "reason": "no git commit reference"
+   },
+   {
+    "pr": 5635,
+    "reason": "no git commit reference"
+   }
+  ]
+ }
+}

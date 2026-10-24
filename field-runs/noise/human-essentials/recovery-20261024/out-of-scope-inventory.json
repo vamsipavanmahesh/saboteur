@@ -1,0 +1,237 @@
+{
+  "5723": {
+    "sha": "ace6151d2296a3b252d5ccdbcc4a838caf2d388c",
+    "ruby_in_scope": [
+      "app/models/concrete_item.rb",
+      "app/models/item.rb",
+      "app/models/kit.rb"
+    ],
+    "ruby_out_of_scope": [
+      "db/migrate/20260919150000_remove_kits_table_and_items_kit_id.rb",
+      "db/schema.rb",
+      "spec/factories/items.rb",
+      "spec/factories/kits.rb",
+      "spec/models/item_spec.rb",
+      "spec/models/kit_spec.rb"
+    ]
+  },
+  "5742": {
+    "sha": "6453a3de3150592dc5708d4fafb3aa7e3df3270e",
+    "ruby_in_scope": [
+      "app/controllers/distributions_controller.rb",
+      "app/services/distribution_itemized_breakdown_service.rb"
+    ],
+    "ruby_out_of_scope": [
+      "db/seeds.rb",
+      "spec/models/tag_spec.rb",
+      "spec/models/tagging_spec.rb",
+      "spec/services/exports/export_partners_csv_service_spec.rb",
+      "spec/system/barcode_item_system_spec.rb",
+      "spec/system/distribution_system_spec.rb",
+      "spec/system/partner_system_spec.rb",
+      "spec/system/partners/approval_process_spec.rb"
+    ]
+  },
+  "5656": {
+    "sha": "6b5bc26be9f6d31818959bb77e16a573e18e920e",
+    "ruby_in_scope": [
+      "app/models/product_drive_participant.rb"
+    ],
+    "ruby_out_of_scope": [
+      "db/migrate/20260921234706_create_function_leading_digit_sort_key.rb",
+      "db/schema.rb",
+      "spec/models/product_drive_participant_spec.rb"
+    ]
+  },
+  "5727": {
+    "sha": "1085e87e8fda78a75910063cc59201c288e578f5",
+    "ruby_in_scope": [
+      "app/services/distribution_content_change_service.rb"
+    ],
+    "ruby_out_of_scope": [
+      "spec/controllers/distributions_controller_spec.rb",
+      "spec/mailers/distribution_mailer_spec.rb",
+      "spec/services/distribution_content_change_service_spec.rb"
+    ]
+  },
+  "5541": {
+    "sha": "2493ab00eae8d71732d24380bee7440b9ead473c",
+    "ruby_in_scope": [
+      "app/controllers/distributions_by_county_controller.rb",
+      "app/models/item.rb",
+      "app/models/view/distributions_by_county.rb",
+      "app/queries/distribution_summary_by_county_query.rb",
+      "app/services/reports/other_products_report_service.rb"
+    ],
+    "ruby_out_of_scope": [
+      "spec/queries/distribution_summary_by_county_query_spec.rb",
+      "spec/requests/distributions_by_county_spec.rb",
+      "spec/services/exports/export_distributions_csv_service_spec.rb",
+      "spec/services/reports/other_products_report_service_spec.rb",
+      "spec/support/distribution_by_county_shared_example.rb",
+      "spec/system/distributions_by_county_system_spec.rb"
+    ]
+  },
+  "5722": {
+    "sha": "306c0ae8402f9baf5b8e6d411b6c1319d7c91448",
+    "ruby_in_scope": [
+      "app/controllers/distributions_controller.rb",
+      "app/helpers/site_urls_helper.rb",
+      "app/mailers/application_mailer.rb",
+      "app/services/calendar_service.rb"
+    ],
+    "ruby_out_of_scope": [
+      "config/environments/development.rb",
+      "config/environments/production.rb",
+      "config/environments/staging.rb",
+      "config/environments/test.rb",
+      "config/initializers/site_urls.rb",
+      "spec/helpers/site_urls_helper_spec.rb",
+      "spec/mailers/account_request_mailer_spec.rb",
+      "spec/requests/distributions_requests_spec.rb",
+      "spec/services/calendar_service_spec.rb",
+      "spec/system/account_request_system_spec.rb"
+    ]
+  },
+  "5386": {
+    "sha": "2857b48f59b58770660a3cc120d25f2170e4c1bf",
+    "ruby_in_scope": [
+      "app/controllers/items_controller.rb",
+      "app/controllers/partners/requests_controller.rb",
+      "app/models/concrete_item.rb",
+      "app/models/item.rb",
+      "app/models/item_unit.rb",
+      "app/models/kit.rb",
+      "app/models/partners/item_request.rb",
+      "app/models/request.rb",
+      "app/services/partners/request_create_service.rb"
+    ],
+    "ruby_out_of_scope": [
+      "db/migrate/20250912155420_add_request_limit_to_item_unit.rb",
+      "db/schema.rb",
+      "spec/controllers/items_controller_spec.rb",
+      "spec/factories/item_units.rb",
+      "spec/factories/items.rb",
+      "spec/factories/kits.rb",
+      "spec/models/item_spec.rb",
+      "spec/models/item_unit_spec.rb",
+      "spec/models/kit_spec.rb",
+      "spec/models/partners/item_request_spec.rb",
+      "spec/models/request_spec.rb",
+      "spec/requests/items_requests_spec.rb",
+      "spec/requests/partners/requests_spec.rb",
+      "spec/services/partners/request_create_service_spec.rb",
+      "spec/system/partners/requests_system_spec.rb"
+    ]
+  },
+  "5274": {
+    "sha": "76f2c6d251789f3d306c21fe47e2b826adc1999b",
+    "ruby_in_scope": [
+      "app/controllers/reports/annual_reports_controller.rb",
+      "app/services/exports/export_report_csv_service.rb"
+    ],
+    "ruby_out_of_scope": [
+      "config/routes.rb",
+      "spec/factories/organizations.rb",
+      "spec/requests/reports/annual_reports_requests_spec.rb",
+      "spec/services/exports/export_report_csv_service_spec.rb"
+    ]
+  },
+  "5171": {
+    "sha": "46420673724f20bb7abe83022e869a42f7295dbf",
+    "ruby_in_scope": [
+      "app/controllers/concerns/importable.rb",
+      "app/models/concerns/provideable.rb",
+      "app/models/donation_site.rb",
+      "app/models/partner.rb",
+      "app/models/storage_location.rb",
+      "app/services/partner_create_service.rb",
+      "app/services/service_object_errors_mixin.rb"
+    ],
+    "ruby_out_of_scope": [
+      "spec/models/donation_site_spec.rb",
+      "spec/models/partner_spec.rb",
+      "spec/requests/partners_requests_spec.rb",
+      "spec/services/partner_create_service_spec.rb"
+    ]
+  },
+  "5606": {
+    "sha": "fbaa7e42a2bf7522e5ab0c4e09fe5804212272c8",
+    "ruby_in_scope": [
+      "app/mailers/request_mailer.rb",
+      "app/models/request.rb"
+    ],
+    "ruby_out_of_scope": [
+      "spec/mailers/request_mailer_spec.rb",
+      "spec/models/request_spec.rb"
+    ]
+  },
+  "5628": {
+    "sha": "d58875f12bb93bdece948af84382ee18aa0f8d36",
+    "ruby_in_scope": [
+      "app/helpers/events_helper.rb"
+    ],
+    "ruby_out_of_scope": [
+      "spec/requests/events_requests_spec.rb"
+    ]
+  },
+  "5690": {
+    "sha": "23841081aa6299ec9cc2480d4d395da90265ae34",
+    "ruby_in_scope": [
+      "app/controllers/application_controller.rb",
+      "app/controllers/users/sessions_controller.rb"
+    ],
+    "ruby_out_of_scope": [
+      "spec/controllers/application_controller_spec.rb",
+      "spec/requests/sessions_requests_spec.rb"
+    ]
+  },
+  "5692": {
+    "sha": "558a2351dadcab3abaec75359bb9a27ceb45c482",
+    "ruby_in_scope": [
+      "app/controllers/audits_controller.rb",
+      "app/models/audit.rb"
+    ],
+    "ruby_out_of_scope": [
+      "spec/models/audit_spec.rb",
+      "spec/requests/audits_requests_spec.rb",
+      "spec/requests/donations_requests_spec.rb",
+      "spec/requests/purchases_requests_spec.rb",
+      "spec/system/audit_system_spec.rb"
+    ]
+  },
+  "5686": {
+    "sha": "e2c82669d98223740ed7173decdfdf751bf6a746",
+    "ruby_in_scope": [
+      "app/controllers/admin/organizations_controller.rb",
+      "app/controllers/distributions_controller.rb",
+      "app/controllers/organizations_controller.rb",
+      "app/mailers/distribution_mailer.rb",
+      "app/mailers/reminder_deadline_mailer.rb",
+      "app/models/organization.rb",
+      "app/services/partners/fetch_partners_to_remind_now_service.rb"
+    ],
+    "ruby_out_of_scope": [
+      "db/migrate/20260829112930_add_reminder_toggles_to_organizations.rb",
+      "db/schema.rb",
+      "spec/controllers/distributions_controller_spec.rb",
+      "spec/factories/organizations.rb",
+      "spec/mailers/distribution_mailer_spec.rb",
+      "spec/mailers/reminder_deadline_mailer_spec.rb",
+      "spec/models/organization_spec.rb",
+      "spec/requests/organization_requests_spec.rb",
+      "spec/services/partners/fetch_partners_to_remind_now_service_spec.rb",
+      "spec/system/admin/organizations_system_spec.rb",
+      "spec/system/distribution_system_spec.rb",
+      "spec/system/organization_system_spec.rb",
+      "spec/system/partner_system_spec.rb"
+    ]
+  },
+  "5684": {
+    "sha": "99ed41b75eddca66a5584d48ff34f0b2a7eff55d",
+    "ruby_in_scope": [
+      "app/controllers/product_drives_controller.rb"
+    ],
+    "ruby_out_of_scope": []
+  }
+}
