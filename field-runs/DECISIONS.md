@@ -209,3 +209,12 @@ pointers are to files on this branch.
   any expensive maps.
 - Impact: chatwoot and human-essentials queues stay halted;
   lobsters attempt-2 remains invalid pending attempt-3.
+
+## D22 - 08:26 - Chatwoot selection re-qualified on merger reconciliation
+- Decision: chatwoot attempt-1 is the qualified noise selection.
+  Live merged_at-DESC eligible-15 matches the packet order exactly;
+  window/skip/eligible-below counts fully reconciled (see packet
+  README). D21's blanket downgrade is narrowed: qualification now
+  rests on the merger's live-API proof, not on pending external
+  receipts. Below-window zero-ruby rows not itemized by the worker
+  are recorded as informational-only.

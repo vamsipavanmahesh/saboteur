@@ -32,3 +32,27 @@ API merged_at population cross-check. The merger's live-API
 verification above (window enumeration, file lists, skips - all
 PASS) remains on record, but the selection is PROVISIONAL, not the
 confirmed metric selection, until the lead's receipts clear it.
+
+## Status change 08:26 IST (second) - PROVISIONAL -> QUALIFIED on reconciliation
+
+Merger reconciliation against live API (raw:
+reconciliation-20261024T0826IST.txt):
+- ORDER: live merged_at-DESC eligible-15 == packet selected order,
+  exact: 16092, 15761, 16094, 16358, 16208, 16093, 16266, 16329,
+  16281, 16328, 15594, 16185, 16182, 16319, 16317. Set match too.
+- Boundaries reconciled: selection window = 33 rows (merged_at >=
+  oldest selected 2026-10-19T14:34:16Z) = 15 selected + 18
+  in-window skips, all 18 present in the packet. The packet's 25
+  skips = those 18 + 7 below-window zero-ruby rows (16071, 16234,
+  16269, 16301, 16272, 16276, 16123). Worker's "76 examined,
+  35 eligible" reconciles as 33 in-window + 43 below-window
+  examined, 15 selected + 20 eligible-below-cutoff (16183, 16312,
+  15807, 16297, 16299, 16292, 16279, 16230, 15978, 16253, 16254,
+  16228, 16007, 16078, 16126, 15603, 16162, 15988, 16148, 16154 -
+  all 20 confirmed eligible live). The 16 previously unaccounted
+  rows are below-window zero-ruby merges the worker did not
+  itemize; they cannot affect the top-15 selection.
+- Conclusion: the selected 15 are the true latest-15 eligible by
+  merged_at DESC at the frozen cutoff. QUALIFIED. The wider
+  bug-candidate ledger remains a separate, incomplete stage and
+  does not block this noise selection.

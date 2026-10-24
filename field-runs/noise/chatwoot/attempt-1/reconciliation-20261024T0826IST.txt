@@ -1,0 +1,12 @@
+MERGER RECONCILIATION chatwoot noise-15, 2026-10-24 08:26 IST, live GitHub API
+total live merged base:develop fetched: 500 newest: (16092, '2026-10-24T00:31:57Z') oldest fetched: (12199, '2025-08-19T02:15:21Z')
+examined-to-15-eligible: 33 selected15 merged_at DESC: [16092, 15761, 16094, 16358, 16208, 16093, 16266, 16329, 16281, 16328, 15594, 16185, 16182, 16319, 16317]
+skips within walk: 18 [16385, 16374, 16105, 16247, 16367, 16350, 16347, 16240, 16318, 16200, 16334, 16147, 16327, 16304, 16326, 16320, 16298, 16207]
+packet selected order: [16092, 15761, 16094, 16358, 16208, 16093, 16266, 16329, 16281, 16328, 15594, 16185, 16182, 16319, 16317]
+ORDER MATCH (live merged_at-DESC eligible-15 == packet order): True
+SET MATCH: True
+walk skips == packet skips: False | walk-only: set() | packet-only: {16071, 16234, 16269, 16301, 16272, 16276, 16123}
+below-cutoff scan: examined 76 total; eligible-below-15 found: 20 [16183, 16312, 15807, 16297, 16299, 16292, 16279, 16230, 15978, 16253, 16254, 16228, 16007, 16078, 16126, 15603, 16162, 15988, 16148, 16154]
+zero-ruby below cutoff in that scan: 23
+worker claims: 76 examined, 35 eligible, 15 selected, 25 skipped => eligible-below-15 = 20, examined-not-classified = 76-15-25-20-? => 16 unaccounted by those numbers
+oldest selected merged_at: 2026-10-19T14:34:16Z ; window rows >= that: 33
