@@ -1,0 +1,8 @@
+{
+  "stage": "parallelism",
+  "pr": 2204,
+  "serial_count": 22,
+  "jobs2_count": 22,
+  "verdict_diffs": [],
+  "verdict": "IDENTICAL"
+}
