@@ -1,0 +1,54 @@
+saboteur: preset 'pr': --baseline-passes 1 --max-duration 10m --since 8f1b50061e5ef0b88ddbadc675395f7b5cf4eb76 (explicit flags override)
+saboteur: warning: 186 uncommitted or untracked change(s) in the working tree: none inside the mutation scope, 185 outside it (2 tracked, 183 untracked), 1 saboteur setup file(s) (0 tracked, 1 untracked).
+  setup files: config/saboteur.rb
+  Mutants run your code and could alter or delete files; run on a clean, committed tree or a CI checkout.
+saboteur: SimpleCov.start ignored for this run (saboteur needs Ruby's Coverage itself)
+W, [2026-10-24T07:18:32.343876 #12048]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+W, [2026-10-24T07:18:36.031467 #12154]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+saboteur 0.12.3 · --since 8f1b50061e5ef0b88ddbadc675395f7b5cf4eb76 · seed 1 · 37 operators (--list-operators)
+saboteur: coverage cache miss: no earlier map to compare with; the map build runs the selected specs once
+saboteur: building coverage map (runs the selected specs once)
+✓ baseline green (1 pass, 4.9s)  ✓ coverage map: 81 tests
+spec inference: 1 spec file (details: --verbose)
+.:killed S:survived T:timeout E:error s:skipped L:resource limit
+...........S..SS......  22/22 (100%)
+
+saboteur: survivors unconfirmed: no whole-suite coverage map; run `saboteur run --all` to build one
+Survivors (3) - changes your tests did not catch
+
+1. app/models/story.rb:777 Story#is_gone? [boundary · #1 of 1 block]
+  the covering specs pass without pinning this boundary
+  776 def is_gone?
+- 777     is_deleted? || (user.is_banned? && score < 0 && is_moderated == false)
++ 777     is_deleted? || (user.is_banned? && score <= 0 && is_moderated == false)   comparison · 56ec2857eb8103bd
+                                                   ^^
+  778   end
+  why it matters: the boundary between the two comparisons is untested
+  changed line: app/models/story.rb:777
+  covering list is this run's selection only; run `saboteur run --all`
+  → try an example at the boundary: equal values, or values one apart
+  2 more mutants here: 695982748e0e8ebb (literal_number), 9786b8df27eddc21 (literal_number)
+       expand: saboteur run --all-mutants --since 8f1b50061e5ef0b88ddbadc675395f7b5cf4eb76
+
+Hints are suggestions, not diagnoses: a survivor can also be an equivalent
+mutant, or a change the selected tests cannot observe.
+
+warning: 2 other thread(s) alive at fork time; they do not run in children: DEBUGGER__::SESSION@server (the debug gem's remote-console server: what it does in children depends on RUBY_DEBUG_FORK_MODE - with parent no debugger runs in children; with child or both (the gem's default) the debugger activates in children and can pause or interfere with supervised mutation runs. For an unattended run, do not start the remote debugger at all: drop RUBY_DEBUG_OPEN or require "debug" without :open), /home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/rack-mini-profiler-4.0.0/lib/mini_profiler/storage/file_store.rb:85:in 'Kernel#sleep'; a thread that does not run in a child cannot do background work a mutant's test may rely on (a pool reaper, a flusher), so results can differ when one is left behind
+warning: sandbox is on but this kernel's Landlock ABI is 2 but ABI 3 (Linux 6.2+) is needed to restrict truncate(); children run with the hazard guard and canary only
+saboteur 0.12.3: 1 subject, 22 mutants, wall 61.76 s, seed 1 (repeat with --seed 1)
+Score: 86.4% (19/22 killed, tested subjects)
+saboteur: 19 killed, 3 survived in 1m02s - score 86.4%
+✗ exit 1 - 3 survivors
+
+Next steps:
+  replay one survivor: saboteur run --id 56ec2857eb8103bd --since 8f1b50061e5ef0b88ddbadc675395f7b5cf4eb76 --test spec/models/story_spec.rb --jobs 1 --baseline-passes 1 --max-duration 600.0 --seed 1
+  accept an equivalent one: add to your ignore file
+    (c.ignore_file, default config/saboteur_ignore.rb):
+    Saboteur.ignore do |i|
+      i.mutation "56ec2857eb8103bd", subject: "Story#is_gone?", reason: "why it is equivalent"
+    end
+  let an agent close the gaps: saboteur run --agent, with the same options
+speed footer: done in 61.8s - baseline 4.9s · map 24.8s · mutants 21.9s (jobs=1)
+
+Reports: /home/sandbox/field-runs/saboteur-field-runs/apps/lobsters/reports/pr2204-replay/report.json (JSON), /home/sandbox/field-runs/saboteur-field-runs/apps/lobsters/reports/pr2204-replay/report.html (HTML)
+MEASURED exit=1 wall=62.65s rss_kb=391532

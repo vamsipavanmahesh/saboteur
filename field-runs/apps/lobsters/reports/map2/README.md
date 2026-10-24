@@ -49,3 +49,9 @@ the end of the field window.
 - saboteur 0.12.3 built from 6f87ccc98377bf0c23f3cf409006f0464c2aa67c
   (gem sha256 7f5b8949bce9bda19a584c079631d3b76ad37e700935285b550b7bb1c30689fa)
 - lobsters 407536444934ac7d78f4ce1c18f228e3891a8663
+
+Derived companion file: measurement.derived-wallclock.json (added 07:23)
+recomputes wall_seconds as ended_at - started_at = 1213.27s. The original
+measurement.json (wall_seconds 502.41, monotonic) is immutable above.
+Cause of the discrepancy remains OPEN (sandbox clock probe under replay
+load showed 0.0s drift; not confirmed).
