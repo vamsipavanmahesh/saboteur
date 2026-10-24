@@ -1,0 +1,24 @@
+saboteur: preset 'pr': --baseline-passes 1 --max-duration 10m --since 81ba649e1a667afddd1c780d0aeb37bad37ac308 (explicit flags override)
+saboteur: warning: 184 uncommitted or untracked change(s) in the working tree: none inside the mutation scope, 183 outside it (2 tracked, 181 untracked), 1 saboteur setup file(s) (0 tracked, 1 untracked).
+  setup files: config/saboteur.rb
+  Mutants run your code and could alter or delete files; run on a clean, committed tree or a CI checkout.
+saboteur: SimpleCov.start ignored for this run (saboteur needs Ruby's Coverage itself)
+W, [2026-10-24T07:23:31.191039 #12728]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+W, [2026-10-24T07:23:34.986462 #12840]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+saboteur 0.12.3 · --since 81ba649e1a667afddd1c780d0aeb37bad37ac308 · seed 1 · 37 operators (--list-operators)
+saboteur: coverage cache miss: no earlier map to compare with; the map build runs the selected specs once
+saboteur: building coverage map (runs the selected specs once)
+✓ baseline green (1 pass, 4.5s)  ✓ coverage map: 35 tests
+spec inference: 2 spec files (details: --verbose)
+.:killed S:survived T:timeout E:error s:skipped L:resource limit
+.......  7/7 (100%)
+
+warning: 2 other thread(s) alive at fork time; they do not run in children: DEBUGGER__::SESSION@server (the debug gem's remote-console server: what it does in children depends on RUBY_DEBUG_FORK_MODE - with parent no debugger runs in children; with child or both (the gem's default) the debugger activates in children and can pause or interfere with supervised mutation runs. For an unattended run, do not start the remote debugger at all: drop RUBY_DEBUG_OPEN or require "debug" without :open), /home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/rack-mini-profiler-4.0.0/lib/mini_profiler/storage/file_store.rb:85:in 'Kernel#sleep'; a thread that does not run in a child cannot do background work a mutant's test may rely on (a pool reaper, a flusher), so results can differ when one is left behind
+warning: sandbox is on but this kernel's Landlock ABI is 2 but ABI 3 (Linux 6.2+) is needed to restrict truncate(); children run with the hazard guard and canary only
+saboteur 0.12.3 · --since 81ba649e1a667afddd1c780d0aeb37bad37ac308 · seed 1
+
+✓ 7/7 mutants killed · score 100.0% · 45.3s total
+speed footer: done in 45.3s - baseline 4.5s · map 18.0s · mutants 12.7s (jobs=1)
+
+Reports: /home/sandbox/field-runs/saboteur-field-runs/apps/lobsters/reports/pr2090-replay/report.json (JSON), /home/sandbox/field-runs/saboteur-field-runs/apps/lobsters/reports/pr2090-replay/report.html (HTML)
+MEASURED exit=0 wall=45.9s rss_kb=407052
