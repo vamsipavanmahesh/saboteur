@@ -88,3 +88,24 @@ pointers are to files on this branch.
 - Evidence: this file.
 - Impact: per-app decisions land in packet READMEs and are rolled
   up here.
+
+## D7 - 08:22 - Cross-app metric contract adopted verbatim
+- Decision: field-runs/METRICS.md now carries the full cross-app
+  metric contract (unit rules, four resolved classes, unresolved
+  handling and bounds, seeded PR-cluster percentile bootstrap 10000
+  resamples seed 20261024 with N/A rules, supplemental Wilson
+  descriptive-only, top-ranked-finding rule, verified bug-replay
+  requirements and MISS reason classes, flag-rate line/span
+  conventions, selection-15 frozen live cutoff rule with PR-number
+  tie-break and no old-pin filter, readiness and honest-zero rules);
+  field-runs/metric-record-schema.json added as the empty record
+  template.
+- Reason: one shared methodology across the three apps so every
+  recompute uses the same contract; the 08:21 summary was its
+  subset and is superseded.
+- Evidence: METRICS.md, metric-record-schema.json.
+- Impact: the contract is methodology, not results; the schema file
+  is an empty template, not executed study data. Counts come only
+  from stored verified records.
+- Reversible: contract changes land as new revisions with new
+  entries here.

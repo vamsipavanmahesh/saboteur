@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "app": "example",
+  "selection": {"cutoff": null, "rule": null, "candidate_ledger": null, "selected_prs": []},
+  "noise_prs": [],
+  "bug_records": [],
+  "notes": "Empty template only, not executed study data. Every selected PR must carry status and raw evidence references."
+}
