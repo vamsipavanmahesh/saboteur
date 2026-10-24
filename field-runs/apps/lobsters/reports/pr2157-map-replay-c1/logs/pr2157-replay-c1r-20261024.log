@@ -1,0 +1,89 @@
+saboteur: warning: 185 uncommitted or untracked change(s) in the working tree: none inside the mutation scope, 184 outside it (2 tracked, 182 untracked), 1 saboteur setup file(s) (0 tracked, 1 untracked).
+  setup files: config/saboteur.rb
+  Mutants run your code and could alter or delete files; run on a clean, committed tree or a CI checkout.
+saboteur: inferred specs: running only spec/requests/stories_spec.rb. A spec the diff did not change that reaches a changed file only through another file does not run, so a mutant only it would kill can survive, and a line no inferred spec executes is reported as NoCoverage
+saboteur: Operators: operator_assignment, condition_negation, range, body_nil, body_true, body_false, body_raise, comparison, arithmetic, boolean_logic, condition_true, condition_false, negation_removal, literal_number, or_assign, and_assign, safe_navigation, statement_removal, filter_replacement, copy_replacement, literal_string, literal_boolean, argument_swap, argument_removal, pair_removal, element_removal, endpoint_replacement, chain_removal, method_swap, operand_replacement, interpolation_removal, jump_value, rescue_removal, ensure_removal, when_removal, unary_removal, regex_replacement
+saboteur: loading the application
+saboteur: SimpleCov.start ignored for this run (saboteur needs Ruby's Coverage itself)
+W, [2026-10-24T10:02:50.354723 #26499]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+saboteur: checking the unchanged suite once (seed 1); order stability between passes is not checked (baseline_passes: 1)
+saboteur: baseline check 1 took 3 s; about 3 s left for the coverage map build at that rate
+saboteur: coverage cache miss: settings, Ruby or saboteur version changed; the map build runs the selected specs once
+saboteur: building coverage map (runs the selected specs once)
+saboteur: 1 subject, 31 tests in coverage map
+.:killed S:survived T:timeout E:error s:skipped L:resource limit
+saboteur: StoriesController#show  ....SS.SSSS
+....SS.SSSS  11/11 (100%)
+saboteur: confirmation: 6 confirmed
+
+Survivors (6) - changes your tests did not catch
+
+1. app/controllers/stories_controller.rb:189 StoriesController#show [result unchecked · #1 of 2 blocks]
+  the covering specs pass without pinning this result
+  143 def show
+  144     # @story was already loaded by track_story_reads for logged-in users
+  145     @story ||= Story.where(short_id: params[:id]).first!
+      ...
+  188           {property: "og:description", content: @story.comments_count.to_s + " " + "comment".pluralize(@story.comments_count)},
+- 189           {property: "og:image", content: Routes.story_image_or_logo_url(@story)},
++ 189           {property: "", content: Routes.story_image_or_logo_url(@story)},   literal_string · 43dda9ad5517cd5d
+                           ^^
+  190           {property: "article:author", content: Routes.user_url(@story.user)}
+      ...
+  203     end
+  204   end
+  why it matters: no test asserts on this exact text
+  changed line: app/controllers/stories_controller.rb:189
+  covered by 49 specs, incl. ./spec/jobs/cache_page_job_spec.rb[1:1:6] (not run here)
+  confirmed: ./spec/jobs/cache_page_job_spec.rb[1:1:2] ran on confirmation and still passed
+  → try asserting on this text
+  4 more mutants here: 5cacdbc3d0bc508e (element_removal), 1f1092204c9a42bb (pair_removal), 605c15816c32610f (element_removal) (+1 more)
+       expand: saboteur run --all-mutants --since d9998c2555317db7b3cb9a159ef7878ff993ab78
+
+2. app/controllers/stories_controller.rb:184 StoriesController#show [effect · #2 of 2 blocks]
+  the covering specs pass without pinning this effect
+  143 def show
+  144     # @story was already loaded by track_story_reads for logged-in users
+  145     @story ||= Story.where(short_id: params[:id]).first!
+      ...
+  183       format.html {
+- 184         @meta_tags = [
++ 184         nil   statement_removal · 3aa0bb7820610094
+              ^^^
+  185           {property: "og:type", content: "article"},
+      ...
+  203     end
+  204   end
+  why it matters: the statement's effect goes unobserved
+  changed line: app/controllers/stories_controller.rb:189
+  covered by 49 specs, incl. ./spec/jobs/cache_page_job_spec.rb[1:1:6] (not run here)
+  confirmed: ./spec/jobs/cache_page_job_spec.rb[1:1:2] ran on confirmation and still passed
+  → try asserting the effect of this statement
+
+Hints are suggestions, not diagnoses: a survivor can also be an equivalent
+mutant, or a change the selected tests cannot observe.
+
+warning: 2 other thread(s) alive at fork time; they do not run in children: DEBUGGER__::SESSION@server (the debug gem's remote-console server: what it does in children depends on RUBY_DEBUG_FORK_MODE - with parent no debugger runs in children; with child or both (the gem's default) the debugger activates in children and can pause or interfere with supervised mutation runs. For an unattended run, do not start the remote debugger at all: drop RUBY_DEBUG_OPEN or require "debug" without :open), /home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/rack-mini-profiler-4.0.0/lib/mini_profiler/storage/file_store.rb:85:in 'Kernel#sleep'; a thread that does not run in a child cannot do background work a mutant's test may rely on (a pool reaper, a flusher), so results can differ when one is left behind
+warning: sandbox is on but this kernel's Landlock ABI is 2 but ABI 3 (Linux 6.2+) is needed to restrict truncate(); children run with the hazard guard and canary only
+saboteur 0.12.3: 1 subject, 11 mutants, wall 53.92 s, seed 1 (repeat with --seed 1)
+Score: 45.5% (5/11 killed, tested subjects) (assertion 18.2 %, crash 27.3 %) (killed+timeout)/(killed+survived+timeout); errors, resource limits and skips excluded
+score without whole-body mutants 33.3 % (assertion 22.2 %, crash 11.1 %) (9 mutants); whole-body mutants alone 100.0 % (2)
+mean time per executed mutant 1.312 s
+kills rejected by unchanged-method check: 0
+kills: 2 by a failed assertion, 3 by a crash (ActionView::Template::Error 1, RuntimeError 1, ArgumentError 1)
+crash kills by operator: body_nil 1 of 1, body_raise 1 of 1, argument_removal 1 of 1
+saboteur: 5 killed, 6 survived in 54s - score 45.5%
+✗ exit 1 - 6 survivors
+
+Next steps:
+  replay one survivor: saboteur run --id 5cacdbc3d0bc508e --since d9998c2555317db7b3cb9a159ef7878ff993ab78 --test spec/requests/stories_spec.rb --jobs 1 --baseline-passes 1 --max-duration 600.0 --seed 1
+  accept an equivalent one: add to your ignore file
+    (c.ignore_file, default config/saboteur_ignore.rb):
+    Saboteur.ignore do |i|
+      i.mutation "5cacdbc3d0bc508e", subject: "StoriesController#show", reason: "why it is equivalent"
+    end
+  let an agent close the gaps: saboteur run --agent, with the same options
+speed footer: done in 53.9s - baseline 2.6s · map 13.2s · mutants 30.7s (jobs=1)
+
+Reports: .saboteur/report.json (JSON), .saboteur/report.html (HTML)
+MEASURED exit=1 wall=55.48s rss_kb=365172

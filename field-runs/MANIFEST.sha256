@@ -31,6 +31,8 @@ df85d953187f7106a440c1fb69c46361045a31698860e7254d5d744c114d53dd  apps/chatwoot/
 bb93f83f43f7264d6befa58f2190ae7edc5845d79aaba8c6b08ee7540cb4d83f  apps/chatwoot/helpers/chatwoot.env.template
 3ff0cd2d761e37d8e0e89115849d9bfacd0e22725fa2572ff59289de0e5d7893  apps/chatwoot/helpers/env.sh
 8660161760eea3beb06cbc09598ad09b6b870e0f4677b7c9d2cfb6e0af821482  apps/chatwoot/helpers/provision.sh
+be16ce04d4f4f6d0679603a8b02ec6172038e22941e08e78fc3d4501d57229d1  apps/chatwoot/helpers/reviewed/run-map3.v3-be16ce04d4f4.sh
+dd5aa5c50490d1fb3f2494bbeaa56abecedaaed160c8254d1fe30f5b4ae52b7b  apps/chatwoot/helpers/reviewed/run-replay-pr.v2-dd5aa5c50490.sh
 c71d2cd862fc329d0613aff27b6b222a9f169b0eb9954d40d127df70714fe857  apps/chatwoot/helpers/run-baseline-extra.sh
 f72bfafca55aa85337aabacf6cd479cc0d57bb52646937548911480ac939c7ed  apps/chatwoot/helpers/run-baseline.sh
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  apps/chatwoot/logs/.gitkeep
@@ -195,6 +197,12 @@ e15456681b002e071167061c2c3ed1e1baee2728494d23a2ce51e91bebae2b7c  apps/lobsters/
 a0681e1f0fe6b82c26a05fe0e9cb9abe1c482acb8aad079d87c39285cc7d587e  apps/lobsters/reports/pr2156-replay/README.md
 43e2940540d0cf1f0b7a487e1aa18ab14f7a41ff3c8ee1f5254bf9174e3bf1e8  apps/lobsters/reports/pr2156-replay/measurement.json
 59bb7089bad200ac20a332827f0492e9bee85f99a89edd3dcaf5af77df56ec53  apps/lobsters/reports/pr2156-replay/report.json
+2404a707b67bf8112d95fbc25376306d6da8527254cd95e0e87fe23a4d4299b1  apps/lobsters/reports/pr2157-map-replay-c1/README.md
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  apps/lobsters/reports/pr2157-map-replay-c1/logs/pr2157-headmap-driver-c1.log
+c082cad8314bad283baec3816e4dc7b7f8e44e6f05a25644ed138c0073154a90  apps/lobsters/reports/pr2157-map-replay-c1/logs/pr2157-map-c1.log
+42519f50151dcc9745242443d2746f074d95a20584ecd24f479702958ace3174  apps/lobsters/reports/pr2157-map-replay-c1/logs/pr2157-obs-c1.log
+b16dd35cd37662adc763e7adc7ae9d410d615b97a0cb92faa6baae3d817ae011  apps/lobsters/reports/pr2157-map-replay-c1/logs/pr2157-replay-c1r-20261024.log
+5cbcb207706fa69f1df3135d9baf889eeca91db1ae870855c3e19c71a8a7f877  apps/lobsters/reports/pr2157-map-replay-c1/reports/pr2157-replay-c1r/report.json
 b008cbd11372a7087a0186d1780643621ed1070d281e0386e763fe2b1d08b25a  apps/lobsters/reports/pr2182-replay/README.md
 d29fb87f3a98804541eff31d87c49e19cd3d3081b89b60dd3e38cebb2079109f  apps/lobsters/reports/pr2182-replay/measurement.json
 b3cd82a37ad204d2875b6717ad75268373358ba70e63ad2bf6797659273faa22  apps/lobsters/reports/pr2182-replay/report.json
