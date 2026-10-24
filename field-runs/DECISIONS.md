@@ -478,3 +478,18 @@ pointers are to files on this branch.
 - Ledger: STRICT-QUALIFIED = 5/45 (2231, 2204, 2157, 2156, 2171); complete evidence = 5/45. 10 lobsters rows not executed.
 - Evidence: apps/lobsters/reports/pr2171-map-replay-c1/.
 - Reversibility: Publication only.
+
+## D50 - EX-2 exclusion: spec/css_widely_available_spec.rb in exactly three lobsters era trees (PRs 2172, 2183, 2197)
+
+- Date: 2026-10-24.
+- Scope: lobsters rows for PRs 2172, 2183, 2197 only. Not applicable to any other row or app. The 15 selected PRs are preserved (no replacement, no skip).
+- Decision: Exclude spec/css_widely_available_spec.rb from the whole-suite baseline/map/mutation runs of exactly these three rows. Era application code, CSS, and lockfile are preserved byte-for-byte; only the spec file is omitted from execution (14 examples). All three rows are classified QUALIFIED-WITH-DEVIATION, deviation = suite completeness; "whole existing suite" is never used unqualified for these rows.
+- Why (source-proven causality, NOT external database drift):
+  - The failing assertion concerns app/assets/stylesheets/application.css:296 ("word-break: break-word").
+  - That line was added by PR 2196's merge commit 1251ff78fe9d1aa8b6197f399b8889f402dc09d0 (2026-09-14T00:48:23Z) and removed 37 minutes later by direct commit e2ef864fc8dbe2a4885d7dac911ef3b7565088be (01:25:58Z, "word-break deprecated in favor of overflow-wrap #2196").
+  - PRs 2197 (merged 00:51:04Z), 2183 (00:54:58Z), and 2172 (01:00:34Z) are the only three selected rows merged inside that window; every other selected row merged outside it and runs green on this spec. Upstream mainline itself was red on this spec during exactly that 37-minute window.
+  - The web-features entry css.properties.word-break.break-word has baseline: false with byte-identical by_compat_key in releases v3.37.0 (2026-09-03), v3.38.0 (2026-09-10, live at era), v3.39.0 (2026-09-17), and the current next release (2026-10-22). The verdict was the same at era as now; no published web-features release makes these trees green, so a historically faithful data fixture cannot rescue them. The earlier era-rot hypothesis (external DB drift) is retracted.
+- Coverage impact: In the published PR 2171 whole-suite coverage map (975e4b71e35bdae529738d845b23b38450e35d95d24e78273b7eb8e20d4d7c4a), this spec's 14 examples reference zero Ruby subject lines, supporting the expectation that the exclusion is coverage-neutral. This is evidence from a neighboring era tree, not proof for these three trees: each affected row packet must verify its own as-run exclusion inputs and row-specific relevant coverage when its map is available, and must state this limit explicitly. No extra era run is performed solely to prove per-tree neutrality.
+- Preserved evidence: The original PR 2172 baseline attempt (exit 5, no mutants, spec red on both head and base) remains published as an invalid attempt with head/base failure receipts.
+- Verification required in each affected row packet: effective exclusion as-run; omitted-example count (14 expected); head/base tree digests unchanged apart from the exclusion mechanism; row-specific coverage check of the exclusion; explicit deviation-tier labeling.
+- Reversibility: Publication only.
