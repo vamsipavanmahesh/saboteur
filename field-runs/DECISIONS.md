@@ -323,7 +323,7 @@ pointers are to files on this branch.
   reconciles settings and reruns; no selected-spec fallback.
   identity-proof.txt mutants=0 extraction corrected (actual 4).
 
-## D30 - 08:43 - Bug-replay classification addendum adopted
+## D30 - 08:42 - Bug-replay classification addendum adopted
 - Decision: field-runs/BUG-CLASSIFICATION.md is the study-wide
   classification contract (candidate/verification/replay separation;
   no Ruby filter on candidates; regression witness required; ERB/JS/

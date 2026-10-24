@@ -1,8 +1,8 @@
-<!-- Provenance: study-wide bug-replay classification addendum authored by the study lead 2026-10-24 08:43 IST, grounded in the user's original 08:11 bug-replay instructions. Adopted verbatim; extends the metric contract (METRICS.md). Defines classification, not measured results. Consistent across all three apps. -->
+<!-- Provenance: study-wide bug-replay classification addendum authored by the study lead 2026-10-24 08:42 IST, grounded in the user's original 08:11 bug-replay instructions. Adopted verbatim; extends the metric contract (METRICS.md). Defines classification, not measured results. Consistent across all three apps. -->
 
 # Bug-replay classification addendum
 
-Decision: 2026-10-24 08:43 IST. Original request inspected: October 24 08:11:34 WhatsApp bug-fix replay instructions. This addendum defines classification, not measured results.
+Decision: 2026-10-24 08:42 IST. Original request inspected: October 24 08:11:34 WhatsApp bug-fix replay instructions. This addendum defines classification, not measured results.
 
 ## Separate candidate selection, verification and replay outcomes
 
