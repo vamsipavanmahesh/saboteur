@@ -1,0 +1,27 @@
+RUNNER headmap2.sh sha256=255d0ae9e5523370e8bc85d85b25af3a7ab3424bc04de8b02089ffa246f8888b attempt=c1 tree=pr2204 head=ed722e449227b39ab6268f4260aaa66df95275bd started=2026-10-24T09:26:33+05:30
+PGID=24059
+T0=1792814193
+saboteur: warning: 186 uncommitted or untracked change(s) in the working tree: none inside the mutation scope, 185 outside it (2 tracked, 183 untracked), 1 saboteur setup file(s) (0 tracked, 1 untracked).
+  setup files: config/saboteur.rb
+  Mutants run your code and could alter or delete files; run on a clean, committed tree or a CI checkout.
+saboteur: Operators: operator_assignment, condition_negation, range, body_nil, body_true, body_false, body_raise, comparison, arithmetic, boolean_logic, condition_true, condition_false, negation_removal, literal_number, or_assign, and_assign, safe_navigation, statement_removal, filter_replacement, copy_replacement, literal_string, literal_boolean, argument_swap, argument_removal, pair_removal, element_removal, endpoint_replacement, chain_removal, method_swap, operand_replacement, interpolation_removal, jump_value, rescue_removal, ensure_removal, when_removal, unary_removal, regex_replacement
+saboteur: loading the application
+saboteur: SimpleCov.start ignored for this run (saboteur needs Ruby's Coverage itself)
+saboteur: running the loaded suite unscoped: 861 examples in 104 spec files; 3 full passes (2 baseline checks + 1 coverage map build).
+saboteur: checking the unchanged suite twice (seed 1)
+W, [2026-10-24T09:26:38.209562 #24068]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+saboteur: baseline check 1: 30 s elapsed, 800/861 examples (92 %), about 3 s left
+saboteur: baseline check 1 took 31 s; about 62 s left for the remaining 1 full pass and the coverage map build at that rate
+saboteur: baseline check 2: 30 s elapsed, 825/861 examples (95 %), about 2 s left
+saboteur: building coverage map (runs the whole suite once)
+saboteur: building coverage map: 30 s elapsed, 75/861 examples (8 %), about 320 s left
+saboteur: building coverage map: 61 s elapsed, 175/861 examples (20 %), about 238 s left
+saboteur: building coverage map: 91 s elapsed, 300/861 examples (34 %), about 171 s left
+saboteur: building coverage map: 121 s elapsed, 425/861 examples (49 %), about 125 s left
+saboteur: building coverage map: 152 s elapsed, 575/861 examples (66 %), about 76 s left
+saboteur: building coverage map: 182 s elapsed, 700/861 examples (81 %), about 42 s left
+saboteur: 747 subjects, 861 tests in coverage map
+.:killed S:survived T:timeout E:error s:skipped L:resource limit
+.  1/11702 (0%) eta 328m58s
+MEASURED exit=130 wall=986.61s rss_kb=493900
+HEADMAP_pr2204_c1_EXIT=130 ended=2026-10-24T09:43:00+05:30

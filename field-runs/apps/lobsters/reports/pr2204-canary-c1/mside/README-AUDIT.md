@@ -1,0 +1,12 @@
+# 2204-c1 M-side receipts - merger audit: ROW PROVENANCE VERIFIED (2026-10-24 09:47 IST)
+
+Raw M-side packet (coverage + inputs + map/driver/observer logs + worker's M-RECEIPTS.md). Every number below re-verified from the raws:
+
+- coverage-c091018a963bc80c9d388f788d94d79879624351d483c728f7481d0a86905b2c.json: 861 tests (jq-equivalent count by merger). Map line in pr2204-map-c1.log: "747 subjects, 861 tests in coverage map". Whole suite, no EX-1 (861 = 856 + 5; user_administration green on this HEAD per targeted-verdicts in pr2204-confirm-all-inclusive/).
+- POINTER BINDING: inputs JSON map_key == c091018a... == the pointer file's content published in the c1 packet. settings digest 240ea092... (tests=[] whole-suite settings, identical to the 2231 M run's settings digest), runtime 712bc81a... (same Ruby 4.0.0 + saboteur 0.12.3 identity as 2231), root 56814551... (correctly differs from 2231's root - different era tree), seed 1, format 2.
+- Owned boundary stop: observer log records attempt c1, PGID 24059, PID 24068, /proc starttime ticks 783519 (the STARTTIME identity fix, in production), pairobs.sh sha256 6690b470efd02abfcae456839c13ce28e9fd5a9bd5ffb9817e9a08cfed99d835; BOUNDARY_STOP_ARTIFACTS_FRESH_VERIFIED fired 09:43:00 with key c091018a; identity re-verified before AND after the 5s settle; SIGINT to PGID 24059 only. Freshness gate worked against a real decoy: a pre-existing 07:43 pointer was ignored (mtime >= T0 1792814201 required; pointer written 09:42).
+- Observer outside the measured group: observer setsid PGID 24099 vs measured PGID 24059 (worker's ownership chain: headmap2.sh 255d0ae9e5523370e8bc85d85b25af3a7ab3424bc04de8b02089ffa246f8888b -> runmeasured.py -> supervisor 24068); behaviorally corroborated - the observer survived signaling the group and logged the stop.
+- Driver envelope: MEASURED exit=130 wall=986.61s rss_kb=493900; HEADMAP_pr2204_c1_EXIT=130 at 09:43:00. The map log shows mutation had just begun (1/11702, eta 328m) when the boundary stop fired - the designed artifact-boundary truncation, not a crash; no shutdown-crash lines.
+- R-side coherence: R's scoped settings digest differs (inferred tests), so R's "cache miss: settings changed" note is the D36-designed behavior against THIS map.
+
+ROW STATUS: 2204 is NOT a qualified row yet - the 19 kill-cause verifications (fresh-seed gate, ongoing) and the 3-survivor noise triage remain open per the row contract. The completed-row count stays 1/45. This packet qualifies the M-side PROVENANCE only.
