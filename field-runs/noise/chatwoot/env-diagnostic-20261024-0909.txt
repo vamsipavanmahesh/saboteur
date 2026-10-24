@@ -1,0 +1,28 @@
+== memory ==
+cat: /sys/fs/cgroup/memory.current: No such file or directory
+cat: /sys/fs/cgroup/memory.max: No such file or directory
+grep: /sys/fs/cgroup/memory.events: No such file or directory
+== swap ==
+               total        used        free      shared  buff/cache   available
+Mem:            1982         107        1415          21         458        1697
+Swap:              0           0           0
+== top RSS ==
+    PID   RSS COMMAND
+  78619 24548 postgres
+    544 16500 envd
+  78723 13356 mount-s3
+  78623 11140 postgres
+    572  9576 networkd-dispat
+    684  8700 unattended-upgr
+  78788  7588 tools
+== duplicate bundle/gem procs ==
+== io test ==
+67108864 bytes (67 MB, 64 MiB) copied, 0.0935038 s, 718 MB/s
+write_wall_ms=100
+67108864 bytes (67 MB, 64 MiB) copied, 0.0108463 s, 6.2 GB/s
+read_wall_ms=14
+== default home fiddle ==
+466
+== saboteur deps ==
+  spec.add_dependency "prism", ">= 1.2", "< 2"
+end
