@@ -1,0 +1,684 @@
+diff --git a/app/assets/stylesheets/application.css b/app/assets/stylesheets/application.css
+index 8a7907a27b..581a3f389c 100644
+--- a/app/assets/stylesheets/application.css
++++ b/app/assets/stylesheets/application.css
+@@ -61,8 +61,11 @@ body, textarea, input, button {
+ 
+ body {
+ 	background-color: var(--color-bg);
+-	margin: 0 auto;
+-	padding-bottom: 2em;
++	max-width: 60rem;
++	margin: 1.25rem auto 2rem;
++	display: flex;
++	flex-direction: column;
++	gap: 1rem;
+ }
+ 
+ a {
+@@ -75,9 +78,7 @@ li.story div.details span.link a:visited {
+ }
+ 
+ h1 {
+-	font-weight: bold;
+ 	margin: 0.5em 0 1em 0;
+-	padding: 0;
+ }
+ 
+ .clear {
+@@ -320,6 +321,7 @@ input.btn-link:focus-visible {
+ 	margin: 0;
+ }
+ 
++.sr-only,
+ #aria-announce {
+ 	position: absolute;
+ 	width: 1px;
+@@ -332,24 +334,29 @@ input.btn-link:focus-visible {
+ 	border-width: 0;
+ }
+ 
+-/* header */
++/* Site Header */
+ 
+-header {
++#header {
+ 	font-weight: bold;
+-	line-height: 18px;
++	padding: 0 0.6rem;
++	display: flex;
++	flex-direction: column;
++	gap: 1rem;
+ }
+ 
+ #logo {
+-	background: transparent url(logo-transparent.svg) no-repeat center;
+-	flex: 0 0 16px; /* width; no padding l/r */
+-	float: left;
++	margin: 0;
++	flex-shrink: 0;
++	align-self: center;
++	position: relative; /* casimir */
++}
++
++#logo a {
+ 	display: block;
+-	width: 16px;
+-	height: 16px;
++	background: transparent url(logo-transparent.svg) no-repeat center;
++	width: 1rem;
++	height: 1rem;
+ 	padding: 1px;
+-	margin-left: 4px;
+-	margin-right: 11px;
+-	position: relative;
+ }
+ 
+ @media (prefers-contrast: more) {
+@@ -371,54 +378,49 @@ header {
+ 	}
+ }
+ 
+-header#nav .navholder {
+-	display: flex;
+-	flex-wrap: nowrap;
+-	overflow-x: auto;
+-	overflow-y: clip;
+-	position: relative; /* context for nav gradients */
+-	width: 100%;
+-}
+-header#nav {
+-	box-sizing: border-box;
+-	display: flex;
+-	padding: 0.5rem 0.5rem 0 0.5rem;
+-}
+-header#nav nav.links {
++#header ul {
++	margin: 0;
++	padding: 0;
++	list-style: none;
+ 	display: flex;
+-	width: 100%
++	gap: 0.5rem;
+ }
+-header#nav a, header#subnav a, header#subnav input[type="submit"] {
+-	color: var(--color-fg-contrast-6);
+-	font-weight: bold;
+-	margin: 0 0.25rem;
++
++#logout .btn-link,
++#header a {
+ 	text-decoration: none;
++	color: var(--color-fg-contrast-6);
+ }
+-header#subnav {
+-	box-sizing: border-box;
+-	min-height: 2em;
+-	line-height: 1em;
+-	padding: 0.5rem 0.25rem;
+-	text-align: right;
+-	width: 100%;
++
++#header a[aria-current=page] {
++	text-decoration: underline 0.25rem var(--color-fg-accent);
++	text-underline-offset: 0.4rem;
+ }
+-header#subnav a.current_page:last-child {
+-	margin-right: 0.375rem;
++
++#header .push-right {
++	margin-left: auto;
+ }
+-header a.current_page {
+-	border-bottom: 0.25em solid var(--color-fg-accent);
+-	padding: 0 0.25rem 0.25rem;
++
++#header-top {
++	display: flex;
++	gap: 0.25rem;
+ }
+-header#nav #logo, header#nav #logo ~ a {
+-	margin-left: 0;
++
++#header-top nav {
++	flex: 1;
++	margin-left: 0.2rem;
+ }
+-header#nav a:last-child {
+-	margin-right: 0;
++
++#header-top .inbox [aria-hidden] {
++	display: none;
+ }
+-header .inbox_unread {
++
++#header-top .inbox-unread {
+ 	color: var(--color-fg-accent);
+ }
+ 
++/* Main */
++
+ #inside {
+ 	margin: 0.5rem 0;
+ }
+@@ -558,7 +560,7 @@ ol.stories li.story div.story_liner {
+ }
+ 
+ ol.stories li:first-child div.story_liner {
+-	padding-top: 0.5em;
++	padding-top: 0;
+ }
+ li div.details {
+ 	padding-top: 0.1em;
+@@ -835,7 +837,7 @@ li .byline form {
+ 	border-top: 0;
+ 	border-left: 0;
+ 	border-right: 0;
+-	margin: 1em 0 1em 32px; /* matching div.detail */
++	margin: 0 0 1em 32px; /* matching div.detail */
+ }
+ 
+ :is(ol:not(.show_hidden) li.story.hidden:not(:only-child)) :is(
+@@ -1743,31 +1745,7 @@ input[type="submit"].link_post.pushover_button {
+ }
+ 
+ @media screen and (min-width: 481px) {
+-	body {
+-		max-width: 60rem;
+-		padding-bottom: 2em;
+-	}
+-
+-	header#nav {
+-		margin: 1em 0 0.5rem 0;
+-		padding: 5px 10px;
+-	}
+-	header#nav nav.links {
+-		flex-flow: row wrap;
+-		justify-content: start;
+-	}
+-	header#nav nav.links > .corner {
+-		display: inline;
+-		margin-left: auto;
+-	}
+-	header#nav nav.corner {
+-		display: none;
+-	}
+-	header#subnav a:last-child {
+-		margin-right: 0.5rem;
+-	}
+-
+-	div#inside {
++	#inside {
+ 		margin-left: calc(
+ 			10px +   /* header#nav padding-left */
+ 			18px +   /* #logo width + padding l/r */
+@@ -1812,65 +1790,96 @@ input[type="submit"].link_post.pushover_button {
+ 		-webkit-text-size-adjust: none;
+ 	}
+ 
+-	header#nav .corner .inbox {
+-		vertical-align: bottom;
++	body {
++		margin: 0;
+ 	}
+-	header#nav {
++
++	#header {
++		padding: 0;
+ 		background-color: var(--color-box-bg-shaded);
++		gap: 0;
++	}
++
++	#header-top {
+ 		border-bottom: 1px solid var(--color-box-border);
+-		flex-flow: row nowrap;
+-		height: 44px;
+-		min-width: 100%;
+-		padding-top: 0.75rem;
++		padding: 0 0.5rem;
+ 	}
+-	header#nav nav.links {
+-		flex-wrap: nowrap;
+-		overflow-x: auto;
+-		overflow-y: clip;
++
++	#header-top nav {
++		position: relative;
++		overflow: hidden;
+ 	}
+ 
+-	header#nav .navholder:before, header#nav .navholder:after {
+-		content: "";
+-		height: 100%;
+-		pointer-events: none;
+-		position: absolute;
+-		top: 0px;
+-		width: 2em;
+-		z-index: 1;
++	#header-top ul {
++		margin-right: 2.5rem;
++		overflow-x: auto;
++		padding: 0.65rem 0;
+ 	}
+-	header#nav .navholder:before {
+-		background: linear-gradient(to right, var(--color-box-bg-shaded), transparent);
+-		left: -1em;
++
++	#header-top a[aria-current=page] {
++		text-underline-offset: 0.8rem;
+ 	}
+-	header#nav .navholder:after {
+-		right: 0px;
+-		background: linear-gradient(to right, transparent, var(--color-box-bg-shaded));
++
++	#header .inbox {
++		position: absolute;
++		right: 0.25rem;
++		background: var(--color-box-bg-shaded);
++		z-index: 2;
+ 	}
+-	header#nav nav.links > .corner {
++
++	#header .inbox b:first-child {
+ 		display: none;
+ 	}
+-	header#nav nav.corner {
+-		display: block;
++
++	#header .inbox b[aria-hidden] {
++		display: inline-block;
++		vertical-align: sub;
++		font-size: 1.5rem;
+ 	}
+-	header#subnav {
+-		background-color: var(--color-box-bg-shaded);
++
++	/* Consider using	css masks when available */
++	/* https://developer.mozilla.org/en-US/docs/Web/CSS/Guides/Masking/Introduction */
++	#header-top .inbox::before,
++	#header-top ul::before {
++		position: absolute;
++		top: 1rem;
++		z-index: 1;
++		width: 2rem;
++		height: 1.1rem;
++		pointer-events: none;
++		content: "";
++		left: -0.5rem;
++		background: linear-gradient(
++			to left,
++			transparent,
++			var(--color-box-bg-shaded)
++		);
+ 	}
+-	header#subnav a:last-child {
+-		margin-right: 0.75rem;
++
++	#header-top .inbox::before {
++		top: 0.4rem;
++		left: -2rem;
++		background: linear-gradient(
++			to right,
++			transparent,
++			var(--color-box-bg-shaded)
++		);
+ 	}
+ 
+-	header#nav .user {
+-		display: inline;
+-		margin-top: 0.25em;
+-		clear: both;
++	#header-top li:first-child {
++		margin-left: 0.25rem;
+ 	}
+ 
+-	header#nav a {
+-		padding-right: 0.25em;
+-		padding-left: 0;
++	#header-top li:last-child {
++		margin-right: 0.5rem;
++	}
++
++	#subnav {
++		padding: 0.25rem 0.75rem;
+ 	}
+-	div#inside {
+-		margin: 0.5rem;
++
++	#inside {
++		margin: 0 0.5rem;
+ 	}
+ 
+ 	legend,
+@@ -1924,6 +1933,11 @@ input[type="submit"].link_post.pushover_button {
+ 		padding-bottom: 0.75em;
+ 		width: 100%;
+ 	}
++
++	ol.stories.list li.story:first-child div.story_liner {
++		padding-top: 0;
++	}
++
+ 	ol.stories.list li.story .mobile_comments {
+ 		display: table-cell !important;
+ 		min-width: 40px;
+@@ -2102,6 +2116,7 @@ input[type="submit"].link_post.pushover_button {
+ 		text-align: left;
+ 	}
+ }
++
+ @media print {
+ 	.comment_folder,
+ 	.comment_form {
+diff --git a/app/helpers/application_helper.rb b/app/helpers/application_helper.rb
+index 1a4e58645b..6c3d1beec0 100644
+--- a/app/helpers/application_helper.rb
++++ b/app/helpers/application_helper.rb
+@@ -105,7 +105,8 @@ def inline_avatar_for(viewer, user)
+   def link_to_different_page(text, path, options = {})
+     current = request.path.sub(/\/page\/\d+$/, "").sub(/\/\d+[dwmy]$/, "")
+     path = path.sub(/\/page\/\d+$/, "").sub(/\/\d+[dwmy]$/, "")
+-    options[:class] = class_names(options[:class], current_page: current == path)
++    options[:class] = class_names(options[:class])
++    if options[:class].empty? then options.delete(:class) end
+     if current == path
+       options[:aria] ||= {}
+       options[:aria][:current] = "page"
+diff --git a/app/helpers/traffic_helper.rb b/app/helpers/traffic_helper.rb
+index 9df6a219b1..db2364e92b 100644
+--- a/app/helpers/traffic_helper.rb
++++ b/app/helpers/traffic_helper.rb
+@@ -66,15 +66,17 @@ def self.novelty_logo
+     if time.month == 3 && time.day <= 7 && time.monday?
+       return h.content_tag(:a,
+         "",
++        aria: {label: "Casimir Pulaski Day"},
+         href: "https://en.wikipedia.org/wiki/Casimir_Pulaski_Day",
+-        class: "casimir",
+         style: "
++          position: absolute;
+           width: 17px;
+           height: 32px;
+           padding: 1px;
+           margin-left: -21px;
+           margin-bottom: -16px;
+-          top: 16px;
++          top: 1px;
++          left: 1.3rem;
+           background-image:
+             radial-gradient(circle at 18% 63%, var(--color-bg) 15%, transparent 12.8%),
+             radial-gradient(circle at 23% 70%, var(--color-fg) 15%, transparent 12.8%),
+diff --git a/app/views/about/_subnav.html.erb b/app/views/about/_subnav.html.erb
+index d03b55f897..731b8cda81 100644
+--- a/app/views/about/_subnav.html.erb
++++ b/app/views/about/_subnav.html.erb
+@@ -1,7 +1,7 @@
+ <%# locals: () -%>
+ <% content_for :subnav do %>
+-  <%= link_to_different_page 'About', about_path %>
+-  <%= link_to_different_page 'Chat', chat_path %>
+-  <%= link_to_different_page 'Stats', stats_path %>
+-  <%= link_to_different_page 'Hats', hats_path %>
++  <li class="push-right"><%= link_to_different_page "About", about_path %></li>
++  <li><%= link_to_different_page "Chat", chat_path %></li>
++  <li><%= link_to_different_page "Stats", stats_path %></li>
++  <li><%= link_to_different_page "Hats", hats_path %></li>
+ <% end %>
+diff --git a/app/views/layouts/application.html.erb b/app/views/layouts/application.html.erb
+index 44f5f71543..1b8a9620ba 100644
+--- a/app/views/layouts/application.html.erb
++++ b/app/views/layouts/application.html.erb
+@@ -68,59 +68,56 @@
+   <% end %>
+ </head>
+ <body data-username='<%= @user.try(:username) %>'>
+-  <header id="nav">
+-    <a id="logo" style="<%= @traffic_style %>" href="/" title="<%= Rails.application.name %> (Current traffic: <%= @traffic_intensity.to_i %>%)"></a>
+-    <%= @traffic_novelty %>
+-
+-    <div class="navholder">
+-      <nav class="links">
+-        <%= link_to_different_page 'Active', active_path %>
+-        <%= link_to_different_page 'Recent', recent_path %>
+-        <%= link_to_different_page 'Comments', comments_path %>
++  <header id="header">
++    <div id="header-top">
++      <h1 style="<%= @traffic_style %>" id="logo">
++        <a href="/" title="<%= Rails.application.name %> (Current traffic: <%= @traffic_intensity.to_i %>%)">
++          <b class="sr-only" aria-hidden="true"><%= Rails.application.name %></b>
++        </a>
++        <%= @traffic_novelty %>
++      </h1>
++
++      <nav aria-label="Menu">
++        <ul>
++          <li><%= link_to_different_page 'Active', active_path %></li>
++          <li><%= link_to_different_page 'Recent', recent_path %></li>
++          <li><%= link_to_different_page 'Comments', comments_path %></li>
++
++          <% if @user && @user.can_submit_stories? %>
++            <li><%= link_to_different_page 'Submit', new_story_path %></li>
++          <% end %>
+ 
+-        <% if @user && @user.can_submit_stories? %>
+-          <%= link_to_different_page 'Submit', new_story_path %>
+-        <% end %>
++          <li><%= link_to_different_page 'Search', search_path %></li>
+ 
+-        <%= link_to_different_page 'Search', search_path %>
+ 
++          <% if @user %>
++            <li class="push-right inbox">
++              <%= link_to inbox_path do %>
++                <b>Inbox</b> <b aria-hidden="true">✉</b> <% if @user.inbox_count > 0 %>&nbsp;<b class="inbox-unread"><%= @user.inbox_count %></b><% end %>
++              <% end %>
++            </li>
+ 
+-        <% if @user %>
+-          <% if @user.inbox_count > 0 %>
+-            <%= link_to raw("Inbox&nbsp;<span class='inbox_unread'>#{@user.inbox_count}</span>"), inbox_path, class: 'inbox corner' %>
++            <li><%= link_to_different_page 'Threads', threads_path %></li>
++            <li><%= link_to_different_page 'Saved', saved_path %></li>
++            <li><%= link_to_different_page raw("#{@user.username}&nbsp;<span class='karma' aria-label='(karma: #{@user.karma})'>(#{@user.karma})</span>"), settings_path %></li>
+           <% else %>
+-            <%= link_to "Inbox", inbox_path, class: 'inbox corner' %>
++            <li class="push-right"><%= link_to_different_page 'Login', login_path %></li>
+           <% end %>
+-
+-          <%= link_to_different_page 'Threads', threads_path %>
+-          <%= link_to_different_page 'Saved', saved_path %>
+-          <%= link_to_different_page raw("#{@user.username}&nbsp;<span class='karma'>(#{@user.karma})</span>"), settings_path %>
+-        <% else %>
+-          <%= link_to_different_page 'Login', login_path, class: 'corner' %>
+-        <% end %>
++        </ul>
+       </nav>
+     </div>
+ 
+-    <nav class="corner">
+-      <% if @user %>
+-        <% if @user.inbox_count > 0 %>
+-          <%= link_to raw("&#9993;&nbsp;<span class='inbox_unread'>#{@user.inbox_count}</span>"), inbox_path, class: 'inbox' %>
+-        <% else %>
+-          <%= link_to raw("&#9993;"), inbox_path, class: 'inbox' %>
+-        <% end %>
+-      <% else %>
+-        <%= link_to 'Login', login_path, class: 'corner' %>
+-      <% end %>
+-    </nav>
+-  </header>
++    <% if content_for? :subnav %>
++      <nav id="subnav" aria-label="Subnavigation">
++        <ul>
++          <%= yield :subnav %>
++        </ul>
++      </nav>
++    <% end %>
+ 
+-  <% if content_for? :subnav %>
+-    <header id="subnav">
+-      <%= yield :subnav %>
+-    </header>
+-  <% end %>
++  </header>
+ 
+-  <div id="inside">
++  <main id="inside">
+     <% if @title.present? && @title_h1 %>
+       <h1 class="<%= @title_class %>"><%= @title %></h1>
+     <% end %>
+@@ -132,7 +129,7 @@
+     <% end %>
+ 
+     <%= yield %>
+-  </div>
++  </main>
+ 
+   <footer>
+     <span id="office-hours-live">
+diff --git a/app/views/messages/_subnav.html.erb b/app/views/messages/_subnav.html.erb
+index a090dec73d..a5929728c5 100644
+--- a/app/views/messages/_subnav.html.erb
++++ b/app/views/messages/_subnav.html.erb
+@@ -1,8 +1,8 @@
+ <%# locals: () -%>
+ <% content_for :subnav do %>
+-  <%= link_to_different_page 'Inbox', inbox_all_path %>
+-  <%= link_to_different_page 'Unread', inbox_unread_path %>
+-  <%= link_to_different_page 'Messages', messages_path %>
+-  <%= link_to_different_page 'Sent', messages_sent_path %>
+-  <%= link_to_different_page 'ModMail', mod_mails_path %>
++  <li class="push-right"><%= link_to_different_page 'Inbox', inbox_all_path %></li>
++  <li><%= link_to_different_page 'Unread', inbox_unread_path %></li>
++  <li><%= link_to_different_page 'Messages', messages_path %></li>
++  <li><%= link_to_different_page 'Sent', messages_sent_path %></li>
++  <li><%= link_to_different_page 'ModMail', mod_mails_path %></li>
+ <% end %>
+diff --git a/app/views/mod/_subnav.html.erb b/app/views/mod/_subnav.html.erb
+index 995a0366ec..5433da27e8 100644
+--- a/app/views/mod/_subnav.html.erb
++++ b/app/views/mod/_subnav.html.erb
+@@ -1,8 +1,8 @@
+ <%# locals: (periods:) -%>
+ <% content_for :subnav do %>
+   <style> header#subnav a { margin: 0 0.25rem 0 0; } </style>
+-  <%= link_to_different_page 'Activity', mod_path %>
++  <li class="push-right"><%= link_to_different_page 'Activity', mod_path %></li>
+   F-Stories: <% periods.each do |p| %><%= link_to_different_page(p, mod_flagged_stories_path(period: p)) %> <% end %>
+   F-Comments: <% periods.each do |p| %><%= link_to_different_page(p, mod_flagged_comments_path(period: p)) %> <% end %>
+-Commenters: <% %w{1m 2m 3m 6m}.each do |p| %><%= link_to_different_page(p, mod_commenters_path(period: p)) %> <% end %>
++  Commenters: <% %w{1m 2m 3m 6m}.each do |p| %><%= link_to_different_page(p, mod_commenters_path(period: p)) %> <% end %>
+ <% end %>
+diff --git a/app/views/saved/_subnav.html.erb b/app/views/saved/_subnav.html.erb
+index 33c8b9efbe..c97c924642 100644
+--- a/app/views/saved/_subnav.html.erb
++++ b/app/views/saved/_subnav.html.erb
+@@ -1,7 +1,7 @@
+ <%# locals: () -%>
+ <% content_for :subnav do %>
+-  <%= link_to_different_page 'Saved', saved_path %>
+-  <%= link_to_different_page 'Upvoted Stories', upvoted_stories_path %>
+-  <%= link_to_different_page 'Upvoted Comments', upvoted_comments_path %>
+-  <%= link_to_different_page 'Hidden', hidden_path %>
++  <li class="push-right"><%= link_to_different_page "Saved", saved_path %></li>
++  <li><%= link_to_different_page "Upvoted Stories", upvoted_stories_path %></li>
++  <li><%= link_to_different_page "Upvoted Comments", upvoted_comments_path %></li>
++  <li><%= link_to_different_page "Hidden", hidden_path %></li>
+ <% end %>
+diff --git a/app/views/settings/index.html.erb b/app/views/settings/index.html.erb
+index 493ec35fe0..3dcfa61066 100644
+--- a/app/views/settings/index.html.erb
++++ b/app/views/settings/index.html.erb
+@@ -1,7 +1,10 @@
+ <% content_for :subnav do %>
+-  <%= link_to 'Public Profile', @user %>
+-  <a href="/filters">Filtered Tags</a> |
+-  <%= link_post 'Logout', logout_path, confirm: 'Are you sure you want to logout?' %>
++  <li class="push-right"><%= link_to "Public Profile", @user %></li>
++  <li><a href="/filters">Filtered Tags</a></li>
++  <li id="logout"><%= link_post "Logout",
++    logout_path,
++    confirm: "Are you sure you want to logout?",
++    class_name: "btn-link" %></li>
+ <% end %>
+ 
+ <section>
+diff --git a/app/views/settings/mastodon_authentication.html.erb b/app/views/settings/mastodon_authentication.html.erb
+index 9bc421a814..e355fe4b4a 100644
+--- a/app/views/settings/mastodon_authentication.html.erb
++++ b/app/views/settings/mastodon_authentication.html.erb
+@@ -1,5 +1,7 @@
+ <% content_for :subnav do %>
+-  <a href="/settings">Back to Settings</a>
++  <li class="push-right">
++    <a href="/settings">Back to Settings</a>
++  </li>
+ <% end %>
+ 
+ <%= form_with url: "/settings/mastodon_auth", method: :get do |f| %>
+diff --git a/app/views/settings/twofa.html.erb b/app/views/settings/twofa.html.erb
+index c0bf6faf40..849557fc53 100644
+--- a/app/views/settings/twofa.html.erb
++++ b/app/views/settings/twofa.html.erb
+@@ -1,5 +1,7 @@
+ <% content_for :subnav do %>
+-  <a href="/settings">Back to Settings</a>
++  <li class="push-right">
++    <a href="/settings">Back to Settings</a>
++  </li>
+ <% end %>
+ 
+ <%= form_with model: @user, url: twofa_auth_url, method: :post do |f| %>
+diff --git a/app/views/settings/twofa_enroll.html.erb b/app/views/settings/twofa_enroll.html.erb
+index 0f06fb96dc..35660cb7b8 100644
+--- a/app/views/settings/twofa_enroll.html.erb
++++ b/app/views/settings/twofa_enroll.html.erb
+@@ -1,5 +1,7 @@
+ <% content_for :subnav do %>
+-  <a href="/settings">Back to Settings</a>
++  <li class="push-right">
++    <a href="/settings">Back to Settings</a>
++  </li>
+ <% end %>
+ 
+ <p>
+diff --git a/app/views/settings/twofa_verify.html.erb b/app/views/settings/twofa_verify.html.erb
+index b0b124ccf8..11d11e06a6 100644
+--- a/app/views/settings/twofa_verify.html.erb
++++ b/app/views/settings/twofa_verify.html.erb
+@@ -1,5 +1,7 @@
+ <% content_for :subnav do %>
+-  <a href="/settings">Back to Settings</a>
++  <li class="push-right">
++    <a href="/settings">Back to Settings</a>
++  </li>
+ <% end %>
+ 
+ <%= form_with url: twofa_update_url do |f| %>
+diff --git a/app/views/stories/_subnav.html.erb b/app/views/stories/_subnav.html.erb
+index c99b15bfb6..49fcd49473 100644
+--- a/app/views/stories/_subnav.html.erb
++++ b/app/views/stories/_subnav.html.erb
+@@ -1,5 +1,5 @@
+ <%# locals: () -%>
+ <% content_for :subnav do %>
+-  <%= link_to_different_page 'Newest', newest_path %>
+-  <%= link_to_different_page 'Top', top_path %>
++  <li class="push-right"><%= link_to_different_page 'Newest', newest_path %></li>
++  <li><%= link_to_different_page 'Top', top_path %></li>
+ <% end %>
+diff --git a/app/views/users/show.html.erb b/app/views/users/show.html.erb
+index 9094b30ee6..7dcc995f97 100644
+--- a/app/views/users/show.html.erb
++++ b/app/views/users/show.html.erb
+@@ -2,7 +2,9 @@
+ 
+ <% content_for :subnav do %>
+   <% if @user && @showing_user.is_active? && @showing_user != @user %>
+-    <%= link_to "Send a Message", messages_path(to: @showing_user.username) %>
++    <li class="push-right">
++      <%= link_to "Send a Message", messages_path(to: @showing_user.username) %>
++    </li>
+   <% end %>
+ <% end %>
+ 

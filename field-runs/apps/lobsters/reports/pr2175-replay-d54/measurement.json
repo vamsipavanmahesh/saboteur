@@ -1,0 +1,17 @@
+{
+  "kind": "replay",
+  "status": null,
+  "command": "bundle exec saboteur run --since f8fb799815d8ba2245e554dd4e4240775c0d4129 --baseline-passes 1 --max-duration 10m --jobs 1 --verbose",
+  "started_at": "2026-10-24T11:33:31.667878+05:30",
+  "ended_at": "2026-10-24T11:33:44.515881+05:30",
+  "wall_seconds": 12.85,
+  "wall_seconds_monotonic_suspect": 12.85,
+  "exit_code": 3,
+  "peak_rss_kb": 378248,
+  "base_sha": null,
+  "head_sha": null,
+  "pr_url": null,
+  "saboteur_version": "0.12.3",
+  "saboteur_sha": "6f87ccc98377bf0c23f3cf409006f0464c2aa67c",
+  "evidence_paths": []
+}

@@ -1,0 +1,68 @@
+saboteur: warning: 185 uncommitted or untracked change(s) in the working tree: none inside the mutation scope, 184 outside it (2 tracked, 182 untracked), 1 saboteur setup file(s) (0 tracked, 1 untracked).
+  setup files: config/saboteur.rb
+  Mutants run your code and could alter or delete files; run on a clean, committed tree or a CI checkout.
+saboteur: inferred specs: selected by constant reference or require, not by name: app/models/flagged_commenters.rb (spec/requests/users_controller_spec.rb); a spec that reaches the file another way is not found
+saboteur: inferred specs: running only spec/requests/users_controller_spec.rb. A spec the diff did not change that reaches a changed file only through another file does not run, so a mutant only it would kill can survive, and a line no inferred spec executes is reported as NoCoverage
+saboteur: Operators: operator_assignment, condition_negation, range, body_nil, body_true, body_false, body_raise, comparison, arithmetic, boolean_logic, condition_true, condition_false, negation_removal, literal_number, or_assign, and_assign, safe_navigation, statement_removal, filter_replacement, copy_replacement, literal_string, literal_boolean, argument_swap, argument_removal, pair_removal, element_removal, endpoint_replacement, chain_removal, method_swap, operand_replacement, interpolation_removal, jump_value, rescue_removal, ensure_removal, when_removal, unary_removal, regex_replacement
+saboteur: loading the application
+saboteur: SimpleCov.start ignored for this run (saboteur needs Ruby's Coverage itself)
+W, [2026-10-24T11:38:52.495124 #32402]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+saboteur: checking the unchanged suite once (seed 1); order stability between passes is not checked (baseline_passes: 1)
+saboteur: baseline check 1 took 2 s; about 2 s left for the coverage map build at that rate
+saboteur: coverage cache miss: no earlier map to compare with; the map build runs the selected specs once
+saboteur: building coverage map (runs the selected specs once)
+saboteur: 1 subject, 12 tests in coverage map
+.:killed S:survived T:timeout E:error s:skipped L:resource limit
+saboteur: FlaggedCommenters#commenters  ....S..
+....S..  7/7 (100%)
+saboteur: confirmation: 1 unconfirmed
+
+Survivors (1) - changes your tests did not catch
+
+1. app/models/flagged_commenters.rb:72 FlaggedCommenters#commenters [effect · #1 of 1 block]
+  the covering specs pass without pinning this effect
+   55 def commenters
+   56     Rails.cache.fetch("flagged_commenters_#{interval}_#{cache_time}",
+   57       expires_in: cache_time) {
+      ...
+   71             count(distinct comments.id)
+-  72           ) as percent_flagged")
++  72           ) as percent_flagged")   chain_removal · de7560d08996f4ef
+                                      ^
+   73         .having("n_comments > 4 and n_stories > 1 and n_flags >= 10 and percent_flagged > 10")
+      ...
+   89     }
+   90   end
+  why it matters: part of the call chain has no observable effect
+  changed line: app/models/flagged_commenters.rb:72
+  covered by ./spec/requests/users_controller_spec.rb[1:1:4:1] - ran, still passed
+  → try the shorter chain's value against the longer one; if you confirm the shorter chain is equivalent across the intended inputs (for example a duplicated column), simplify the code or ignore the mutant
+
+Hints are suggestions, not diagnoses: a survivor can also be an equivalent
+mutant, or a change the selected tests cannot observe.
+
+warning: 2 other thread(s) alive at fork time; they do not run in children: DEBUGGER__::SESSION@server (the debug gem's remote-console server: what it does in children depends on RUBY_DEBUG_FORK_MODE - with parent no debugger runs in children; with child or both (the gem's default) the debugger activates in children and can pause or interfere with supervised mutation runs. For an unattended run, do not start the remote debugger at all: drop RUBY_DEBUG_OPEN or require "debug" without :open), /home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/rack-mini-profiler-4.0.0/lib/mini_profiler/storage/file_store.rb:85:in 'Kernel#sleep'; a thread that does not run in a child cannot do background work a mutant's test may rely on (a pool reaper, a flusher), so results can differ when one is left behind
+warning: sandbox is on but this kernel's Landlock ABI is 2 but ABI 3 (Linux 6.2+) is needed to restrict truncate(); children run with the hazard guard and canary only
+warning: survivor confirmation: the whole-suite coverage map covers none of the edited lines of 1 survivor, so they stay counted; run `saboteur run --all` to rebuild it
+saboteur 0.12.3: 1 subject, 7 mutants, wall 32.55 s, seed 1 (repeat with --seed 1)
+Score: 85.7% (6/7 killed, tested subjects) (assertion 0.0 %, crash 85.7 %) (killed+timeout)/(killed+survived+timeout); errors, resource limits and skips excluded
+score without whole-body mutants 80.0 % (assertion 0.0 %, crash 80.0 %) (5 mutants); whole-body mutants alone 100.0 % (2)
+mean time per executed mutant 1.673 s
+kills rejected by unchanged-method check: 0
+kills: 0 by a failed assertion, 6 by a crash (ActionView::Template::Error 6)
+crash kills by operator: body_nil 1 of 1, body_raise 1 of 1, statement_removal 1 of 1, argument_removal 1 of 1, chain_removal 1 of 1, interpolation_removal 1 of 1
+saboteur: 6 killed, 1 survived in 33s - score 85.7%
+✗ exit 1 - 1 survivor
+
+Next steps:
+  replay one survivor: saboteur run --id de7560d08996f4ef --since 8b1a34353f00a1fd54f4857cbedb9c2ce7ec837a --test spec/requests/users_controller_spec.rb --jobs 1 --baseline-passes 1 --max-duration 600.0 --seed 1
+  accept an equivalent one: add to your ignore file
+    (c.ignore_file, default config/saboteur_ignore.rb):
+    Saboteur.ignore do |i|
+      i.mutation "de7560d08996f4ef", subject: "FlaggedCommenters#commenters", reason: "why it is equivalent"
+    end
+  let an agent close the gaps: saboteur run --agent, with the same options
+speed footer: done in 32.5s - baseline 2.1s · map 9.2s · mutants 13.4s (jobs=1)
+
+Reports: .saboteur/report.json (JSON), .saboteur/report.html (HTML)
+MEASURED exit=1 wall=33.78s rss_kb=432052

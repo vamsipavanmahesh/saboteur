@@ -1,0 +1,26 @@
+saboteur: warning: 185 uncommitted or untracked change(s) in the working tree: none inside the mutation scope, 184 outside it (2 tracked, 182 untracked), 1 saboteur setup file(s) (0 tracked, 1 untracked).
+  setup files: config/saboteur.rb
+  Mutants run your code and could alter or delete files; run on a clean, committed tree or a CI checkout.
+saboteur: inferred specs: running only spec/models/comment_spec.rb. A spec the diff did not change that reaches a changed file only through another file does not run, so a mutant only it would kill can survive, and a line no inferred spec executes is reported as NoCoverage
+saboteur: Operators: operator_assignment, condition_negation, range, body_nil, body_true, body_false, body_raise, comparison, arithmetic, boolean_logic, condition_true, condition_false, negation_removal, literal_number, or_assign, and_assign, safe_navigation, statement_removal, filter_replacement, copy_replacement, literal_string, literal_boolean, argument_swap, argument_removal, pair_removal, element_removal, endpoint_replacement, chain_removal, method_swap, operand_replacement, interpolation_removal, jump_value, rescue_removal, ensure_removal, when_removal, unary_removal, regex_replacement
+saboteur: loading the application
+saboteur: SimpleCov.start ignored for this run (saboteur needs Ruby's Coverage itself)
+W, [2026-10-24T11:33:38.103507 #31677]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+saboteur: checking the unchanged suite once (seed 1); order stability between passes is not checked (baseline_passes: 1)
+saboteur: 1 subject, 24 tests in coverage map
+saboteur: Comment.for_presentation (app/models/comment.rb:66): skipped (no coverage); its change is not verified by this run - loaded specs: spec/models/comment_spec.rb; other spec files may cover it, pass --test to load them
+
+methods never run by tests: 1
+warning: 2 other thread(s) alive at fork time; they do not run in children: DEBUGGER__::SESSION@server (the debug gem's remote-console server: what it does in children depends on RUBY_DEBUG_FORK_MODE - with parent no debugger runs in children; with child or both (the gem's default) the debugger activates in children and can pause or interfere with supervised mutation runs. For an unattended run, do not start the remote debugger at all: drop RUBY_DEBUG_OPEN or require "debug" without :open), /home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/rack-mini-profiler-4.0.0/lib/mini_profiler/storage/file_store.rb:85:in 'Kernel#sleep'; a thread that does not run in a child cannot do background work a mutant's test may rely on (a pool reaper, a flusher), so results can differ when one is left behind
+warning: sandbox is on but this kernel's Landlock ABI is 2 but ABI 3 (Linux 6.2+) is needed to restrict truncate(); children run with the hazard guard and canary only
+saboteur 0.12.3: 1 subject, 0 mutants, wall 11.97 s, seed 1 (repeat with --seed 1)
+Score: n/a - nothing tested  1 subject not scored - no test executes it
+kills rejected by unchanged-method check: 0
+
+Not scored - no test executes these (treat these as your biggest gaps):
+  ! Comment.for_presentation (app/models/comment.rb:66)
+saboteur: 1 subject untested in 12s - score n/a
+✗ exit 3 - 1 change could not be verified (no coverage)
+
+Reports: .saboteur/report.json (JSON), .saboteur/report.html (HTML)
+MEASURED exit=3 wall=12.85s rss_kb=378248
