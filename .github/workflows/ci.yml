@@ -186,7 +186,7 @@ jobs:
         run: |
           # Fixture projects model a host repo, so like rubocop they are exempt
           # from the SPDX header rule that the real sources follow.
-          missing=$(grep -L "SPDX-License-Identifier: MIT" $(git ls-files -- '*.rb' '*.gemspec' 'exe/*' Gemfile Rakefile ':(exclude)spec/fixtures/projects/**' ':(exclude)acceptance/fixtures/**') || true)
+          missing=$(grep -L "SPDX-License-Identifier: MIT" $(git ls-files -- '*.rb' '*.gemspec' 'exe/*' Gemfile Rakefile ':(exclude)spec/fixtures/projects/**' ':(exclude)acceptance/fixtures/**' ':(exclude)field-runs/apps/**' ':(exclude)field-runs/bugs/**' ':(exclude)field-runs/noise/**' ':(exclude)field-runs/runs/**' ':(exclude)field-runs/tool-verification/**' ':(exclude)field-runs/hosted/*/config.saboteur.rb') || true)
           if [ -n "$missing" ]; then echo "Missing SPDX header:"; echo "$missing"; exit 1; fi
 
   integration-gems:
