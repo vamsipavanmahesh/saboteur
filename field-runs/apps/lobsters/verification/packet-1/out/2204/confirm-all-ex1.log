@@ -1,0 +1,14 @@
+saboteur: warning: 4 uncommitted or untracked change(s) in the working tree: none inside the mutation scope, 3 outside it (3 tracked, 0 untracked), 1 saboteur setup file(s) (0 tracked, 1 untracked).
+  setup files: config/saboteur.rb
+  Mutants run your code and could alter or delete files; run on a clean, committed tree or a CI checkout.
+saboteur: warning: Gemfile.lock found but Bundler is not loaded: gems resolve to whatever is installed, not the lockfile's versions - run `bundle exec saboteur run`
+saboteur: SimpleCov.start ignored for this run (saboteur needs Ruby's Coverage itself)
+W, [2026-10-24T07:45:53.893171 #12417]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+saboteur: running the loaded suite unscoped: 856 examples in 103 spec files; 2 full passes (1 baseline check + 1 coverage map build).
+saboteur 0.12.3 · --since 8f1b50061e5ef0b88ddbadc675395f7b5cf4eb76 · seed 1 · 37 operators (--list-operators)
+saboteur: baseline check 1: 30 s elapsed, 550/856 examples (64 %), about 17 s left
+saboteur: coverage cache miss: input files changed since the last map: 1 removed (spec/models/zz_independent_verification_is_gone_boundary_spec.rb); settings, Ruby or saboteur version changed; the map build runs the whole suite once; --test narrows the specs the build runs
+saboteur: building coverage map (runs the whole suite once)
+saboteur: building coverage map: 30 s elapsed, 50/856 examples (5 %), about 487 s left
+saboteur: building coverage map: 60 s elapsed, 150/856 examples (17 %), about 285 s left
+saboteur: building coverage map: 91 s elapsed, 225/856 examples (26 %), about 254 s left

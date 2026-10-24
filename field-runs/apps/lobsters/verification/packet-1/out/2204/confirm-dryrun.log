@@ -1,0 +1,6 @@
+saboteur: warning: 4 uncommitted or untracked change(s) in the working tree: none inside the mutation scope, 3 outside it (3 tracked, 0 untracked), 1 saboteur setup file(s) (0 tracked, 1 untracked).
+  setup files: config/saboteur.rb
+  Mutants run your code and could alter or delete files; run on a clean, committed tree or a CI checkout.
+app/models/story.rb:776 Story#is_gone?  22 mutants
+Total: 22 mutants; 0 dropped by max_mutants_per_method
+no estimate: run once to build the coverage map

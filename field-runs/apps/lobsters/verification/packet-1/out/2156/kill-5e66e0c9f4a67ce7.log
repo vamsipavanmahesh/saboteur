@@ -1,0 +1,51 @@
+saboteur: warning: 5 uncommitted or untracked change(s) in the working tree: none inside the mutation scope, 4 outside it (3 tracked, 1 untracked), 1 saboteur setup file(s) (0 tracked, 1 untracked).
+  setup files: config/saboteur.rb
+  Mutants run your code and could alter or delete files; run on a clean, committed tree or a CI checkout.
+saboteur: warning: Gemfile.lock found but Bundler is not loaded: gems resolve to whatever is installed, not the lockfile's versions - run `bundle exec saboteur run`
+saboteur: SimpleCov.start ignored for this run (saboteur needs Ruby's Coverage itself)
+W, [2026-10-24T07:40:12.159893 #10880]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+saboteur 0.12.3 · --since 9a773eac0b49fd86b16585ad503de9a51919c496 · seed 1 · 37 operators (--list-operators)
+✓ baseline green (1 pass, 1.9s)  ✓ coverage map: 1 test (cached)
+.:killed S:survived T:timeout E:error s:skipped L:resource limit
+.  1/1 (100%)
+
+warning: 3 other thread(s) alive at fork time; they do not run in children: DEBUGGER__::SESSION@server (the debug gem's remote-console server: what it does in children depends on RUBY_DEBUG_FORK_MODE - with parent no debugger runs in children; with child or both (the gem's default) the debugger activates in children and can pause or interfere with supervised mutation runs. For an unattended run, do not start the remote debugger at all: drop RUBY_DEBUG_OPEN or require "debug" without :open), /home/sandbox/verify/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/rack-mini-profiler-4.0.0/lib/mini_profiler/storage/file_store.rb:85:in 'Kernel#sleep', AR Pool Reaper (ActiveRecord's connection-pool reaper: expected harmless when children reconnect the database after fork (rails mode does) - it only maintains the parent's pool); a thread that does not run in a child cannot do background work a mutant's test may rely on (a pool reaper, a flusher), so results can differ when one is left behind
+warning: sandbox is on but this kernel's Landlock ABI is 2 but ABI 3 (Linux 6.2+) is needed to restrict truncate(); children run with the hazard guard and canary only
+saboteur 0.12.3 · --since 9a773eac0b49fd86b16585ad503de9a51919c496 · seed 1
+
+✓ 1/1 mutants killed · score 100.0% · 11.2s total
+
+Replay: SettingsController#update body_nil 5e66e0c9f4a67ce7 (killed)
+--- a/app/controllers/settings_controller.rb
++++ b/app/controllers/settings_controller.rb
+@@ -44,25 +44,3 @@
+   def update
+-    @edit_user = @user.clone
+-
+-    if params[:user][:password].empty? ||
+-        @user.authenticate(params[:current_password].to_s)
+-      @edit_user.roll_session_token if params[:user][:password]
+-      if @edit_user.update(user_params)
+-        if @edit_user.username_previously_changed?
+-          Username.rename!(
+-            user: @edit_user,
+-            from: @edit_user.username_previously_was,
+-            to: @edit_user.username,
+-            by: @user
+-          )
+-        end
+-        session[:u] = @user.session_token if params[:user][:password]
+-        flash.now[:success] = "Successfully updated settings."
+-        @user = @edit_user
+-      end
+-    else
+-      flash[:error] = "Your current password was not entered correctly."
+-    end
+-
+-    render action: "index"
++    nil
+   end
+Selected tests:
+  ./spec/controllers/settings_controller_spec.rb[1:1:1]
+
+Reports: .saboteur/report.json (JSON), .saboteur/report.html (HTML)

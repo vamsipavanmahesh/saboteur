@@ -1,0 +1,47 @@
+saboteur: warning: 4 uncommitted or untracked change(s) in the working tree: none inside the mutation scope, 3 outside it (3 tracked, 0 untracked), 1 saboteur setup file(s) (0 tracked, 1 untracked).
+  setup files: config/saboteur.rb
+  Mutants run your code and could alter or delete files; run on a clean, committed tree or a CI checkout.
+saboteur: warning: Gemfile.lock found but Bundler is not loaded: gems resolve to whatever is installed, not the lockfile's versions - run `bundle exec saboteur run`
+saboteur: SimpleCov.start ignored for this run (saboteur needs Ruby's Coverage itself)
+W, [2026-10-24T07:41:09.564543 #11328]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+saboteur 0.12.3 · --since 372345a2cca5ed8e5d3376dcdc7e0a33e7f4f17c · seed 1 · 37 operators (--list-operators)
+saboteur: coverage cache miss: no earlier map to compare with; the map build runs the selected specs once
+saboteur: building coverage map (runs the selected specs once)
+✓ baseline green (1 pass, 2.5s)  ✓ coverage map: 7 tests
+.:killed S:survived T:timeout E:error s:skipped L:resource limit
+.  1/1 (100%)
+
+warning: 3 other thread(s) alive at fork time; they do not run in children: DEBUGGER__::SESSION@server (the debug gem's remote-console server: what it does in children depends on RUBY_DEBUG_FORK_MODE - with parent no debugger runs in children; with child or both (the gem's default) the debugger activates in children and can pause or interfere with supervised mutation runs. For an unattended run, do not start the remote debugger at all: drop RUBY_DEBUG_OPEN or require "debug" without :open), /home/sandbox/verify/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/rack-mini-profiler-4.0.0/lib/mini_profiler/storage/file_store.rb:85:in 'Kernel#sleep', AR Pool Reaper (ActiveRecord's connection-pool reaper: expected harmless when children reconnect the database after fork (rails mode does) - it only maintains the parent's pool); a thread that does not run in a child cannot do background work a mutant's test may rely on (a pool reaper, a flusher), so results can differ when one is left behind
+warning: sandbox is on but this kernel's Landlock ABI is 2 but ABI 3 (Linux 6.2+) is needed to restrict truncate(); children run with the hazard guard and canary only
+saboteur 0.12.3 · --since 372345a2cca5ed8e5d3376dcdc7e0a33e7f4f17c · seed 1
+
+✓ 1/1 mutants killed · score 100.0% · 21.5s total
+speed footer: done in 21.5s - baseline 2.5s · map 10.1s · mutants 2.4s (jobs=1)
+
+Replay: Comment#parents body_raise a40b6c227630d3c3 (killed)
+--- a/app/models/comment.rb
++++ b/app/models/comment.rb
+@@ -465,12 +465,3 @@
+   def parents
+-    return Comment.none if parent_comment_id.nil?
+-
+-    # starts from parent_comment_id so it works on new records
+-    Comment.with_recursive(parents: [
+-      Comment.where(id: parent_comment_id),
+-      Comment.joins("JOIN parents on comments.id = parents.parent_comment_id")
+-    ])
+-      # select directly from RCTE; AR would generate a JOIN against 'comments'
+-      .select("*").from("parents")
+-      .order(depth: :asc)
++    raise
+   end
+Selected tests:
+  ./spec/mailers/email_reply_mailer_spec.rb[1:1]
+  ./spec/mailers/email_reply_mailer_spec.rb[1:5]
+  ./spec/mailers/email_reply_mailer_spec.rb[1:4]
+  ./spec/mailers/email_reply_mailer_spec.rb[1:3]
+  ./spec/mailers/email_reply_mailer_spec.rb[1:7]
+  ./spec/mailers/email_reply_mailer_spec.rb[1:6]
+  ./spec/mailers/email_reply_mailer_spec.rb[1:2]
+
+Reports: .saboteur/report.json (JSON), .saboteur/report.html (HTML)

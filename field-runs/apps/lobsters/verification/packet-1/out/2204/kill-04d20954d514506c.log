@@ -1,0 +1,51 @@
+saboteur: warning: 5 uncommitted or untracked change(s) in the working tree: none inside the mutation scope, 4 outside it (3 tracked, 1 untracked), 1 saboteur setup file(s) (0 tracked, 1 untracked).
+  setup files: config/saboteur.rb
+  Mutants run your code and could alter or delete files; run on a clean, committed tree or a CI checkout.
+saboteur: warning: Gemfile.lock found but Bundler is not loaded: gems resolve to whatever is installed, not the lockfile's versions - run `bundle exec saboteur run`
+saboteur: SimpleCov.start ignored for this run (saboteur needs Ruby's Coverage itself)
+W, [2026-10-24T07:39:49.399370 #10661]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+saboteur 0.12.3 · --since 8f1b50061e5ef0b88ddbadc675395f7b5cf4eb76 · seed 1 · 37 operators (--list-operators)
+saboteur: coverage cache miss: settings, Ruby or saboteur version changed; the map build runs the selected specs once
+saboteur: building coverage map (runs the selected specs once)
+saboteur: building coverage map: 30 s elapsed, 75/81 examples (92 %), about 3 s left
+✓ baseline green (1 pass, 5.8s)  ✓ coverage map: 81 tests
+.:killed S:survived T:timeout E:error s:skipped L:resource limit
+.  1/1 (100%)
+
+warning: 3 other thread(s) alive at fork time; they do not run in children: DEBUGGER__::SESSION@server (the debug gem's remote-console server: what it does in children depends on RUBY_DEBUG_FORK_MODE - with parent no debugger runs in children; with child or both (the gem's default) the debugger activates in children and can pause or interfere with supervised mutation runs. For an unattended run, do not start the remote debugger at all: drop RUBY_DEBUG_OPEN or require "debug" without :open), /home/sandbox/verify/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/rack-mini-profiler-4.0.0/lib/mini_profiler/storage/file_store.rb:85:in 'Kernel#sleep', AR Pool Reaper (ActiveRecord's connection-pool reaper: expected harmless when children reconnect the database after fork (rails mode does) - it only maintains the parent's pool); a thread that does not run in a child cannot do background work a mutant's test may rely on (a pool reaper, a flusher), so results can differ when one is left behind
+warning: sandbox is on but this kernel's Landlock ABI is 2 but ABI 3 (Linux 6.2+) is needed to restrict truncate(); children run with the hazard guard and canary only
+saboteur 0.12.3 · --since 8f1b50061e5ef0b88ddbadc675395f7b5cf4eb76 · seed 1
+
+✓ 1/1 mutants killed · score 100.0% · 45.8s total
+speed footer: done in 45.8s - baseline 5.8s · map 31.5s · mutants 1.2s (jobs=1)
+
+Replay: Story#is_gone? body_false 04d20954d514506c (killed)
+--- a/app/models/story.rb
++++ b/app/models/story.rb
+@@ -776,3 +776,3 @@
+   def is_gone?
+-    is_deleted? || (user.is_banned? && score < 0 && is_moderated == false)
++    false
+   end
+Selected tests:
+  ./spec/models/story_spec.rb[1:27:2:4]
+  ./spec/models/story_spec.rb[1:27:2:2]
+  ./spec/models/story_spec.rb[1:27:1:1]
+  ./spec/models/story_spec.rb[1:27:2:1]
+  ./spec/models/story_spec.rb[1:27:2:3]
+  ./spec/models/story_spec.rb[1:24:2]
+  ./spec/models/story_spec.rb[1:23:1:1]
+  ./spec/models/story_spec.rb[1:23:2:1]
+  ./spec/models/story_spec.rb[1:28:4:2]
+  ./spec/models/story_spec.rb[1:28:4:1]
+  ./spec/models/story_spec.rb[1:25:1:1]
+  ./spec/models/story_spec.rb[1:28:5:2]
+  ./spec/models/story_spec.rb[1:28:5:1]
+  ./spec/models/story_spec.rb[1:28:2:1:2]
+  ./spec/models/story_spec.rb[1:28:2:1:3]
+  ./spec/models/story_spec.rb[1:28:2:1:1]
+  ./spec/models/story_spec.rb[1:28:2:2:1]
+  ./spec/models/story_spec.rb[1:28:2:2:2]
+  ./spec/models/story_spec.rb[1:28:2:2:3]
+
+Reports: .saboteur/report.json (JSON), .saboteur/report.html (HTML)

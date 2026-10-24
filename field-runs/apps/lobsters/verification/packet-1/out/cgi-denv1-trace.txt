@@ -1,0 +1,22 @@
+=== D-ENV-1 CGI shim fix trace (2026-10-24 07:45 IST, independent verifier box) ===
+
+--- BEFORE (07:45:06): RUBYLIB stdlib shim shadows cgi gem ---
+$ ruby -e 'require "cgi"; p CGI.respond_to?(:parse); p $LOADED_FEATURES.grep(/cgi\.rb/).first'
+false
+"/home/sandbox/verify/ruby-4.0.0/lib/ruby/4.0.0/cgi.rb"  # Ruby 4.0 stdlib removal-shim (requires only cgi/escape)
+
+--- FIX: renamed aside in writable ruby tree ---
+lib/ruby/4.0.0/cgi.rb -> cgi.rb.d-env-1-shimmed; lib/ruby/4.0.0/cgi/ -> cgi.d-env-1-shimmed/
+
+--- AFTER (07:45:09) ---
+true
+{"a" => ["1"]}
+"0.5.1"
+"/home/sandbox/verify/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/cgi-0.5.1/lib/cgi.rb"
+--- AFTER under bundler (tree-2156) ---
+true
+{"a" => ["1"]}
+"0.5.1"
+"/home/sandbox/verify/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/cgi-0.5.1/lib/cgi.rb"
+--- KNOWN SIDE EFFECT: bare require without the gem now raises LoadError instead of warning (acceptable: app Gemfile always provides cgi 0.5.1) ---
+LoadError: cannot load such file -- cgi
