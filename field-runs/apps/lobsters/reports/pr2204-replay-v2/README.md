@@ -86,3 +86,12 @@ ROW RESULTS:
 - 95% interval: NOT computed - per-app interval requires the full lobsters noise block (15 rows); one row supports no interval and no overall claim.
 
 DEVIATION (disclosed, impact unassessed, not hidden): the producer-side 2204 v2 lock carried unrelated upgrades brakeman 8.0.5 -> 8.0.6 and matrix 0.4.2 -> 0.4.3. The row's metric-bearing content (survivor classification, noise, top-finding verdict) rests on the verifier's bump-free additions-only locks plus the bridge mechanism; the producer kill counts carry the environment deviation. Strict-era rerun NOT required (D44); the row reopens if a future anomaly implicates the bumped gems.
+
+## DEVIATION IMPACT ASSESSMENT 10:10 IST (D45) - source-grounded, impact NIL; row moves to STRICT-QUALIFIED
+
+Main corrected the earlier unproven "no contract number can change" claim; this assessment supplies the missing source evidence. Both bumped gems checked against their actual upstream diffs and the era tree's usage:
+
+1. matrix 0.4.2 -> 0.4.3 (ruby/matrix compare v0.4.2...v0.4.3, read in full): lib changes are THREE COMMENT LINES (Complex-matrix documentation on ** and eigensystem) plus the VERSION string. Zero executable-code change. Dependents in the era lock (c63fe92b...): capybara 3.40.0 ONLY (uses Vector[] constructors in selector_query.rb:677-680 - untouched by comment/version edits). No other gem in the era lock depends on matrix.
+2. brakeman 8.0.5 -> 8.0.6 (presidentbeef/brakeman compare v8.0.5...v8.0.6, read in full): changes confined to scanner internals (EOL date tables for Rails/Ruby, check_execute rule, ensure_latest helper, version). lobsters never requires brakeman from app/ or spec/ code (GitHub code search at the era tree: brakeman appears only in Gemfile, Makefile, lib/tasks/build.rake, CI workflow, config/brakeman.ignore). It boots via Bundler.require (group :test, :development, no require:false) - load-only, and its changed code paths execute only when scanning, which the suite never does.
+
+Conclusion: neither bump can alter any test outcome - matrix has no behavior delta at all; brakeman's delta sits in code paths the suite never executes. The lock-preservation process violation (era bytes not preserved) remains disclosed as a process finding with the future conservative-versions gate; it is not a row defect. PR 2204 is STRICT-QUALIFIED: 22 mutants (18 assertion + 1 crash + 3 survivors), noise 0/3 = 0% descriptive, top finding 56ec2857eb8103bd REAL GAP, one finding group at story.rb:777.

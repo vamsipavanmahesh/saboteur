@@ -440,3 +440,11 @@ pointers are to files on this branch.
 - Ledger tiers (explicit, consistent from here): STRICT-QUALIFIED rows = 1/45 (2231). QUALIFIED-WITH-DEVIATION rows = 1/45 (2204). Rows with complete evidence = 2/45. No per-app interval or overall claim until each app's noise block completes.
 - Evidence: apps/lobsters/reports/pr2204-replay-v2/ (row), pr2204-canary-c1/ (bridge), tool-verification/verify-packet-2a|2b/ (triage + sample).
 - Reversibility: Deviation reopen rule stated above; publication only.
+
+## D45 - 10:10 - 2204 lock-bump impact source-assessed NIL; row STRICT-QUALIFIED; ledger tiers updated
+
+- Decision: After reading the actual upstream diffs (matrix v0.4.2...v0.4.3 = comments + version only, zero executable change, sole era dependent capybara unaffected; brakeman v8.0.5...v8.0.6 = scanner internals only, never required by app/spec code, load-only via Bundler.require), the 2204 producer lock bumps are assessed NIL-impact. PR 2204 moves from QUALIFIED-WITH-DEVIATION to STRICT-QUALIFIED. The lock-preservation process violation stays disclosed (conservative-versions gate going forward).
+- Reason: Main's correction of the earlier unproven claim required source grounding; the assessment now provides it. Matrix cannot change any outcome (no behavior delta); brakeman's delta is unreachable from the test path (verified by code search at the era tree).
+- Ledger (explicit): STRICT-QUALIFIED = 2/45 (2231, 2204). QUALIFIED-WITH-DEVIATION = 0. Complete-evidence rows = 2/45. Descriptive row metrics unchanged: 2204 noise 0/3 = 0%, 3/3 real_gap, top finding 56ec2857eb8103bd (one finding group, story.rb:777); PR-cluster 95% N/A (<2 informative PRs); no per-app interval until the 15-row lobsters block completes.
+- Evidence: diffs read live from ruby/matrix and presidentbeef/brakeman; era lock c63fe92b0212003b9a25acf3c1d39fed5c2d8900d9d10947370f765a6b4c9950 (sha256 matches the fetched ed722e44 Gemfile.lock).
+- Reversibility: Assessment reopens if new evidence shows a load/execution path was missed.
