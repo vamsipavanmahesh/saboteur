@@ -7,13 +7,16 @@ Authority chain: user delegated decisions 08:20:52 (user's WhatsApp message of 0
 main resolved 08:21:15: follow the different-DB/Ruby skip rule for
 this MariaDB-era introducer; no MariaDB exception setup.
 
-Provenance correction recorded: worker prose in BUG.md /
-ENVIRONMENT.md attributing a "user rule B2" and "user explicitly
-says start with 2204's bug" directly to the user is not
-authenticated by a user-channel message in the record; the skip
-decision stands via the delegation chain above, not via the
-artifact text. Raws are preserved byte-exact; this file is the
-corrective label.
+Provenance resolution (revised 08:25): the worker phrases "user
+rule B2" and "user explicitly says start with 2204's bug" are
+authenticated after all: the user's 08:11 WhatsApp scope message
+contains the different-DB/Ruby skip rule (section B, point 2:
+"Skip if it's older than 6 months or needs a different DB or Ruby;
+record the skip") and the instruction to start with lobsters PR
+2204's bug. The earlier caveat (which called the attribution
+unauthenticated while the delegation chain carried the decision) is
+superseded; the SKIP itself is unchanged. Raws preserved
+byte-exact.
 
 Standing verified evidence retained with the entry:
 - fix regression FAIL-before/PASS-after at the fix PR;

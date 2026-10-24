@@ -1,0 +1,8 @@
+MERGER VERIFICATION of chatwoot noise-15 selection, 2026-10-24 08:25 IST, live GitHub API
+check1 develop HEAD live: 98a9ed710ad7334b07e96ca6c1da0b7e8ebc686a | packet: 98a9ed710ad7334b07e96ca6c1da0b7e8ebc686a), eligible iff diff touches >=1 app/** or lib/** Ruby file; take latest 15; skips recorded | MATCH
+check2 live merged base:develop fetched: 300
+check3 window size (>= oldest selected merged_at): 33
+check4 in-window PRs absent from ledger: []
+check5 VIOLATIONS: []
+check6 selected file-list mismatches (pr, packet, live): NONE - all 15 match
+check7 skipped-with-ruby-file mismatches: NONE - all 25 skips verified

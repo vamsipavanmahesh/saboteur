@@ -1,0 +1,318 @@
+{
+ "app": "chatwoot",
+ "stage": "noise15",
+ "rule": "squash-merge commits on origin/develop matching /\\(#\\d+\\)$/ in subject, descending commit order at frozen fetch (develop HEAD 98a9ed710ad7334b07e96ca6c1da0b7e8ebc686a), eligible iff diff touches >=1 app/** or lib/** Ruby file; take latest 15; skips recorded",
+ "collection_cutoff": "2026-10-24T08:23:20+05:30",
+ "tie_break": "commit order (git log default = reverse chronological)",
+ "candidates_examined": 76,
+ "eligible_count": 35,
+ "selected": [
+  {
+   "pr": 16092,
+   "head_sha": "98a9ed710ad7334b07e96ca6c1da0b7e8ebc686a",
+   "base_sha": "26ca43ba6f39a73568c2dca358535d219cc9e5b5",
+   "subject": "fix: prevent multiple bot providers on an inbox (#16092)",
+   "ruby_applib_files": [
+    "app/models/agent_bot_inbox.rb",
+    "app/models/concerns/inbox_bot_status.rb",
+    "app/models/integrations/hook.rb"
+   ]
+  },
+  {
+   "pr": 15761,
+   "head_sha": "7fe41fe03731fc2f5b1841b84351386962d2fd05",
+   "base_sha": "5e507d49069d0eb6079ad4e2313b3579d8b34ee3",
+   "subject": "fix: prevent duplicate Help Center article creation (#15761)",
+   "ruby_applib_files": [
+    "app/models/article.rb"
+   ]
+  },
+  {
+   "pr": 16094,
+   "head_sha": "463bf9ddb8175aab8e3dc36d124e62b5c89a928a",
+   "base_sha": "e7e6ce2cf2609c35a8cee66819dfe489e9e82fda",
+   "subject": "chore: Share Jev quotas across AI classification calls (#16094)",
+   "ruby_applib_files": [
+    "app/controllers/api/v1/accounts/conversations/suggestions_controller.rb",
+    "app/services/captain/automation_condition_service.rb",
+    "app/services/captain/jev_client.rb"
+   ]
+  },
+  {
+   "pr": 16358,
+   "head_sha": "42ef6125f51fe78f0320461ac969d0b01db37167",
+   "base_sha": "cf60e459c911aac4342cbcd95dd36b4dca45db62",
+   "subject": "fix(voice): generate announcements through chat audio (#16358)",
+   "ruby_applib_files": [
+    "lib/custom_exceptions/invalid_announcement_audio.rb"
+   ]
+  },
+  {
+   "pr": 16208,
+   "head_sha": "cf60e459c911aac4342cbcd95dd36b4dca45db62",
+   "base_sha": "427e97d04221f1ec0cc9b2e4f8c148afd4bae491",
+   "subject": "feat(copilot): propose changes behind an approval card (#16208)",
+   "ruby_applib_files": [
+    "lib/events/types.rb"
+   ]
+  },
+  {
+   "pr": 16093,
+   "head_sha": "427e97d04221f1ec0cc9b2e4f8c148afd4bae491",
+   "base_sha": "12955f13ab52b11ef4a398a02b37672e537b5cc3",
+   "subject": "feat(copilot): add durable read-only workflow building blocks (#16093)",
+   "ruby_applib_files": [
+    "lib/integrations/llm_instrumentation_helpers.rb"
+   ]
+  },
+  {
+   "pr": 16266,
+   "head_sha": "12955f13ab52b11ef4a398a02b37672e537b5cc3",
+   "base_sha": "50ff77d41fddcff0ed29c10c9019b7c929c95eb3",
+   "subject": "feat(captain): move GPT-4 series and legacy transcription to GPT-6 Luna and gpt-transcribe (#16266)",
+   "ruby_applib_files": [
+    "app/jobs/migration/replace_retired_captain_models_job.rb",
+    "app/models/concerns/captain_featurable.rb",
+    "lib/captain/base_task_service.rb",
+    "lib/captain/follow_up_service.rb",
+    "lib/integrations/llm_base_service.rb",
+    "lib/integrations/llm_instrumentation_completion_helpers.rb",
+    "lib/llm/config.rb",
+    "lib/llm/feature_router.rb",
+    "lib/llm/models.rb",
+    "lib/llm_constants.rb"
+   ]
+  },
+  {
+   "pr": 16329,
+   "head_sha": "50ff77d41fddcff0ed29c10c9019b7c929c95eb3",
+   "base_sha": "abf371d2c080d89f0f09a9751677543c1ad22f1e",
+   "subject": "feat(voice): apply business hours to incoming calls (#16329)",
+   "ruby_applib_files": [
+    "app/controllers/api/v1/accounts/inboxes_controller.rb"
+   ]
+  },
+  {
+   "pr": 16281,
+   "head_sha": "9499b695380e21ca7a2f9941c5c08b3d85a553f9",
+   "base_sha": "39314c979aa4192bc1c6bced9cbbebcabde2fbb1",
+   "subject": "fix(whatsapp): recover stalled campaigns without repeating sends (#16281)",
+   "ruby_applib_files": [
+    "app/jobs/campaigns/send_whatsapp_batch_job.rb",
+    "lib/redis/redis_keys.rb"
+   ]
+  },
+  {
+   "pr": 16328,
+   "head_sha": "39314c979aa4192bc1c6bced9cbbebcabde2fbb1",
+   "base_sha": "8006117055a0d4f9e6d6340a13f7ef5c33dfeec8",
+   "subject": "fix(voice): accept incoming twilio calls with withheld caller IDs (#16328)",
+   "ruby_applib_files": [
+    "app/models/contact_inbox.rb"
+   ]
+  },
+  {
+   "pr": 15594,
+   "head_sha": "f0039f26682ee4d79f5bd0bb3bef89c94e55904f",
+   "base_sha": "4fb7c05f95e04e70b65141ff19bbdb9328095da8",
+   "subject": "feat: preserve help center context across locale switches (#15594)",
+   "ruby_applib_files": [
+    "app/controllers/public/api/v1/portals/articles_controller.rb",
+    "app/controllers/public/api/v1/portals/categories_controller.rb",
+    "app/models/article.rb",
+    "app/models/category.rb"
+   ]
+  },
+  {
+   "pr": 16185,
+   "head_sha": "4fb7c05f95e04e70b65141ff19bbdb9328095da8",
+   "base_sha": "dac03318c737bf76846298534ca3368e8afd9b97",
+   "subject": "fix: fall back to SQL search on OpenSearch errors (#16185)",
+   "ruby_applib_files": [
+    "app/services/search_service.rb"
+   ]
+  },
+  {
+   "pr": 16182,
+   "head_sha": "5c2b3f78bd3f845d2bc95c745a7698c4a5946599",
+   "base_sha": "7a86dea8d0befa545c0ba2501b9f8c1f7e3089bd",
+   "subject": "feat: configurable auto-resolve minimum and schedule (#16182)",
+   "ruby_applib_files": [
+    "app/jobs/trigger_scheduled_items_job.rb",
+    "app/models/account.rb",
+    "app/models/concerns/account_settings_schema.rb",
+    "lib/limits.rb"
+   ]
+  },
+  {
+   "pr": 16319,
+   "head_sha": "7a86dea8d0befa545c0ba2501b9f8c1f7e3089bd",
+   "base_sha": "2ffa9bb0883fbe7005ad0fe563bdaa01a500f757",
+   "subject": "chore: add index on articles category_id (#16319)",
+   "ruby_applib_files": [
+    "app/models/article.rb"
+   ]
+  },
+  {
+   "pr": 16317,
+   "head_sha": "2ffa9bb0883fbe7005ad0fe563bdaa01a500f757",
+   "base_sha": "ab70480485a6a9688fa5767b0ca6b6ca637d2473",
+   "subject": "perf: skip loading contact inboxes when dispatching contact merged event (#16317)",
+   "ruby_applib_files": [
+    "app/actions/contact_merge_action.rb"
+   ]
+  }
+ ],
+ "skipped": [
+  {
+   "pr": 16385,
+   "sha": "26ca43ba6f39a73568c2dca358535d219cc9e5b5",
+   "subject": "fix(deps): bump crass to 1.0.8 (#16385)",
+   "reason": "no app//lib Ruby file in diff"
+  },
+  {
+   "pr": 16374,
+   "sha": "6a3d1ddef92e700169c0b6d71ab8cf47b9781f50",
+   "subject": "fix: hide feature announcements for accounts in their first 3 days (#16374)",
+   "reason": "no app//lib Ruby file in diff"
+  },
+  {
+   "pr": 16105,
+   "sha": "5e507d49069d0eb6079ad4e2313b3579d8b34ee3",
+   "subject": "test: cover bulk assignment account validation (#16105)",
+   "reason": "no app//lib Ruby file in diff"
+  },
+  {
+   "pr": 16247,
+   "sha": "bc51a6dd4565112ee6c996f47ae58dc3c855d09e",
+   "subject": "fix(voice): verify twilio webhook signatures (#16247)",
+   "reason": "no app//lib Ruby file in diff"
+  },
+  {
+   "pr": 16367,
+   "sha": "e7e6ce2cf2609c35a8cee66819dfe489e9e82fda",
+   "subject": "docs: check OpenAI deprecations before choosing a model (#16367)",
+   "reason": "no app//lib Ruby file in diff"
+  },
+  {
+   "pr": 16350,
+   "sha": "abf371d2c080d89f0f09a9751677543c1ad22f1e",
+   "subject": "chore: Stop setting session cookie on public pages (Fixes #2683) (#16350)",
+   "reason": "no app//lib Ruby file in diff"
+  },
+  {
+   "pr": 16347,
+   "sha": "a8487abf5c5b54960f2375e8c613fe72711077fa",
+   "subject": "chore: include auto translate in cloud plan features (#16347)",
+   "reason": "no app//lib Ruby file in diff"
+  },
+  {
+   "pr": 16240,
+   "sha": "642205c5c84f76cf6d24ecdd9d627eecdc766092",
+   "subject": "feat: support an IdP metadata URL for SAML (#16240)",
+   "reason": "no app//lib Ruby file in diff"
+  },
+  {
+   "pr": 16318,
+   "sha": "fb2a9f4b97b17db2966543ede40bf2eb16030b8c",
+   "subject": "docs: use portal slug in help center API paths (#16318)",
+   "reason": "no app//lib Ruby file in diff"
+  },
+  {
+   "pr": 16200,
+   "sha": "8006117055a0d4f9e6d6340a13f7ef5c33dfeec8",
+   "subject": "fix: clarify self-hosted assignment policy enablement (#16200)",
+   "reason": "no app//lib Ruby file in diff"
+  },
+  {
+   "pr": 16334,
+   "sha": "fb8d3de93b75f08ce3269de96a5ffda38b69a23f",
+   "subject": "feat(integrations): include stripe in cloud plan features (#16334)",
+   "reason": "no app//lib Ruby file in diff"
+  },
+  {
+   "pr": 16147,
+   "sha": "f6811a7c31c6e02d6dd8f047bd808356332b4f09",
+   "subject": "chore: Update translations (#16147)",
+   "reason": "no app//lib Ruby file in diff"
+  },
+  {
+   "pr": 16327,
+   "sha": "b69fccf1e61d7ee07eec5c450f343eb1b466ca29",
+   "subject": "fix: harden account-scoped user responses (#16327)",
+   "reason": "no app//lib Ruby file in diff"
+  },
+  {
+   "pr": 16304,
+   "sha": "dac03318c737bf76846298534ca3368e8afd9b97",
+   "subject": "chore(deps): remove unused spring gem (#16304)",
+   "reason": "no app//lib Ruby file in diff"
+  },
+  {
+   "pr": 16326,
+   "sha": "7893c1e21fd1574a971462b4cbd3cddde2914cbf",
+   "subject": "fix: send auto-translated templates in email inboxes (#16326)",
+   "reason": "no app//lib Ruby file in diff"
+  },
+  {
+   "pr": 16320,
+   "sha": "9e916a2d7a5ff39e999aa346506a15d9a36c9255",
+   "subject": "fix: auto translate label and shimmer polish (#16320)",
+   "reason": "no app//lib Ruby file in diff"
+  },
+  {
+   "pr": 16298,
+   "sha": "e952d7555836ec72af5f7c4b2d5dce082cae9141",
+   "subject": "fix: hide the authors line on category pages when every author is deleted (#16298)",
+   "reason": "no app//lib Ruby file in diff"
+  },
+  {
+   "pr": 16207,
+   "sha": "f953bca130ae24dc944fae3c91ef04635b98a32c",
+   "subject": "fix(whatsapp): keep the selected template across conversations (#16207)",
+   "reason": "no app//lib Ruby file in diff"
+  },
+  {
+   "pr": 16269,
+   "sha": "081bd68ab22a167e2af19e46f89c97e994a9f1c4",
+   "subject": "fix(whatsapp): clarify unavailable messages and link to meta guidance (#16269)",
+   "reason": "no app//lib Ruby file in diff"
+  },
+  {
+   "pr": 16301,
+   "sha": "61c9ef44af538507f3ce242981ce640d4a9ef0cc",
+   "subject": "fix: keep current locale on help center logo link (#16301)",
+   "reason": "no app//lib Ruby file in diff"
+  },
+  {
+   "pr": 16276,
+   "sha": "7ab47e2ca1be171cd906ba02d7c618e44a805ac8",
+   "subject": "feat: show auto translations in the dashboard and widget [3] (#16276)",
+   "reason": "no app//lib Ruby file in diff"
+  },
+  {
+   "pr": 16234,
+   "sha": "75cdd57ab40142d79cdf2cf66f4f07fd2f48c70e",
+   "subject": "fix: show attributes empty state with a create link in the sidebar (#16234)",
+   "reason": "no app//lib Ruby file in diff"
+  },
+  {
+   "pr": 16123,
+   "sha": "80bb9e05c4db149bd9e0e3e41d0f16471222fce7",
+   "subject": "fix(conversations): render a conversation with a deleted assignee as unassigned (#16123)",
+   "reason": "no app//lib Ruby file in diff"
+  },
+  {
+   "pr": 16071,
+   "sha": "4009177f7e4af8b729b1dd549880c4b6664de33b",
+   "subject": "chore(deps): remove unused time_diff gem (#16071)",
+   "reason": "no app//lib Ruby file in diff"
+  },
+  {
+   "pr": 16272,
+   "sha": "96b13cc2060d4aaf63ba61a2a1d92665e0d743f1",
+   "subject": "fix(campaigns): show campaigns sent before the first reply (#16272)",
+   "reason": "no app//lib Ruby file in diff"
+  }
+ ]
+}

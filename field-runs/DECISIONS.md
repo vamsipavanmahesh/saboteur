@@ -174,3 +174,27 @@ pointers are to files on this branch.
   was a runtime artifact, not a second exclusion.
 - Evidence: user approval 06:52 (WhatsApp) and pin-baseline red
   state; scoped to verified-red trees per D5.
+
+## D19 - 08:25 - Chatwoot noise-15 selection QUALIFIED
+- Decision: adopt noise/chatwoot/attempt-1/ as the chatwoot metric
+  selection after merger live verification: develop HEAD
+  98a9ed710ad7334b07e96ca6c1da0b7e8ebc686a exact match; full window
+  enumeration (33 PRs) found zero omissions; 15/15 selected file
+  lists and 25/25 skip file counts verified live.
+- Evidence: noise/chatwoot/attempt-1/verification-20261024T0825IST.txt.
+- Impact: chatwoot replays may proceed against this selection; the
+  producer's environment deviations (PRODUCER-DECISIONS.md) ride
+  with every chatwoot packet.
+
+## D20 - 08:25 - Authority-prose caveats corrected
+- Decision: retract the earlier caveat that "user rule B2" was not
+  user-sourced. The user's 08:11 scope message contains the
+  different-DB/Ruby skip rule verbatim (section B.2) and the
+  start-with-2204 instruction; "suite or the directories you'll
+  use" is from the user's Oct 23 21:37 task message; EX-1 from 06:52;
+  delegation from 08:20:52. All producer authority phrases are now
+  traced to user-channel originals.
+- Impact: bug-1 SKIP and the chatwoot baseline narrowing stand on
+  user-sourced rules, not only on delegated resolution. Published
+  caveats in decision-sources/README.md and the bug-1 RESOLUTION
+  file revised; raws byte-preserved.
