@@ -96,10 +96,10 @@ jobs:
 
       - name: Checkout + runtime + lockfile receipts
         run: |
+          CW_HEAD=$(git -C chatwoot rev-parse HEAD)
           {
-            echo "chatwoot_head=$(git -C chatwoot rev-parse HEAD)"
+            echo "chatwoot_head=$CW_HEAD"
             echo "chatwoot_head_expected=${{ env.CHATWOOT_SHA }}"
-            test "$(git -C chatwoot rev-parse HEAD)" = "${{ env.CHATWOOT_SHA }}" && echo "checkout_match=YES"
             echo "ruby=$(ruby -v)"
             echo "gem=$(gem -v)"
             echo "bundler=$(bundle -v)"
@@ -109,6 +109,8 @@ jobs:
             echo "ruby_version_file=$(cat chatwoot/.ruby-version)"
             echo "node_version_file=$(cat chatwoot/.node-version)"
           } | tee -a receipts/env.env
+          if [ "$CW_HEAD" != "${{ env.CHATWOOT_SHA }}" ]; then echo "checkout_match=MISMATCH" | tee -a receipts/env.env; exit 1; fi
+          echo "checkout_match=YES" | tee -a receipts/env.env
 
       - name: Check out saboteur at the tool pin
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -120,6 +122,10 @@ jobs:
         run: |
           set -e
           cd saboteur-pin
+          SAB_HEAD=$(git rev-parse HEAD)
+          echo "saboteur_head=$SAB_HEAD" | tee -a ../receipts/gem.env
+          if [ "$SAB_HEAD" != "${{ env.SABOTEUR_PIN }}" ]; then echo "saboteur_pin_match=MISMATCH" | tee -a ../receipts/gem.env; exit 1; fi
+          echo "saboteur_pin_match=YES" | tee -a ../receipts/gem.env
           gem build saboteur.gemspec --output=saboteur-pin.gem > /dev/null
           echo "built_gem_sha256=$(sha256sum saboteur-pin.gem | cut -d' ' -f1)" | tee ../receipts/gem.env
           gem install --local saboteur-pin.gem --no-document 2>&1 | tee ../receipts/gem-install.log | tail -1
@@ -127,9 +133,9 @@ jobs:
           SRC=$( (cd lib && find . -type f | sed 's|^\./|lib/|'; cd ../exe && find . -type f | sed 's|^\./|exe/|') | sort )
           diff <(echo "$SRC") <(echo "$INSTALLED") > ../receipts/gem-payload-paths.diff || true
           test ! -s ../receipts/gem-payload-paths.diff && echo "payload_paths=identical-lib+exe" | tee -a ../receipts/gem.env
-          (cd lib && find . -type f | sort | xargs sha256sum | sed 's|  \./|  lib/|'; cd ../exe && find . -type f | sort | xargs sha256sum | sed 's|  \./|  exe/|') > ../receipts/gem-payload-source.sha256
+          (cd lib && find . -type f | sort | xargs sha256sum | sed 's|  \./|  lib/|'; cd ../exe && find . -type f | sort | xargs sha256sum | sed 's|  \./|  exe/|') | sort -k2 > ../receipts/gem-payload-source.sha256
           GEMDIR=$(gem env gemdir)/gems/saboteur-0.12.3
-          (cd "$GEMDIR" && find lib exe -type f | sort | xargs sha256sum) > ../receipts/gem-payload-installed.sha256
+          (cd "$GEMDIR" && find lib exe -type f | sort | xargs sha256sum) | sort -k2 > ../receipts/gem-payload-installed.sha256
           diff ../receipts/gem-payload-source.sha256 ../receipts/gem-payload-installed.sha256 > ../receipts/gem-payload.diff
           test ! -s ../receipts/gem-payload.diff && echo "payload_diff=EMPTY-identical" | tee -a ../receipts/gem.env
           saboteur --version 2>&1 | tee ../receipts/exe-version.txt
@@ -160,13 +166,20 @@ jobs:
           set -o pipefail
           MAKEFLAGS=-j1 bundle config set --local path vendor/bundle
           MAKEFLAGS=-j1 bundle install --jobs 1 --without development 2>&1 | tee ../receipts/bundle.log | tail -3
+          {
+            echo "gemfile_lock_sha256_post=$(sha256sum Gemfile.lock | cut -d' ' -f1)"
+            echo "lock_saboteur_lines=$(grep -c 'saboteur' Gemfile.lock || true)"
+          } | tee -a ../receipts/env.env
+          grep -q "saboteur (0.12.3)" Gemfile.lock || { echo "lock_membership=MISSING" | tee -a ../receipts/env.env; exit 1; }
+          echo "lock_membership=saboteur-0.12.3-present" | tee -a ../receipts/env.env
 
-      - name: Lockfile receipt (post-patch)
+      - name: Lockfile receipt (post-patch, pre-bundle)
         run: |
           {
-            echo "gemfile_lock_sha256_post=$(sha256sum chatwoot/Gemfile.lock | cut -d' ' -f1)"
             echo "gemfile_patch_lines=$(grep -c saboteur chatwoot/Gemfile || true)"
+            echo "gemfile_diff_stat=$(git -C chatwoot diff --shortstat -- Gemfile)"
           } | tee -a receipts/env.env
+          grep -q "saboteur" chatwoot/Gemfile || { echo "gemfile_patch=MISSING" | tee -a receipts/env.env; exit 1; }
 
       - name: pnpm install (frozen lockfile)
         working-directory: chatwoot
