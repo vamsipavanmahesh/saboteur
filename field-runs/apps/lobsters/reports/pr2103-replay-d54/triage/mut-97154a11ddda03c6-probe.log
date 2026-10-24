@@ -1,0 +1,20 @@
+W, [2026-10-24T11:40:51.520432 #22586]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+F.
+
+Failures:
+
+  1) ApplicationHelper link_to_different_page class handling (verification probe) PROBE-A1 preserves an explicit class on the link
+     Failure/Error: expect(result).to have_css("a.foo")
+       expected to find css "a.foo" but there were no matches
+     # ./spec/helpers/ltdp_probe_spec.rb:13:in 'block (3 levels) in <top (required)>'
+
+Finished in 0.92657 seconds (files took 4.39 seconds to load)
+2 examples, 1 failure
+
+Failed examples:
+
+rspec ./spec/helpers/ltdp_probe_spec.rb:10 # ApplicationHelper link_to_different_page class handling (verification probe) PROBE-A1 preserves an explicit class on the link
+
+Coverage report generated for RSpec to /home/sandbox/verify/tree-2103/coverage.
+Line Coverage: 8.63% (653 / 7566)
+Stopped processing SimpleCov as a previous error not related to SimpleCov has been detected

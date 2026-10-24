@@ -1,0 +1,28 @@
+=== BASELINE original 11:40:20 ===
+baseline: 20 examples, 0 failures
+=== MUTANT 3357bbd3579ca0dc 11:40:28 ===
+5c5
+<     if options[:class].empty? then options.delete(:class) end
+---
+>     if !(options[:class].empty?) then options.delete(:class) end
+existing-3: 3 examples, 0 failures
+probe: 2 examples, 2 failures
+  1) ApplicationHelper link_to_different_page class handling (verification probe) PROBE-A1 preserves an explicit class on the link
+     Failure/Error: expect(result).to have_css("a.foo")
+  2) ApplicationHelper link_to_different_page class handling (verification probe) PROBE-A2 emits no class attribute when no class is given
+     Failure/Error: expect(result).to have_no_css("a[class]")
+rspec ./spec/helpers/ltdp_probe_spec.rb:10 # ApplicationHelper link_to_different_page class handling (verification probe) PROBE-A1 preserves an explicit class on the link
+rspec ./spec/helpers/ltdp_probe_spec.rb:16 # ApplicationHelper link_to_different_page class handling (verification probe) PROBE-A2 emits no class attribute when no class is given
+reverted: 0 diff lines
+=== MUTANT 97154a11ddda03c6 11:40:41 ===
+5c5
+<     if options[:class].empty? then options.delete(:class) end
+---
+>     if true then options.delete(:class) end
+existing-3: 3 examples, 0 failures
+probe: 2 examples, 1 failure
+  1) ApplicationHelper link_to_different_page class handling (verification probe) PROBE-A1 preserves an explicit class on the link
+     Failure/Error: expect(result).to have_css("a.foo")
+rspec ./spec/helpers/ltdp_probe_spec.rb:10 # ApplicationHelper link_to_different_page class handling (verification probe) PROBE-A1 preserves an explicit class on the link
+reverted: 0 diff lines
+PART-DONE

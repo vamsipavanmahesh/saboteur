@@ -564,3 +564,10 @@ All windows within the ~2-week rule; every snapshot head is itself a mainline me
 - Reason: subject coverage lookup is tests_for_lines at row-tree line numbers; drift and lambda keying produce false "no coverage". The map's own line table refutes "no test anywhere" claims.
 - Evidence: reports/pr{2175,2103,2205,2174}-replay-d54/ README-AUDIT.md + raw packets; pin source candidate_selection.rb/coverage_map.rb.
 - Reversibility: rows re-qualify upward when correctives/triage land; published raws immutable.
+
+## D58 - 2026-10-24T11:47+05:30 - Gap grouping contract: behavior primary, statement secondary
+
+- Decision: the gap unit is the BEHAVIOR group (consistent with the 2157 meta_tags region = 1 gap). Statement-level counts ride along as secondary detail. Applied: PR 2103 = 1 gap (2 statements, 4 mutants), PR 2174 = 1 gap (1 statement, 1 mutant). Both rows QUALIFIED on the verifier's case packets (probe-kill + controls; source-tar hashes verified). Whole-existing-suite confirmation stays UNCONFIRMED per contract and is not claimed.
+- Reason: user 11:21 gap-primary metric needs one consistent global unit before any noise count.
+- Evidence: reports/pr2103-replay-d54/triage/, reports/pr2174-replay-d54/triage/ (MANIFEST.md + probe specs + per-mutant logs).
+- Reversibility: statement-level numbers preserved; regrouping costs only a recount.

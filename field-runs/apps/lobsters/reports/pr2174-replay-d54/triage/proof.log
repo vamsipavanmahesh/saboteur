@@ -1,0 +1,17 @@
+=== BASELINE original 11:44:41 ===
+baseline: 14 examples, 0 failures
+=== MUTANT de7560d08996f4ef (remove .having chain) 11:44:50 ===
+            count(distinct if(flags > 0, comments.id, null)) * 100.0 /
+            count(distinct comments.id)
+          ) as percent_flagged")
+        .order(sigma: :desc)
+        .limit(30)
+existing: 12 examples, 0 failures
+probe: 2 examples, 1 failure
+  1) FlaggedCommenters having-threshold (verification probe) PROBE-F1 below-threshold flagged commenter is not listed
+     Failure/Error: expect(response.body).not_to include("/mod/commenters/1m#")
+rspec ./spec/requests/fc_probe_spec.rb:7 # FlaggedCommenters having-threshold (verification probe) PROBE-F1 below-threshold flagged commenter is not listed
+reverted: 0 diff lines
+=== FINAL restored 11:45:08 ===
+final: 14 examples, 0 failures
+PROOF-2174-DONE
