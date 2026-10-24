@@ -1,0 +1,41 @@
+{
+  "id": "46132a2113f3aa6c",
+  "subject": "Comment#parents",
+  "mutatorName": "pair_removal",
+  "replacement": "",
+  "location": {
+    "start": {
+      "line": 475,
+      "column": 14
+    },
+    "end": {
+      "line": 475,
+      "column": 25
+    }
+  },
+  "status": "Killed",
+  "static": false,
+  "statusReason": "crash: ArgumentError",
+  "killedBy": [
+    "7"
+  ],
+  "coveredBy": [
+    "7",
+    "9",
+    "10",
+    "8",
+    "3",
+    "11",
+    "2",
+    "6",
+    "5",
+    "13",
+    "12",
+    "1"
+  ],
+  "executed": [
+    "7"
+  ],
+  "duration": 656,
+  "valueDiffered": null
+}

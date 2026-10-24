@@ -1,0 +1,11 @@
+Resolving dependencies...
+Updating files in vendor/cache
+  * matrix-0.4.3.gem
+Removing outdated .gem files from vendor/cache
+  * matrix-0.4.2.gem
+Removing outdated git and path gems from vendor/cache
+  * saboteur-0.12.3
+Bundle complete! 60 Gemfile dependencies, 182 gems now installed.
+Use `bundle info [gemname]` to see where a bundled gem is installed.
+4 installed gems you directly depend on are looking for funding.
+  Run `bundle fund` for details

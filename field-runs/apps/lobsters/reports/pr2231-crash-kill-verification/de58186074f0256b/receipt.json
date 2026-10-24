@@ -1,0 +1,125 @@
+{
+  "id": "de58186074f0256b",
+  "source_file": "app/models/comment.rb",
+  "tests": [
+    "./spec/mailers/email_reply_mailer_spec.rb[1:1]"
+  ],
+  "original_sha256": "ef1c1e8a49969e6494f840e16cfda4dfa5e46c76e0fedd4fa4314e790325b9fe",
+  "mutant_sha256": "cf3c1b12db0d5c582d404eb31e92e7036b63587515b2488d2c3184756c6e90bc",
+  "restored_sha256": "ef1c1e8a49969e6494f840e16cfda4dfa5e46c76e0fedd4fa4314e790325b9fe",
+  "runs": [
+    {
+      "label": "original",
+      "argv": [
+        "/tmp/kill2231/runtime/x64/bin/ruby",
+        "/tmp/kill2231/runtime/x64/bin/bundle",
+        "exec",
+        "rspec",
+        "./spec/mailers/email_reply_mailer_spec.rb[1:1]",
+        "--seed",
+        "20261024",
+        "--format",
+        "json",
+        "--out",
+        "/tmp/kill2231/evidence/de58186074f0256b/original.json"
+      ],
+      "started_at": "2026-10-24T04:00:33.182144+00:00",
+      "wall_seconds": 6.187360545999923,
+      "exit_code": 0,
+      "file_sha256": "ef1c1e8a49969e6494f840e16cfda4dfa5e46c76e0fedd4fa4314e790325b9fe",
+      "summary": {
+        "duration": 1.597916387,
+        "example_count": 1,
+        "failure_count": 0,
+        "pending_count": 0,
+        "errors_outside_of_examples_count": 0
+      },
+      "examples": [
+        {
+          "id": "./spec/mailers/email_reply_mailer_spec.rb[1:1]",
+          "full_description": "EmailReplyMailer has a stable message-id",
+          "status": "passed",
+          "exception": null
+        }
+      ]
+    },
+    {
+      "label": "mutant",
+      "argv": [
+        "/tmp/kill2231/runtime/x64/bin/ruby",
+        "/tmp/kill2231/runtime/x64/bin/bundle",
+        "exec",
+        "rspec",
+        "./spec/mailers/email_reply_mailer_spec.rb[1:1]",
+        "--seed",
+        "20261024",
+        "--format",
+        "json",
+        "--out",
+        "/tmp/kill2231/evidence/de58186074f0256b/mutant.json"
+      ],
+      "started_at": "2026-10-24T04:00:39.369922+00:00",
+      "wall_seconds": 5.732552578999957,
+      "exit_code": 1,
+      "file_sha256": "cf3c1b12db0d5c582d404eb31e92e7036b63587515b2488d2c3184756c6e90bc",
+      "summary": {
+        "duration": 1.032950385,
+        "example_count": 1,
+        "failure_count": 1,
+        "pending_count": 0,
+        "errors_outside_of_examples_count": 0
+      },
+      "examples": [
+        {
+          "id": "./spec/mailers/email_reply_mailer_spec.rb[1:1]",
+          "full_description": "EmailReplyMailer has a stable message-id",
+          "status": "failed",
+          "exception": {
+            "class": "NoMethodError",
+            "message": "undefined method 'map' for nil",
+            "backtrace": [
+              "./app/mailers/email_reply_mailer.rb:42:in 'EmailReplyMailer#set_headers'",
+              "./app/mailers/email_reply_mailer.rb:16:in 'EmailReplyMailer#reply'",
+              "./spec/mailers/email_reply_mailer_spec.rb:12:in 'block (2 levels) in <top (required)>'"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "label": "restored",
+      "argv": [
+        "/tmp/kill2231/runtime/x64/bin/ruby",
+        "/tmp/kill2231/runtime/x64/bin/bundle",
+        "exec",
+        "rspec",
+        "./spec/mailers/email_reply_mailer_spec.rb[1:1]",
+        "--seed",
+        "20261024",
+        "--format",
+        "json",
+        "--out",
+        "/tmp/kill2231/evidence/de58186074f0256b/restored.json"
+      ],
+      "started_at": "2026-10-24T04:00:45.102761+00:00",
+      "wall_seconds": 6.262557844000071,
+      "exit_code": 0,
+      "file_sha256": "ef1c1e8a49969e6494f840e16cfda4dfa5e46c76e0fedd4fa4314e790325b9fe",
+      "summary": {
+        "duration": 1.645444481,
+        "example_count": 1,
+        "failure_count": 0,
+        "pending_count": 0,
+        "errors_outside_of_examples_count": 0
+      },
+      "examples": [
+        {
+          "id": "./spec/mailers/email_reply_mailer_spec.rb[1:1]",
+          "full_description": "EmailReplyMailer has a stable message-id",
+          "status": "passed",
+          "exception": null
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "id": "a40b6c227630d3c3",
+  "subject": "Comment#parents",
+  "mutatorName": "body_raise",
+  "replacement": "raise",
+  "location": {
+    "start": {
+      "line": 466,
+      "column": 5
+    },
+    "end": {
+      "line": 475,
+      "column": 26
+    }
+  },
+  "status": "Killed",
+  "static": false,
+  "statusReason": "crash: RuntimeError",
+  "killedBy": [
+    "0"
+  ],
+  "coveredBy": [
+    "0",
+    "7",
+    "9",
+    "4",
+    "10",
+    "8",
+    "3",
+    "11",
+    "2",
+    "6",
+    "5",
+    "13",
+    "12",
+    "1"
+  ],
+  "executed": [
+    "0"
+  ],
+  "duration": 709,
+  "valueDiffered": null
+}

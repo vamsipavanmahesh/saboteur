@@ -1,0 +1,124 @@
+{
+  "id": "5ea32ddfa7071c31",
+  "source_file": "app/models/comment.rb",
+  "tests": [
+    "./spec/models/comment_spec.rb[1:10:3]"
+  ],
+  "original_sha256": "ef1c1e8a49969e6494f840e16cfda4dfa5e46c76e0fedd4fa4314e790325b9fe",
+  "mutant_sha256": "725d5dc3df7fce1ea432a944def0e2adbe8987ff032d45da6589dc5fd4e369e0",
+  "restored_sha256": "ef1c1e8a49969e6494f840e16cfda4dfa5e46c76e0fedd4fa4314e790325b9fe",
+  "runs": [
+    {
+      "label": "original",
+      "argv": [
+        "/tmp/kill2231/runtime/x64/bin/ruby",
+        "/tmp/kill2231/runtime/x64/bin/bundle",
+        "exec",
+        "rspec",
+        "./spec/models/comment_spec.rb[1:10:3]",
+        "--seed",
+        "20261024",
+        "--format",
+        "json",
+        "--out",
+        "/tmp/kill2231/evidence/5ea32ddfa7071c31/original.json"
+      ],
+      "started_at": "2026-10-24T04:01:09.116082+00:00",
+      "wall_seconds": 6.329649733999986,
+      "exit_code": 0,
+      "file_sha256": "ef1c1e8a49969e6494f840e16cfda4dfa5e46c76e0fedd4fa4314e790325b9fe",
+      "summary": {
+        "duration": 1.811676218,
+        "example_count": 1,
+        "failure_count": 0,
+        "pending_count": 0,
+        "errors_outside_of_examples_count": 0
+      },
+      "examples": [
+        {
+          "id": "./spec/models/comment_spec.rb[1:10:3]",
+          "full_description": "Comment speed limit limits within 2 minutes",
+          "status": "passed",
+          "exception": null
+        }
+      ]
+    },
+    {
+      "label": "mutant",
+      "argv": [
+        "/tmp/kill2231/runtime/x64/bin/ruby",
+        "/tmp/kill2231/runtime/x64/bin/bundle",
+        "exec",
+        "rspec",
+        "./spec/models/comment_spec.rb[1:10:3]",
+        "--seed",
+        "20261024",
+        "--format",
+        "json",
+        "--out",
+        "/tmp/kill2231/evidence/5ea32ddfa7071c31/mutant.json"
+      ],
+      "started_at": "2026-10-24T04:01:15.446013+00:00",
+      "wall_seconds": 5.429885806000016,
+      "exit_code": 1,
+      "file_sha256": "725d5dc3df7fce1ea432a944def0e2adbe8987ff032d45da6589dc5fd4e369e0",
+      "summary": {
+        "duration": 1.07735476,
+        "example_count": 1,
+        "failure_count": 1,
+        "pending_count": 0,
+        "errors_outside_of_examples_count": 0
+      },
+      "examples": [
+        {
+          "id": "./spec/models/comment_spec.rb[1:10:3]",
+          "full_description": "Comment speed limit limits within 2 minutes",
+          "status": "failed",
+          "exception": {
+            "class": "NoMethodError",
+            "message": "undefined method 'ids' for nil",
+            "backtrace": [
+              "./app/models/comment.rb:261:in 'Comment#breaks_speed_limit?'",
+              "./spec/models/comment_spec.rb:182:in 'block (3 levels) in <top (required)>'"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "label": "restored",
+      "argv": [
+        "/tmp/kill2231/runtime/x64/bin/ruby",
+        "/tmp/kill2231/runtime/x64/bin/bundle",
+        "exec",
+        "rspec",
+        "./spec/models/comment_spec.rb[1:10:3]",
+        "--seed",
+        "20261024",
+        "--format",
+        "json",
+        "--out",
+        "/tmp/kill2231/evidence/5ea32ddfa7071c31/restored.json"
+      ],
+      "started_at": "2026-10-24T04:01:20.876204+00:00",
+      "wall_seconds": 6.218396595000058,
+      "exit_code": 0,
+      "file_sha256": "ef1c1e8a49969e6494f840e16cfda4dfa5e46c76e0fedd4fa4314e790325b9fe",
+      "summary": {
+        "duration": 1.788769626,
+        "example_count": 1,
+        "failure_count": 0,
+        "pending_count": 0,
+        "errors_outside_of_examples_count": 0
+      },
+      "examples": [
+        {
+          "id": "./spec/models/comment_spec.rb[1:10:3]",
+          "full_description": "Comment speed limit limits within 2 minutes",
+          "status": "passed",
+          "exception": null
+        }
+      ]
+    }
+  ]
+}

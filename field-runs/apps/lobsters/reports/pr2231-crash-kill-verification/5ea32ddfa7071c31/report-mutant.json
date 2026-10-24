@@ -1,0 +1,41 @@
+{
+  "id": "5ea32ddfa7071c31",
+  "subject": "Comment#parents",
+  "mutatorName": "statement_removal",
+  "replacement": "nil",
+  "location": {
+    "start": {
+      "line": 469,
+      "column": 5
+    },
+    "end": {
+      "line": 475,
+      "column": 26
+    }
+  },
+  "status": "Killed",
+  "static": false,
+  "statusReason": "crash: NoMethodError",
+  "killedBy": [
+    "7"
+  ],
+  "coveredBy": [
+    "7",
+    "9",
+    "10",
+    "8",
+    "3",
+    "11",
+    "2",
+    "6",
+    "5",
+    "13",
+    "12",
+    "1"
+  ],
+  "executed": [
+    "7"
+  ],
+  "duration": 718,
+  "valueDiffered": null
+}

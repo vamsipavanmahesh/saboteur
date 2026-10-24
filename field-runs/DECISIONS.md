@@ -390,3 +390,10 @@ pointers are to files on this branch.
 - Reason: Independent merger audit of the attached report JSON + log matched every verifier count; the tool's own unchanged-method check caught the pollution class (fake-kill guard working as designed).
 - Evidence: apps/lobsters/reports/pr2204-confirm-all-inclusive/ (RAWS.sha256); open items 1-3 in its README (21af923e rerun, complete:false semantics, 490s-vs-48min timing gap).
 - Reversibility: Publication only; raws immutable.
+
+## D38 - 09:33 - PR 2231 replay v3 QUALIFIED (first row, 1/45); crash-kill gate closed by independent verification
+
+- Decision: The 2231 v3 replay row is qualified. All four crash kills are genuine, proven by the independent tester's V2 packet (12 paired runs, original-PASS / mutant-FAIL / restored-PASS, mutations applied from the tool's own report.json, immutable artifact 7f5b8949, era tree 9fd8f5fca9). Noise is 0/0 = UNDEFINED (never 0%). The survivor-confirmation mechanism remains unproven (vacuous at zero survivors) and gates the 15-row stage via the known-survivor canary.
+- Reason: Merger audit of the raw packet found every gate met; the producer's prose-only packet was rejected as evidence earlier and is superseded.
+- Evidence: apps/lobsters/reports/pr2231-crash-kill-verification/ (README-AUDIT.md + PUBLISHED-MANIFEST.sha256; artifact gem referenced at runs/2026-10-24-main-6f87ccc9/artifacts/, hash re-verified).
+- Reversibility: Publication only; raws immutable.

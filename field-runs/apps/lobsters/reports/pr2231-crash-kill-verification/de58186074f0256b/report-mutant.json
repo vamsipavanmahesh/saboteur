@@ -1,0 +1,43 @@
+{
+  "id": "de58186074f0256b",
+  "subject": "Comment#parents",
+  "mutatorName": "body_nil",
+  "replacement": "nil",
+  "location": {
+    "start": {
+      "line": 466,
+      "column": 5
+    },
+    "end": {
+      "line": 475,
+      "column": 26
+    }
+  },
+  "status": "Killed",
+  "static": false,
+  "statusReason": "crash: NoMethodError",
+  "killedBy": [
+    "0"
+  ],
+  "coveredBy": [
+    "0",
+    "7",
+    "9",
+    "4",
+    "10",
+    "8",
+    "3",
+    "11",
+    "2",
+    "6",
+    "5",
+    "13",
+    "12",
+    "1"
+  ],
+  "executed": [
+    "0"
+  ],
+  "duration": 675,
+  "valueDiffered": null
+}

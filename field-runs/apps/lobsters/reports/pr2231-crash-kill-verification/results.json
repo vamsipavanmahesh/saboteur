@@ -1,0 +1,502 @@
+[
+  {
+    "id": "de58186074f0256b",
+    "source_file": "app/models/comment.rb",
+    "tests": [
+      "./spec/mailers/email_reply_mailer_spec.rb[1:1]"
+    ],
+    "original_sha256": "ef1c1e8a49969e6494f840e16cfda4dfa5e46c76e0fedd4fa4314e790325b9fe",
+    "mutant_sha256": "cf3c1b12db0d5c582d404eb31e92e7036b63587515b2488d2c3184756c6e90bc",
+    "restored_sha256": "ef1c1e8a49969e6494f840e16cfda4dfa5e46c76e0fedd4fa4314e790325b9fe",
+    "runs": [
+      {
+        "label": "original",
+        "argv": [
+          "/tmp/kill2231/runtime/x64/bin/ruby",
+          "/tmp/kill2231/runtime/x64/bin/bundle",
+          "exec",
+          "rspec",
+          "./spec/mailers/email_reply_mailer_spec.rb[1:1]",
+          "--seed",
+          "20261024",
+          "--format",
+          "json",
+          "--out",
+          "/tmp/kill2231/evidence/de58186074f0256b/original.json"
+        ],
+        "started_at": "2026-10-24T04:00:33.182144+00:00",
+        "wall_seconds": 6.187360545999923,
+        "exit_code": 0,
+        "file_sha256": "ef1c1e8a49969e6494f840e16cfda4dfa5e46c76e0fedd4fa4314e790325b9fe",
+        "summary": {
+          "duration": 1.597916387,
+          "example_count": 1,
+          "failure_count": 0,
+          "pending_count": 0,
+          "errors_outside_of_examples_count": 0
+        },
+        "examples": [
+          {
+            "id": "./spec/mailers/email_reply_mailer_spec.rb[1:1]",
+            "full_description": "EmailReplyMailer has a stable message-id",
+            "status": "passed",
+            "exception": null
+          }
+        ]
+      },
+      {
+        "label": "mutant",
+        "argv": [
+          "/tmp/kill2231/runtime/x64/bin/ruby",
+          "/tmp/kill2231/runtime/x64/bin/bundle",
+          "exec",
+          "rspec",
+          "./spec/mailers/email_reply_mailer_spec.rb[1:1]",
+          "--seed",
+          "20261024",
+          "--format",
+          "json",
+          "--out",
+          "/tmp/kill2231/evidence/de58186074f0256b/mutant.json"
+        ],
+        "started_at": "2026-10-24T04:00:39.369922+00:00",
+        "wall_seconds": 5.732552578999957,
+        "exit_code": 1,
+        "file_sha256": "cf3c1b12db0d5c582d404eb31e92e7036b63587515b2488d2c3184756c6e90bc",
+        "summary": {
+          "duration": 1.032950385,
+          "example_count": 1,
+          "failure_count": 1,
+          "pending_count": 0,
+          "errors_outside_of_examples_count": 0
+        },
+        "examples": [
+          {
+            "id": "./spec/mailers/email_reply_mailer_spec.rb[1:1]",
+            "full_description": "EmailReplyMailer has a stable message-id",
+            "status": "failed",
+            "exception": {
+              "class": "NoMethodError",
+              "message": "undefined method 'map' for nil",
+              "backtrace": [
+                "./app/mailers/email_reply_mailer.rb:42:in 'EmailReplyMailer#set_headers'",
+                "./app/mailers/email_reply_mailer.rb:16:in 'EmailReplyMailer#reply'",
+                "./spec/mailers/email_reply_mailer_spec.rb:12:in 'block (2 levels) in <top (required)>'"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "label": "restored",
+        "argv": [
+          "/tmp/kill2231/runtime/x64/bin/ruby",
+          "/tmp/kill2231/runtime/x64/bin/bundle",
+          "exec",
+          "rspec",
+          "./spec/mailers/email_reply_mailer_spec.rb[1:1]",
+          "--seed",
+          "20261024",
+          "--format",
+          "json",
+          "--out",
+          "/tmp/kill2231/evidence/de58186074f0256b/restored.json"
+        ],
+        "started_at": "2026-10-24T04:00:45.102761+00:00",
+        "wall_seconds": 6.262557844000071,
+        "exit_code": 0,
+        "file_sha256": "ef1c1e8a49969e6494f840e16cfda4dfa5e46c76e0fedd4fa4314e790325b9fe",
+        "summary": {
+          "duration": 1.645444481,
+          "example_count": 1,
+          "failure_count": 0,
+          "pending_count": 0,
+          "errors_outside_of_examples_count": 0
+        },
+        "examples": [
+          {
+            "id": "./spec/mailers/email_reply_mailer_spec.rb[1:1]",
+            "full_description": "EmailReplyMailer has a stable message-id",
+            "status": "passed",
+            "exception": null
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "a40b6c227630d3c3",
+    "source_file": "app/models/comment.rb",
+    "tests": [
+      "./spec/mailers/email_reply_mailer_spec.rb[1:1]"
+    ],
+    "original_sha256": "ef1c1e8a49969e6494f840e16cfda4dfa5e46c76e0fedd4fa4314e790325b9fe",
+    "mutant_sha256": "0d5ce0628a24c8ba3d812edae81f0682119a32eeec196e61ed2bd63a67af7aa9",
+    "restored_sha256": "ef1c1e8a49969e6494f840e16cfda4dfa5e46c76e0fedd4fa4314e790325b9fe",
+    "runs": [
+      {
+        "label": "original",
+        "argv": [
+          "/tmp/kill2231/runtime/x64/bin/ruby",
+          "/tmp/kill2231/runtime/x64/bin/bundle",
+          "exec",
+          "rspec",
+          "./spec/mailers/email_reply_mailer_spec.rb[1:1]",
+          "--seed",
+          "20261024",
+          "--format",
+          "json",
+          "--out",
+          "/tmp/kill2231/evidence/a40b6c227630d3c3/original.json"
+        ],
+        "started_at": "2026-10-24T04:00:51.368408+00:00",
+        "wall_seconds": 6.070328873999983,
+        "exit_code": 0,
+        "file_sha256": "ef1c1e8a49969e6494f840e16cfda4dfa5e46c76e0fedd4fa4314e790325b9fe",
+        "summary": {
+          "duration": 1.647896096,
+          "example_count": 1,
+          "failure_count": 0,
+          "pending_count": 0,
+          "errors_outside_of_examples_count": 0
+        },
+        "examples": [
+          {
+            "id": "./spec/mailers/email_reply_mailer_spec.rb[1:1]",
+            "full_description": "EmailReplyMailer has a stable message-id",
+            "status": "passed",
+            "exception": null
+          }
+        ]
+      },
+      {
+        "label": "mutant",
+        "argv": [
+          "/tmp/kill2231/runtime/x64/bin/ruby",
+          "/tmp/kill2231/runtime/x64/bin/bundle",
+          "exec",
+          "rspec",
+          "./spec/mailers/email_reply_mailer_spec.rb[1:1]",
+          "--seed",
+          "20261024",
+          "--format",
+          "json",
+          "--out",
+          "/tmp/kill2231/evidence/a40b6c227630d3c3/mutant.json"
+        ],
+        "started_at": "2026-10-24T04:00:57.438965+00:00",
+        "wall_seconds": 5.2201121890000195,
+        "exit_code": 1,
+        "file_sha256": "0d5ce0628a24c8ba3d812edae81f0682119a32eeec196e61ed2bd63a67af7aa9",
+        "summary": {
+          "duration": 0.92023972,
+          "example_count": 1,
+          "failure_count": 1,
+          "pending_count": 0,
+          "errors_outside_of_examples_count": 0
+        },
+        "examples": [
+          {
+            "id": "./spec/mailers/email_reply_mailer_spec.rb[1:1]",
+            "full_description": "EmailReplyMailer has a stable message-id",
+            "status": "failed",
+            "exception": {
+              "class": "RuntimeError",
+              "message": "",
+              "backtrace": [
+                "./app/models/comment.rb:466:in 'Comment#parents'",
+                "./app/mailers/email_reply_mailer.rb:42:in 'EmailReplyMailer#set_headers'",
+                "./app/mailers/email_reply_mailer.rb:16:in 'EmailReplyMailer#reply'",
+                "./spec/mailers/email_reply_mailer_spec.rb:12:in 'block (2 levels) in <top (required)>'"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "label": "restored",
+        "argv": [
+          "/tmp/kill2231/runtime/x64/bin/ruby",
+          "/tmp/kill2231/runtime/x64/bin/bundle",
+          "exec",
+          "rspec",
+          "./spec/mailers/email_reply_mailer_spec.rb[1:1]",
+          "--seed",
+          "20261024",
+          "--format",
+          "json",
+          "--out",
+          "/tmp/kill2231/evidence/a40b6c227630d3c3/restored.json"
+        ],
+        "started_at": "2026-10-24T04:01:02.659338+00:00",
+        "wall_seconds": 6.454808724000031,
+        "exit_code": 0,
+        "file_sha256": "ef1c1e8a49969e6494f840e16cfda4dfa5e46c76e0fedd4fa4314e790325b9fe",
+        "summary": {
+          "duration": 1.678552867,
+          "example_count": 1,
+          "failure_count": 0,
+          "pending_count": 0,
+          "errors_outside_of_examples_count": 0
+        },
+        "examples": [
+          {
+            "id": "./spec/mailers/email_reply_mailer_spec.rb[1:1]",
+            "full_description": "EmailReplyMailer has a stable message-id",
+            "status": "passed",
+            "exception": null
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "5ea32ddfa7071c31",
+    "source_file": "app/models/comment.rb",
+    "tests": [
+      "./spec/models/comment_spec.rb[1:10:3]"
+    ],
+    "original_sha256": "ef1c1e8a49969e6494f840e16cfda4dfa5e46c76e0fedd4fa4314e790325b9fe",
+    "mutant_sha256": "725d5dc3df7fce1ea432a944def0e2adbe8987ff032d45da6589dc5fd4e369e0",
+    "restored_sha256": "ef1c1e8a49969e6494f840e16cfda4dfa5e46c76e0fedd4fa4314e790325b9fe",
+    "runs": [
+      {
+        "label": "original",
+        "argv": [
+          "/tmp/kill2231/runtime/x64/bin/ruby",
+          "/tmp/kill2231/runtime/x64/bin/bundle",
+          "exec",
+          "rspec",
+          "./spec/models/comment_spec.rb[1:10:3]",
+          "--seed",
+          "20261024",
+          "--format",
+          "json",
+          "--out",
+          "/tmp/kill2231/evidence/5ea32ddfa7071c31/original.json"
+        ],
+        "started_at": "2026-10-24T04:01:09.116082+00:00",
+        "wall_seconds": 6.329649733999986,
+        "exit_code": 0,
+        "file_sha256": "ef1c1e8a49969e6494f840e16cfda4dfa5e46c76e0fedd4fa4314e790325b9fe",
+        "summary": {
+          "duration": 1.811676218,
+          "example_count": 1,
+          "failure_count": 0,
+          "pending_count": 0,
+          "errors_outside_of_examples_count": 0
+        },
+        "examples": [
+          {
+            "id": "./spec/models/comment_spec.rb[1:10:3]",
+            "full_description": "Comment speed limit limits within 2 minutes",
+            "status": "passed",
+            "exception": null
+          }
+        ]
+      },
+      {
+        "label": "mutant",
+        "argv": [
+          "/tmp/kill2231/runtime/x64/bin/ruby",
+          "/tmp/kill2231/runtime/x64/bin/bundle",
+          "exec",
+          "rspec",
+          "./spec/models/comment_spec.rb[1:10:3]",
+          "--seed",
+          "20261024",
+          "--format",
+          "json",
+          "--out",
+          "/tmp/kill2231/evidence/5ea32ddfa7071c31/mutant.json"
+        ],
+        "started_at": "2026-10-24T04:01:15.446013+00:00",
+        "wall_seconds": 5.429885806000016,
+        "exit_code": 1,
+        "file_sha256": "725d5dc3df7fce1ea432a944def0e2adbe8987ff032d45da6589dc5fd4e369e0",
+        "summary": {
+          "duration": 1.07735476,
+          "example_count": 1,
+          "failure_count": 1,
+          "pending_count": 0,
+          "errors_outside_of_examples_count": 0
+        },
+        "examples": [
+          {
+            "id": "./spec/models/comment_spec.rb[1:10:3]",
+            "full_description": "Comment speed limit limits within 2 minutes",
+            "status": "failed",
+            "exception": {
+              "class": "NoMethodError",
+              "message": "undefined method 'ids' for nil",
+              "backtrace": [
+                "./app/models/comment.rb:261:in 'Comment#breaks_speed_limit?'",
+                "./spec/models/comment_spec.rb:182:in 'block (3 levels) in <top (required)>'"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "label": "restored",
+        "argv": [
+          "/tmp/kill2231/runtime/x64/bin/ruby",
+          "/tmp/kill2231/runtime/x64/bin/bundle",
+          "exec",
+          "rspec",
+          "./spec/models/comment_spec.rb[1:10:3]",
+          "--seed",
+          "20261024",
+          "--format",
+          "json",
+          "--out",
+          "/tmp/kill2231/evidence/5ea32ddfa7071c31/restored.json"
+        ],
+        "started_at": "2026-10-24T04:01:20.876204+00:00",
+        "wall_seconds": 6.218396595000058,
+        "exit_code": 0,
+        "file_sha256": "ef1c1e8a49969e6494f840e16cfda4dfa5e46c76e0fedd4fa4314e790325b9fe",
+        "summary": {
+          "duration": 1.788769626,
+          "example_count": 1,
+          "failure_count": 0,
+          "pending_count": 0,
+          "errors_outside_of_examples_count": 0
+        },
+        "examples": [
+          {
+            "id": "./spec/models/comment_spec.rb[1:10:3]",
+            "full_description": "Comment speed limit limits within 2 minutes",
+            "status": "passed",
+            "exception": null
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "46132a2113f3aa6c",
+    "source_file": "app/models/comment.rb",
+    "tests": [
+      "./spec/models/comment_spec.rb[1:10:3]"
+    ],
+    "original_sha256": "ef1c1e8a49969e6494f840e16cfda4dfa5e46c76e0fedd4fa4314e790325b9fe",
+    "mutant_sha256": "1f57b405bc5a982734f6c16d1f95d477cadcd5bb35881ef1497a9f34849b6b6b",
+    "restored_sha256": "ef1c1e8a49969e6494f840e16cfda4dfa5e46c76e0fedd4fa4314e790325b9fe",
+    "runs": [
+      {
+        "label": "original",
+        "argv": [
+          "/tmp/kill2231/runtime/x64/bin/ruby",
+          "/tmp/kill2231/runtime/x64/bin/bundle",
+          "exec",
+          "rspec",
+          "./spec/models/comment_spec.rb[1:10:3]",
+          "--seed",
+          "20261024",
+          "--format",
+          "json",
+          "--out",
+          "/tmp/kill2231/evidence/46132a2113f3aa6c/original.json"
+        ],
+        "started_at": "2026-10-24T04:01:27.097933+00:00",
+        "wall_seconds": 6.275866424000014,
+        "exit_code": 0,
+        "file_sha256": "ef1c1e8a49969e6494f840e16cfda4dfa5e46c76e0fedd4fa4314e790325b9fe",
+        "summary": {
+          "duration": 1.794600629,
+          "example_count": 1,
+          "failure_count": 0,
+          "pending_count": 0,
+          "errors_outside_of_examples_count": 0
+        },
+        "examples": [
+          {
+            "id": "./spec/models/comment_spec.rb[1:10:3]",
+            "full_description": "Comment speed limit limits within 2 minutes",
+            "status": "passed",
+            "exception": null
+          }
+        ]
+      },
+      {
+        "label": "mutant",
+        "argv": [
+          "/tmp/kill2231/runtime/x64/bin/ruby",
+          "/tmp/kill2231/runtime/x64/bin/bundle",
+          "exec",
+          "rspec",
+          "./spec/models/comment_spec.rb[1:10:3]",
+          "--seed",
+          "20261024",
+          "--format",
+          "json",
+          "--out",
+          "/tmp/kill2231/evidence/46132a2113f3aa6c/mutant.json"
+        ],
+        "started_at": "2026-10-24T04:01:33.374028+00:00",
+        "wall_seconds": 5.482509602999926,
+        "exit_code": 1,
+        "file_sha256": "1f57b405bc5a982734f6c16d1f95d477cadcd5bb35881ef1497a9f34849b6b6b",
+        "summary": {
+          "duration": 1.039673989,
+          "example_count": 1,
+          "failure_count": 1,
+          "pending_count": 0,
+          "errors_outside_of_examples_count": 0
+        },
+        "examples": [
+          {
+            "id": "./spec/models/comment_spec.rb[1:10:3]",
+            "full_description": "Comment speed limit limits within 2 minutes",
+            "status": "failed",
+            "exception": {
+              "class": "ArgumentError",
+              "message": "The method .order() must contain arguments.",
+              "backtrace": [
+                "./app/models/comment.rb:475:in 'Comment#parents'",
+                "./app/models/comment.rb:261:in 'Comment#breaks_speed_limit?'",
+                "./spec/models/comment_spec.rb:182:in 'block (3 levels) in <top (required)>'"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "label": "restored",
+        "argv": [
+          "/tmp/kill2231/runtime/x64/bin/ruby",
+          "/tmp/kill2231/runtime/x64/bin/bundle",
+          "exec",
+          "rspec",
+          "./spec/models/comment_spec.rb[1:10:3]",
+          "--seed",
+          "20261024",
+          "--format",
+          "json",
+          "--out",
+          "/tmp/kill2231/evidence/46132a2113f3aa6c/restored.json"
+        ],
+        "started_at": "2026-10-24T04:01:38.856868+00:00",
+        "wall_seconds": 6.498681411000007,
+        "exit_code": 0,
+        "file_sha256": "ef1c1e8a49969e6494f840e16cfda4dfa5e46c76e0fedd4fa4314e790325b9fe",
+        "summary": {
+          "duration": 1.819382554,
+          "example_count": 1,
+          "failure_count": 0,
+          "pending_count": 0,
+          "errors_outside_of_examples_count": 0
+        },
+        "examples": [
+          {
+            "id": "./spec/models/comment_spec.rb[1:10:3]",
+            "full_description": "Comment speed limit limits within 2 minutes",
+            "status": "passed",
+            "exception": null
+          }
+        ]
+      }
+    ]
+  }
+]

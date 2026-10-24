@@ -1,0 +1,245 @@
+Fetching gem metadata from https://rubygems.org/........
+Fetching Ascii85 2.0.1
+Fetching bigdecimal 3.3.1
+Installing bigdecimal 3.3.1 with native extensions
+Installing Ascii85 2.0.1
+Fetching concurrent-ruby 1.3.8
+Installing concurrent-ruby 1.3.8
+Fetching connection_pool 3.0.2
+Installing connection_pool 3.0.2
+Fetching json 2.21.2
+Installing json 2.21.2 with native extensions
+Fetching prism 1.9.0
+Installing prism 1.9.0 with native extensions
+Fetching securerandom 0.4.1
+Installing securerandom 0.4.1
+Fetching uri 1.1.1
+Installing uri 1.1.1
+Fetching builder 3.3.0
+Installing builder 3.3.0
+Fetching erubi 1.13.1
+Installing erubi 1.13.1
+Fetching crass 1.0.7
+Installing crass 1.0.7
+Fetching rack 3.2.6
+Installing rack 3.2.6
+Fetching useragent 0.16.11
+Installing useragent 0.16.11
+Fetching prettyprint 0.2.0
+Installing prettyprint 0.2.0
+Fetching erb 6.0.4
+Installing erb 6.0.4 with native extensions
+Fetching date 3.5.1
+Installing date 3.5.1 with native extensions
+Fetching stringio 3.2.0
+Installing stringio 3.2.0 with native extensions
+Fetching tsort 0.2.0
+Installing tsort 0.2.0
+Fetching io-console 0.8.2
+Installing io-console 0.8.2 with native extensions
+Fetching thor 1.5.0
+Installing thor 1.5.0
+Fetching zeitwerk 2.7.5
+Installing zeitwerk 2.7.5
+Fetching nio4r 2.7.5
+Installing nio4r 2.7.5 with native extensions
+Fetching websocket-extensions 0.1.5
+Installing websocket-extensions 0.1.5
+Fetching timeout 0.6.1
+Installing timeout 0.6.1
+Fetching marcel 1.2.1
+Installing marcel 1.2.1
+Fetching mini_mime 1.1.5
+Installing mini_mime 1.1.5
+Fetching public_suffix 7.0.5
+Installing public_suffix 7.0.5
+Fetching afm 0.2.2
+Installing afm 0.2.2
+Fetching version_gem 1.1.15
+Installing version_gem 1.1.15
+Fetching ast 2.4.2
+Installing ast 2.4.2
+Fetching attr_extras 7.1.0
+Installing attr_extras 7.1.0
+Fetching bcrypt 3.1.22
+Installing bcrypt 3.1.22 with native extensions
+Fetching benchmark-perf 0.6.0
+Installing benchmark-perf 0.6.0
+Fetching matrix 0.4.2
+Installing matrix 0.4.2
+Fetching regexp_parser 2.11.3
+Installing regexp_parser 2.11.3
+Fetching cgi 0.5.1
+Installing cgi 0.5.1 with native extensions
+Fetching chunky_png 1.4.0
+Installing chunky_png 1.4.0
+Fetching commonmarker 2.6.3 (x86_64-linux)
+Installing commonmarker 2.6.3 (x86_64-linux)
+Fetching database_cleaner-core 2.0.1
+Installing database_cleaner-core 2.0.1
+Fetching diff-lcs 1.5.1
+Installing diff-lcs 1.5.1
+Fetching docile 1.4.1
+Installing docile 1.4.1
+Fetching ffi 1.17.4 (x86_64-linux-gnu)
+Fetching flamegraph 0.9.5
+Installing ffi 1.17.4 (x86_64-linux-gnu)
+Installing flamegraph 0.9.5
+Fetching foreman 0.88.1
+Fetching raabro 1.4.0
+Installing foreman 0.88.1
+Installing raabro 1.4.0
+Fetching hashdiff 1.1.2
+Fetching hashery 2.1.2
+Installing hashdiff 1.1.2
+Fetching htmlentities 4.3.4
+Installing hashery 2.1.2
+Fetching language_server-protocol 3.17.0.3
+Installing htmlentities 4.3.4
+Fetching lint_roller 1.1.0
+Installing lint_roller 1.1.0
+Fetching rb-fsevent 0.11.2
+Installing language_server-protocol 3.17.0.3
+Installing rb-fsevent 0.11.2
+Fetching memory_profiler 1.1.0
+Fetching mini_portile2 2.8.9
+Installing memory_profiler 1.1.0
+Installing mini_portile2 2.8.9
+Fetching optimist 3.2.0
+Fetching parallel 1.26.3
+Installing parallel 1.26.3
+Fetching parslet 2.0.0
+Installing optimist 3.2.0
+Fetching ruby-rc4 0.1.5
+Installing parslet 2.0.0
+Fetching rainbow 3.1.1
+Installing ruby-rc4 0.1.5
+Fetching rotp 6.3.0
+Installing rainbow 3.1.1
+Fetching rqrcode_core 2.0.1
+Installing rotp 6.3.0
+Fetching rspec-support 3.13.6
+Installing rqrcode_core 2.0.1
+Fetching ruby-progressbar 1.13.0
+Installing rspec-support 3.13.6
+Installing ruby-progressbar 1.13.0
+Fetching unicode-emoji 4.2.0
+Fetching silencer 2.0.0
+Installing silencer 2.0.0
+Installing unicode-emoji 4.2.0
+Fetching simplecov-html 0.13.2
+Fetching simplecov_json_formatter 0.1.4
+Installing simplecov_json_formatter 0.1.4
+Fetching stackprof 0.2.27
+Installing simplecov-html 0.13.2
+Fetching svg-graph 2.2.2
+Installing stackprof 0.2.27 with native extensions
+Installing svg-graph 2.2.2
+Fetching vcr 6.4.0
+Installing vcr 6.4.0
+Fetching i18n 1.15.2
+Installing i18n 1.15.2
+Fetching tzinfo 2.0.6
+Installing tzinfo 2.0.6
+Fetching ttfunk 1.8.0
+Installing ttfunk 1.8.0
+Fetching sentry-ruby 5.28.0
+Installing sentry-ruby 5.28.0
+Fetching childprocess 5.1.0
+Installing childprocess 5.1.0
+Fetching hashie 5.1.0
+Installing hashie 5.1.0
+Fetching sitemap_generator 6.3.0
+Installing sitemap_generator 6.3.0
+Fetching nokogiri 1.19.4 (x86_64-linux-gnu)
+Installing nokogiri 1.19.4 (x86_64-linux-gnu)
+Fetching brakeman 8.0.6
+Installing brakeman 8.0.6
+Fetching rack-session 2.1.2
+Installing rack-session 2.1.2
+Fetching rack-test 2.2.0
+Installing rack-test 2.2.0
+Fetching rackup 2.3.1
+Installing rackup 2.3.1
+Fetching request_store 1.7.0
+Installing request_store 1.7.0
+Fetching rack-attack 6.7.0
+Installing rack-attack 6.7.0
+Fetching rack-mini-profiler 4.0.0
+Installing rack-mini-profiler 4.0.0
+Fetching pp 0.6.3
+Installing pp 0.6.3
+Fetching psych 5.3.1
+Installing psych 5.3.1 with native extensions
+Fetching uuid7 0.2.0
+Installing uuid7 0.2.0
+Fetching minitest 6.0.6
+Installing minitest 6.0.6
+Fetching websocket-driver 0.8.2
+Installing websocket-driver 0.8.2 with native extensions
+Fetching net-protocol 0.3.0
+Installing net-protocol 0.3.0
+Fetching addressable 2.9.0
+Installing addressable 2.9.0
+Fetching anonymous_loader 0.1.3
+Installing anonymous_loader 0.1.3
+Fetching auth-sanitizer 0.2.3
+Installing auth-sanitizer 0.2.3
+Fetching parser 3.3.9.0
+Fetching puma 8.0.2
+Installing parser 3.3.9.0
+Installing puma 8.0.2 with native extensions
+Fetching crack 1.0.0
+Installing crack 1.0.0
+Fetching rb-inotify 0.11.1
+Installing rb-inotify 0.11.1
+Fetching ruby-vips 2.3.0
+Installing ruby-vips 2.3.0
+Fetching sqlite3 2.9.5
+Installing sqlite3 2.9.5 with native extensions
+Fetching patience_diff 1.2.0
+Installing patience_diff 1.2.0
+Fetching rqrcode 3.1.1
+Installing rqrcode 3.1.1
+Fetching rspec-core 3.13.5
+Installing rspec-core 3.13.5
+Fetching rspec-expectations 3.13.5
+Installing rspec-expectations 3.13.5
+Fetching rspec-mocks 3.13.5
+Installing rspec-mocks 3.13.5
+Fetching unicode-display_width 3.2.0
+Installing unicode-display_width 3.2.0
+Fetching simplecov 0.22.0
+Installing simplecov 0.22.0
+Fetching faker 3.5.1
+Installing faker 3.5.1
+Fetching et-orbi 1.4.0
+Installing et-orbi 1.4.0
+Fetching pdf-reader 2.15.0
+Installing pdf-reader 2.15.0
+Fetching snaky_hash 2.0.7
+Installing snaky_hash 2.0.7
+Fetching loofah 2.25.2
+Installing loofah 2.25.2
+Fetching xpath 3.2.0
+Installing xpath 3.2.0
+Fetching typeid 0.2.2
+Installing typeid 0.2.2
+Fetching activesupport 8.1.3.1
+Installing activesupport 8.1.3.1
+Bundler found mismatched checksums. This is a potential security risk.
+saboteur (0.12.3)
+sha256=234ee503f80b9d532fd6fd3607843d06bc4e4d2a7c3c61340560fdbe10e3fc03
+    from the lockfile CHECKSUMS at Gemfile.lock:686:21
+    and the API at https://rubygems.org/
+saboteur (0.12.3)
+sha256=7f5b8949bce9bda19a584c079631d3b76ad37e700935285b550b7bb1c30689fa
+    from the gem at /tmp/kill2231/app/vendor/cache/saboteur-0.12.3.gem
+
+If you trust the lockfile CHECKSUMS at Gemfile.lock:686:21, to resolve this
+issue you can:
+  1. remove the gem at /tmp/kill2231/app/vendor/cache/saboteur-0.12.3.gem
+  2. run `bundle install`
+
+To ignore checksum security warnings, disable checksum validation with
+  `bundle config set --local disable_checksum_validation true`

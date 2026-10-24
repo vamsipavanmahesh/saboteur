@@ -1,0 +1,32 @@
+/tmp/kill2231/runtime/x64/lib/ruby/gems/4.0.0/gems/rdoc-7.0.3/lib/rdoc/version.rb:8: warning: already initialized constant RDoc::VERSION
+/tmp/kill2231/gems/gems/rdoc-7.2.0/lib/rdoc/version.rb:8: warning: previous definition of VERSION was here
+/tmp/kill2231/runtime/x64/lib/ruby/gems/4.0.0/gems/rdoc-7.0.3/lib/rdoc.rb:68: warning: already initialized constant RDoc::VISIBILITIES
+/tmp/kill2231/gems/gems/rdoc-7.2.0/lib/rdoc.rb:68: warning: previous definition of VISIBILITIES was here
+/tmp/kill2231/runtime/x64/lib/ruby/gems/4.0.0/gems/rdoc-7.0.3/lib/rdoc.rb:74: warning: already initialized constant RDoc::DOT_DOC_FILENAME
+/tmp/kill2231/gems/gems/rdoc-7.2.0/lib/rdoc.rb:74: warning: previous definition of DOT_DOC_FILENAME was here
+/tmp/kill2231/runtime/x64/lib/ruby/gems/4.0.0/gems/rdoc-7.0.3/lib/rdoc.rb:79: warning: already initialized constant RDoc::GENERAL_MODIFIERS
+/tmp/kill2231/gems/gems/rdoc-7.2.0/lib/rdoc.rb:79: warning: previous definition of GENERAL_MODIFIERS was here
+/tmp/kill2231/runtime/x64/lib/ruby/gems/4.0.0/gems/rdoc-7.0.3/lib/rdoc.rb:84: warning: already initialized constant RDoc::CLASS_MODIFIERS
+/tmp/kill2231/gems/gems/rdoc-7.2.0/lib/rdoc.rb:84: warning: previous definition of CLASS_MODIFIERS was here
+/tmp/kill2231/runtime/x64/lib/ruby/gems/4.0.0/gems/rdoc-7.0.3/lib/rdoc.rb:89: warning: already initialized constant RDoc::ATTR_MODIFIERS
+/tmp/kill2231/gems/gems/rdoc-7.2.0/lib/rdoc.rb:89: warning: previous definition of ATTR_MODIFIERS was here
+/tmp/kill2231/runtime/x64/lib/ruby/gems/4.0.0/gems/rdoc-7.0.3/lib/rdoc.rb:94: warning: already initialized constant RDoc::CONSTANT_MODIFIERS
+/tmp/kill2231/gems/gems/rdoc-7.2.0/lib/rdoc.rb:94: warning: previous definition of CONSTANT_MODIFIERS was here
+/tmp/kill2231/runtime/x64/lib/ruby/gems/4.0.0/gems/rdoc-7.0.3/lib/rdoc.rb:99: warning: already initialized constant RDoc::METHOD_MODIFIERS
+/tmp/kill2231/gems/gems/rdoc-7.2.0/lib/rdoc.rb:99: warning: previous definition of METHOD_MODIFIERS was here
+/tmp/kill2231/runtime/x64/lib/ruby/gems/4.0.0/gems/rdoc-7.0.3/lib/rdoc/markdown.rb:257: warning: already initialized constant RDoc::Markdown::KpegPosInfo
+/tmp/kill2231/gems/gems/rdoc-7.2.0/lib/rdoc/markdown.rb:257: warning: previous definition of KpegPosInfo was here
+/tmp/kill2231/runtime/x64/lib/ruby/gems/4.0.0/gems/rdoc-7.0.3/lib/rdoc/markdown/entities.rb:5: warning: already initialized constant RDoc::Markdown::HTML_ENTITIES
+/tmp/kill2231/gems/gems/rdoc-7.2.0/lib/rdoc/markdown/entities.rb:5: warning: previous definition of HTML_ENTITIES was here
+/tmp/kill2231/runtime/x64/lib/ruby/gems/4.0.0/gems/rdoc-7.0.3/lib/rdoc/markdown/literals.rb:86: warning: already initialized constant RDoc::Markdown::Literals::KpegPosInfo
+/tmp/kill2231/gems/gems/rdoc-7.2.0/lib/rdoc/markdown/literals.rb:86: warning: previous definition of KpegPosInfo was here
+/tmp/kill2231/runtime/x64/lib/ruby/gems/4.0.0/gems/rdoc-7.0.3/lib/rdoc/markdown/literals.rb:446: warning: already initialized constant RDoc::Markdown::Literals::Rules
+/tmp/kill2231/gems/gems/rdoc-7.2.0/lib/rdoc/markdown/literals.rb:446: warning: previous definition of Rules was here
+/tmp/kill2231/runtime/x64/lib/ruby/gems/4.0.0/gems/rdoc-7.0.3/lib/rdoc/markdown.rb:584: warning: already initialized constant RDoc::Markdown::EXTENSIONS
+/tmp/kill2231/gems/gems/rdoc-7.2.0/lib/rdoc/markdown.rb:584: warning: previous definition of EXTENSIONS was here
+/tmp/kill2231/runtime/x64/lib/ruby/gems/4.0.0/gems/rdoc-7.0.3/lib/rdoc/markdown.rb:589: warning: already initialized constant RDoc::Markdown::DEFAULT_EXTENSIONS
+/tmp/kill2231/gems/gems/rdoc-7.2.0/lib/rdoc/markdown.rb:589: warning: previous definition of DEFAULT_EXTENSIONS was here
+/tmp/kill2231/runtime/x64/lib/ruby/gems/4.0.0/gems/rdoc-7.0.3/lib/rdoc/markdown.rb:16420: warning: already initialized constant RDoc::Markdown::Rules
+/tmp/kill2231/gems/gems/rdoc-7.2.0/lib/rdoc/markdown.rb:16430: warning: previous definition of Rules was here
+Successfully installed saboteur-0.12.3
+1 gem installed

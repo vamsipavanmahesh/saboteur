@@ -1,0 +1,20 @@
+--- a/app/models/comment.rb
++++ b/app/models/comment.rb
+@@ -463,16 +463,7 @@
+ 
+   # all direct ancestors of this comment, oldest first
+   def parents
+-    return Comment.none if parent_comment_id.nil?
+-
+-    # starts from parent_comment_id so it works on new records
+-    Comment.with_recursive(parents: [
+-      Comment.where(id: parent_comment_id),
+-      Comment.joins("JOIN parents on comments.id = parents.parent_comment_id")
+-    ])
+-      # select directly from RCTE; AR would generate a JOIN against 'comments'
+-      .select("*").from("parents")
+-      .order(depth: :asc)
++    raise
+   end
+ 
+   def record_initial_upvote
