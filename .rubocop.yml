@@ -12,6 +12,15 @@ AllCops:
     - "config/saboteur.rb"
     - "config/saboteur_ignore.rb"
     - "config/saboteur_custom_map.rb"
+    # Recorded field-run evidence (specimens, probes, raw spec copies, run
+    # configs). Kept byte-for-byte as captured, so it is not linted or rewritten.
+    # field-runs/script and field-runs/test (the summarizer and its test) stay linted.
+    - "field-runs/apps/**/*"
+    - "field-runs/bugs/**/*"
+    - "field-runs/noise/**/*"
+    - "field-runs/runs/**/*"
+    - "field-runs/tool-verification/**/*"
+    - "field-runs/hosted/*/config.saboteur.rb"
 
 Style/StringLiterals:
   EnforcedStyle: double_quotes
