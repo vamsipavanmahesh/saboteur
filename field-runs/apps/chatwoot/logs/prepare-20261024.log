@@ -1,0 +1,31 @@
+=== PREPARE v2 2026-10-24T10:00:33+05:30 ===
+ruby 3.4.4 (2025-05-14 revision a38531fd3f) +PRISM [x86_64-linux]
+openssl: OpenSSL 3.0.16 11 Feb 2025
+/home/sandbox/local/ruby/lib/ruby/3.4.0/did_you_mean/core_ext/name_error.rb:11: warning: fiddle will no longer be part of the default gems starting from Ruby 3.5.0. Install fiddle from RubyGems.
+<internal:/home/sandbox/local/ruby/lib/ruby/3.4.0/rubygems/core_ext/kernel_require.rb>:136:in 'Kernel#require': cannot load such file -- fiddle (LoadError)
+	from <internal:/home/sandbox/local/ruby/lib/ruby/3.4.0/rubygems/core_ext/kernel_require.rb>:136:in 'Kernel#require'
+psych ok
+psql (PostgreSQL) 16.10
+PONG
+v24.13.0
+10.2.0
+TREE_CHECK sha=98a9ed710ad7334b07e96ca6c1da0b7e8ebc686a (expect 98a9ed710ad7334b07e96ca6c1da0b7e8ebc686a)
+ENV_WRITTEN 2026-10-24T10:00:33+05:30
+1 gem installed
+BUNDLE_INSTALL_START 2026-10-24T10:00:34+05:30
+Thanks for installing Vite Ruby!
+
+If you upgraded the gem manually, please run:
+	bundle exec vite upgrade
+3 installed gems you directly depend on are looking for funding.
+  Run `bundle fund` for details
+BUNDLE_OK 2026-10-24T10:07:06+05:30
+husky - Git hooks installed
+Done in 14.1s
+DB_SETUP_START 2026-10-24T10:07:20+05:30
+Created database 'chatwoot_test'
+SMOKE_START 2026-10-24T10:07:36+05:30
+Finished in 2.81 seconds (files took 5.71 seconds to load)
+74 examples, 0 failures
+
+PREPARE_DONE ec=0 stage=smoke 2026-10-24T10:07:45+05:30 (full log prepare-smoke.log)
