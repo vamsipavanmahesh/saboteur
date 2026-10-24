@@ -1,0 +1,82 @@
++ timeout 3000 bundle exec saboteur run --config config/saboteur-inclusive.rb --since 8f1b50061e5ef0b88ddbadc675395f7b5cf4eb76 --all --jobs 1 --baseline-passes 1 --max-duration 3600 --seed 1 --verbose --json /home/sandbox/verify/out/2204/report-confirm-all-inclusive.json
+saboteur: warning: 5 uncommitted or untracked change(s) in the working tree: none inside the mutation scope, 4 outside it (3 tracked, 1 untracked), 1 saboteur setup file(s) (0 tracked, 1 untracked).
+  setup files: config/saboteur-inclusive.rb
+  Mutants run your code and could alter or delete files; run on a clean, committed tree or a CI checkout.
+saboteur: Operators: operator_assignment, condition_negation, range, body_nil, body_true, body_false, body_raise, comparison, arithmetic, boolean_logic, condition_true, condition_false, negation_removal, literal_number, or_assign, and_assign, safe_navigation, statement_removal, filter_replacement, copy_replacement, literal_string, literal_boolean, argument_swap, argument_removal, pair_removal, element_removal, endpoint_replacement, chain_removal, method_swap, operand_replacement, interpolation_removal, jump_value, rescue_removal, ensure_removal, when_removal, unary_removal, regex_replacement
+saboteur: loading the application
+saboteur: SimpleCov.start ignored for this run (saboteur needs Ruby's Coverage itself)
+W, [2026-10-24T08:28:51.332939 #16525]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+saboteur: running the loaded suite unscoped: 861 examples in 104 spec files; 2 full passes (1 baseline check + 1 coverage map build).
+saboteur: checking the unchanged suite once (seed 1); order stability between passes is not checked (baseline_passes: 1)
+saboteur: baseline check 1: 30 s elapsed, 650/861 examples (75 %), about 10 s left
+saboteur: baseline check 1 took 36 s; about 36 s left for the coverage map build at that rate
+saboteur: coverage cache miss: settings, Ruby or saboteur version changed; the map build runs the whole suite once; --test narrows the specs the build runs
+saboteur: building coverage map (runs the whole suite once)
+saboteur: building coverage map: 30 s elapsed, 50/861 examples (5 %), about 490 s left
+saboteur: building coverage map: 60 s elapsed, 175/861 examples (20 %), about 237 s left
+saboteur: building coverage map: 91 s elapsed, 250/861 examples (29 %), about 222 s left
+saboteur: building coverage map: 121 s elapsed, 350/861 examples (40 %), about 177 s left
+saboteur: building coverage map: 151 s elapsed, 475/861 examples (55 %), about 123 s left
+saboteur: building coverage map: 182 s elapsed, 575/861 examples (66 %), about 91 s left
+saboteur: building coverage map: 212 s elapsed, 675/861 examples (78 %), about 59 s left
+saboteur: building coverage map: 242 s elapsed, 825/861 examples (95 %), about 11 s left
+saboteur: 1 subject, 861 tests in coverage map
+.:killed S:survived T:timeout E:error s:skipped L:resource limit
+saboteur: Story#is_gone?  E..........E..EE.E.E..
+......................  22/22 (100%)
+
+
+Rejected kills (tests also fail with the method unchanged; not counted as killed):
+  Story#is_gone? body_true 5dd5baf14dad286a: killing test ./spec/models/search_spec.rb[1:2] also fails with the method unchanged: ActiveRecord::RecordInvalid: Validation failed: Domain has already been taken
+    /home/sandbox/verify/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/activerecord-8.1.3.1/lib/active_record/validations.rb:87:in 'ActiveRecord::Validations#raise_validation_error'
+    /home/sandbox/verify/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/activerecord-8.1.3.1/lib/active_record/validations.rb:54:in 'ActiveRecord::Validations#save!'
+    /home/sandbox/verify/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/activerecord-8.1.3.1/lib/active_record/transactions.rb:385:in 'block in ActiveRecord::Transactions#save!'
+    /home/sandbox/verify/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/activerecord-8.1.3.1/lib/active_record/transactions.rb:438:in 'block (3 levels) in ActiveRecord::Transactions#with_transaction_returning_status'
+    /home/sandbox/verify/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/activerecord-8.1.3.1/lib/active_record/connection_adapters/abstract/transaction.rb:648:in 'block in ActiveRecord::ConnectionAdapters::TransactionManager#within_new_transaction'
+  Story#is_gone? comparison 56ec2857eb8103bd: killing test ./spec/features/submit_story_spec.rb[1:10] also fails with the method unchanged: ActiveRecord::RecordInvalid: Validation failed: Domain has already been taken
+    /home/sandbox/verify/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/activerecord-8.1.3.1/lib/active_record/validations.rb:87:in 'ActiveRecord::Validations#raise_validation_error'
+    /home/sandbox/verify/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/activerecord-8.1.3.1/lib/active_record/validations.rb:54:in 'ActiveRecord::Validations#save!'
+    /home/sandbox/verify/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/activerecord-8.1.3.1/lib/active_record/transactions.rb:385:in 'block in ActiveRecord::Transactions#save!'
+    /home/sandbox/verify/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/activerecord-8.1.3.1/lib/active_record/transactions.rb:438:in 'block (3 levels) in ActiveRecord::Transactions#with_transaction_returning_status'
+    /home/sandbox/verify/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/activerecord-8.1.3.1/lib/active_record/connection_adapters/abstract/transaction.rb:648:in 'block in ActiveRecord::ConnectionAdapters::TransactionManager#within_new_transaction'
+  Story#is_gone? literal_number 695982748e0e8ebb: killing test ./spec/features/submit_story_spec.rb[1:10] also fails with the method unchanged: ActiveRecord::RecordInvalid: Validation failed: Domain has already been taken
+    /home/sandbox/verify/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/activerecord-8.1.3.1/lib/active_record/validations.rb:87:in 'ActiveRecord::Validations#raise_validation_error'
+    /home/sandbox/verify/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/activerecord-8.1.3.1/lib/active_record/validations.rb:54:in 'ActiveRecord::Validations#save!'
+    /home/sandbox/verify/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/activerecord-8.1.3.1/lib/active_record/transactions.rb:385:in 'block in ActiveRecord::Transactions#save!'
+    /home/sandbox/verify/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/activerecord-8.1.3.1/lib/active_record/transactions.rb:438:in 'block (3 levels) in ActiveRecord::Transactions#with_transaction_returning_status'
+    /home/sandbox/verify/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/activerecord-8.1.3.1/lib/active_record/connection_adapters/abstract/transaction.rb:648:in 'block in ActiveRecord::ConnectionAdapters::TransactionManager#within_new_transaction'
+  Story#is_gone? literal_number 9786b8df27eddc21: killing test ./spec/features/submit_story_spec.rb[1:10] also fails with the method unchanged: ActiveRecord::RecordInvalid: Validation failed: Domain has already been taken
+    /home/sandbox/verify/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/activerecord-8.1.3.1/lib/active_record/validations.rb:87:in 'ActiveRecord::Validations#raise_validation_error'
+    /home/sandbox/verify/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/activerecord-8.1.3.1/lib/active_record/validations.rb:54:in 'ActiveRecord::Validations#save!'
+    /home/sandbox/verify/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/activerecord-8.1.3.1/lib/active_record/transactions.rb:385:in 'block in ActiveRecord::Transactions#save!'
+    /home/sandbox/verify/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/activerecord-8.1.3.1/lib/active_record/transactions.rb:438:in 'block (3 levels) in ActiveRecord::Transactions#with_transaction_returning_status'
+    /home/sandbox/verify/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/activerecord-8.1.3.1/lib/active_record/connection_adapters/abstract/transaction.rb:648:in 'block in ActiveRecord::ConnectionAdapters::TransactionManager#within_new_transaction'
+  Story#is_gone? comparison ac002c38b0a84764: killing test ./spec/models/story_spec.rb[1:27:2:3] also fails with the method unchanged: ActiveRecord::RecordInvalid: Validation failed: Domain has already been taken
+    /home/sandbox/verify/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/activerecord-8.1.3.1/lib/active_record/validations.rb:87:in 'ActiveRecord::Validations#raise_validation_error'
+    /home/sandbox/verify/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/activerecord-8.1.3.1/lib/active_record/validations.rb:54:in 'ActiveRecord::Validations#save!'
+    /home/sandbox/verify/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/activerecord-8.1.3.1/lib/active_record/transactions.rb:385:in 'block in ActiveRecord::Transactions#save!'
+    /home/sandbox/verify/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/activerecord-8.1.3.1/lib/active_record/transactions.rb:438:in 'block (3 levels) in ActiveRecord::Transactions#with_transaction_returning_status'
+    /home/sandbox/verify/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/activerecord-8.1.3.1/lib/active_record/connection_adapters/abstract/transaction.rb:648:in 'block in ActiveRecord::ConnectionAdapters::TransactionManager#within_new_transaction'
+  Story#is_gone? operand_replacement 906c7556be9fd7d1: killing test ./spec/models/story_spec.rb[1:27:2:2] also fails with the method unchanged: ActiveRecord::RecordInvalid: Validation failed: Domain has already been taken
+    /home/sandbox/verify/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/activerecord-8.1.3.1/lib/active_record/validations.rb:87:in 'ActiveRecord::Validations#raise_validation_error'
+    /home/sandbox/verify/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/activerecord-8.1.3.1/lib/active_record/validations.rb:54:in 'ActiveRecord::Validations#save!'
+    /home/sandbox/verify/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/activerecord-8.1.3.1/lib/active_record/transactions.rb:385:in 'block in ActiveRecord::Transactions#save!'
+    /home/sandbox/verify/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/activerecord-8.1.3.1/lib/active_record/transactions.rb:438:in 'block (3 levels) in ActiveRecord::Transactions#with_transaction_returning_status'
+    /home/sandbox/verify/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/activerecord-8.1.3.1/lib/active_record/connection_adapters/abstract/transaction.rb:648:in 'block in ActiveRecord::ConnectionAdapters::TransactionManager#within_new_transaction'
+warning: running the loaded suite unscoped: 861 examples in 104 spec files; 2 full passes (1 baseline check + 1 coverage map build).
+warning: 3 other thread(s) alive at fork time; they do not run in children: DEBUGGER__::SESSION@server (the debug gem's remote-console server: what it does in children depends on RUBY_DEBUG_FORK_MODE - with parent no debugger runs in children; with child or both (the gem's default) the debugger activates in children and can pause or interfere with supervised mutation runs. For an unattended run, do not start the remote debugger at all: drop RUBY_DEBUG_OPEN or require "debug" without :open), /home/sandbox/verify/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/rack-mini-profiler-4.0.0/lib/mini_profiler/storage/file_store.rb:85:in 'Kernel#sleep', AR Pool Reaper (ActiveRecord's connection-pool reaper: expected harmless when children reconnect the database after fork (rails mode does) - it only maintains the parent's pool); a thread that does not run in a child cannot do background work a mutant's test may rely on (a pool reaper, a flusher), so results can differ when one is left behind
+warning: sandbox is on but this kernel's Landlock ABI is 2 but ABI 3 (Linux 6.2+) is needed to restrict truncate(); children run with the hazard guard and canary only
+warning: Story#is_gone?: 6 verdict(s) failed with the method unchanged
+saboteur 0.12.3: 1 subject, 22 mutants, wall 490.26 s, seed 1 (repeat with --seed 1)
+Score: 100.0% (16/16 killed, tested subjects) (assertion 87.5 %, crash 12.5 %) (killed+timeout)/(killed+survived+timeout); errors, resource limits and skips excluded
+score without whole-body mutants 100.0 % (assertion 92.9 %, crash 7.1 %) (14 mutants); whole-body mutants alone 100.0 % (2)
+mean time per executed mutant 2.639 s
+kills rejected by unchanged-method check: 6
+kills: 14 by a failed assertion, 2 by a crash (RuntimeError 1, ActiveRecord::RecordInvalid 1)
+crash kills by operator: body_raise 1 of 1, boolean_logic 1 of 8
+saboteur: 16 killed, 6 errors (6 rejected kills) in 8m10s - score 100.0%
+speed footer: done in 490.3s - baseline 36.0s · map 252.5s · mutants 193.3s (jobs=1)
+  slowest: Story#is_gone? (comparison, 18.5s)
+
+Reports: /home/sandbox/verify/out/2204/report-confirm-all-inclusive.json (JSON), .saboteur/report.html (HTML)
+exit=0
