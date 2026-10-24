@@ -1,0 +1,52 @@
+saboteur: preset 'pr': --baseline-passes 1 --max-duration 10m --since 9a773eac0b49fd86b16585ad503de9a51919c496 (explicit flags override)
+saboteur: warning: 186 uncommitted or untracked change(s) in the working tree: none inside the mutation scope, 185 outside it (2 tracked, 183 untracked), 1 saboteur setup file(s) (0 tracked, 1 untracked).
+  setup files: config/saboteur.rb
+  Mutants run your code and could alter or delete files; run on a clean, committed tree or a CI checkout.
+saboteur: SimpleCov.start ignored for this run (saboteur needs Ruby's Coverage itself)
+W, [2026-10-24T07:52:11.718798 #16442]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+saboteur 0.12.3 · --since 9a773eac0b49fd86b16585ad503de9a51919c496 · seed 1 · 37 operators (--list-operators)
+✓ baseline green (1 pass, 1.4s)  ✓ coverage map: 1 test (cached)
+spec inference: 1 spec file (details: --verbose)
+.:killed S:survived T:timeout E:error s:skipped L:resource limit
+...S...  7/7 (100%)
+saboteur: confirmation: 1 unconfirmed
+
+Survivors (1) - changes your tests did not catch
+
+1. app/controllers/settings_controller.rb:51 SettingsController#update [branch · #1 of 1 block]
+  the covering specs pass without pinning this branch
+   44 def update
+   45     @edit_user = @user.clone
+   46 
+      ...
+   50       if @edit_user.update(user_params)
+-  51         if @edit_user.username_previously_changed?
++  51         if true   condition_true · 84a2b3ca16355339
+                 ^^^^
+   52           Username.rename!(
+      ...
+   67     render action: "index"
+   68   end
+  why it matters: no test observes this change
+  changed line: app/controllers/settings_controller.rb:51
+  covered by ./spec/controllers/settings_controller_spec.rb[1:1:1] - ran, still passed
+
+warning: 2 other thread(s) alive at fork time; they do not run in children: DEBUGGER__::SESSION@server (the debug gem's remote-console server: what it does in children depends on RUBY_DEBUG_FORK_MODE - with parent no debugger runs in children; with child or both (the gem's default) the debugger activates in children and can pause or interfere with supervised mutation runs. For an unattended run, do not start the remote debugger at all: drop RUBY_DEBUG_OPEN or require "debug" without :open), /home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/rack-mini-profiler-4.0.0/lib/mini_profiler/storage/file_store.rb:85:in 'Kernel#sleep'; a thread that does not run in a child cannot do background work a mutant's test may rely on (a pool reaper, a flusher), so results can differ when one is left behind
+warning: sandbox is on but this kernel's Landlock ABI is 2 but ABI 3 (Linux 6.2+) is needed to restrict truncate(); children run with the hazard guard and canary only
+warning: survivor confirmation: the whole-suite coverage map covers none of the edited lines of 1 survivor, so they stay counted; run `saboteur run --all` to rebuild it
+saboteur 0.12.3: 1 subject, 7 mutants, wall 15.28 s, seed 1 (repeat with --seed 1)
+Score: 85.7% (6/7 killed, tested subjects)
+saboteur: 6 killed, 1 survived in 15s - score 85.7%
+✗ exit 1 - 1 survivor
+
+Next steps:
+  replay one survivor: saboteur run --id 84a2b3ca16355339 --since 9a773eac0b49fd86b16585ad503de9a51919c496 --test spec/controllers/settings_controller_spec.rb --jobs 1 --baseline-passes 1 --max-duration 600.0 --seed 1
+  accept an equivalent one: add to your ignore file
+    (c.ignore_file, default config/saboteur_ignore.rb):
+    Saboteur.ignore do |i|
+      i.mutation "84a2b3ca16355339", subject: "SettingsController#update", reason: "why it is equivalent"
+    end
+  let an agent close the gaps: saboteur run --agent, with the same options
+
+Reports: /home/sandbox/field-runs/saboteur-field-runs/apps/lobsters/reports/pr2156-replay-v2/report.json (JSON), /home/sandbox/field-runs/saboteur-field-runs/apps/lobsters/reports/pr2156-replay-v2/report.html (HTML)
+MEASURED exit=1 wall=15.97s rss_kb=375392
