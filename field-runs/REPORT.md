@@ -492,7 +492,7 @@ deviations", not the documented flow verbatim.
 
 # Replaying the Lobsters preparation
 
-This packet preserves raw evidence from the original working directory. It has not been rerun from the published field-runs/ directory. commands.sh is a grouped replay recipe containing the recorded commands, not a literal shell transcript. The actual setup attempt chronology is in logs/bin-setup.log; failures are not hidden by the later successful provisioning.
+This packet preserves raw evidence from the original working directory. It has not been rerun from the published field-runs/ directory. commands.sh is a grouped replay recipe containing the recorded commands, not a literal shell record. The actual setup attempt chronology is in logs/bin-setup.log; failures are not hidden by the later successful provisioning.
 
 From the saboteur repository root, place the included helpers at the historical paths before using commands.sh:
 
@@ -555,7 +555,7 @@ Historical preparation-window records. Release-wait statements below describe th
 
 Raw successful-run helpers are in helpers/run-baseline.sh and helpers/run-baseline-extra.sh. They assume the historical working directory $HOME/fieldruns/chatwoot-git and evidence root $HOME/fieldruns/evidence/apps/chatwoot. helpers/env.sh configures the locally built toolchain. Before replay, create the historical evidence directories and copy helpers/env.sh to $HOME/fieldruns/env.sh, or explicitly change and record these paths for a new run. Do not overwrite preserved original evidence.
 
-helpers/provision.sh and commands.sh are grouped provisioning recipes, not a literal complete attempt transcript. commands.sh.source preserves the supplied source text. The source-build recipe and published helper packaging have not been rerun from this evidence directory. Ensure $HOME/local/lib exists before the provisioner's symlink step. Generate local test keys from the public-safe template; no saved private application keys are included. Record any changes and new outputs rather than silently replacing originals.
+helpers/provision.sh and commands.sh are grouped provisioning recipes, not a literal complete attempt record. commands.sh.source preserves the supplied source text. The source-build recipe and published helper packaging have not been rerun from this evidence directory. Ensure $HOME/local/lib exists before the provisioner's symlink step. Generate local test keys from the public-safe template; no saved private application keys are included. Record any changes and new outputs rather than silently replacing originals.
 
 The baseline scripts do not reliably propagate a failed RSpec exit as their own shell exit because they end with echo. Their recorded exit_code in meta.env and the RSpec JSON/log are the evidence for the actual command outcome; wrapper success alone is not enough. Do not use these wrappers' final shell status as a CI gate without a separately reviewed change.
 
@@ -1277,9 +1277,9 @@ The field-run report attributed the failure to cgi gem 0.5.1 removing CGI.parse.
 - RUBYLIB directories precede activated gem paths in $LOAD_PATH. Measured on the same build with the cgi 0.5.1 gem activated: $LOAD_PATH front = stdlib dirs, THEN the gem's lib.
 - So `require "cgi"` resolved to Ruby's stdlib removal-shim, which defines only the escape functions; CGI.parse stayed undefined and the sentinel spec failed.
 - Proof on the identical ruby-builder Ruby 4.0.9, cgi 0.5.1 gem installed from rubygems:
-  - Worker-style RUBYLIB (shim first): `CGI.respond_to?(:parse)` = false (reproduces the baseline failure).
+  - Shim-first RUBYLIB: `CGI.respond_to?(:parse)` = false (reproduces the baseline failure).
   - Gem lib first (`-I`, exactly what bundler/setup achieves on a standard install): parse = true, `CGI::VERSION` = "0.5.1".
-  - Shim renamed away, worker-style RUBYLIB kept: parse = true, VERSION = "0.5.1".
+  - Shim renamed away, shim-first RUBYLIB kept: parse = true, VERSION = "0.5.1".
 - Conclusion: baseline failure F-BASE-1 is an artifact of the sandbox Ruby layout. On a correctly installed Ruby 4.0.9, lobsters' January fix still works. The app code at extras/github.rb:21 is fine.
 - Suggested sandbox fix for the field worker: in the writable extracted ruby tree, rename lib/ruby/4.0.0/cgi.rb and lib/ruby/4.0.0/cgi/ aside (verified working above), or install Ruby 4.0.9 at a proper prefix. Then re-run the baseline. Caveat: renaming the shim means `require "cgi"` without the gem raises LoadError instead of warning; acceptable inside this sandbox since the app Gemfile always provides the gem.
 
