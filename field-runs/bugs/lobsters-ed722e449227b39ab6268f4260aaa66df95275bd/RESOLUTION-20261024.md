@@ -3,9 +3,7 @@
 Status change: DECISION PENDING -> SKIP (not a HIT, not a MISS, not
 in either denominator).
 
-Authority chain: user delegated decisions 08:20:52 ("Please take the
-decisions yourself and don't get blocked on me", WhatsApp
-wamid.HBgMOTE5MzkyMTQzNDAzFQIAEhgUM0E5NEQ1QjNERDRDRjFGQzUxMUYA);
+Authority chain: user delegated decisions 08:20:52 (user's WhatsApp message of 08:20:52 IST);
 main resolved 08:21:15: follow the different-DB/Ruby skip rule for
 this MariaDB-era introducer; no MariaDB exception setup.
 
