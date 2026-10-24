@@ -1,0 +1,43 @@
+MERGER VERIFICATION human-essentials selection, 2026-10-24 08:36 IST, live GitHub API
+check1 main HEAD live: e5e69704fc49babacb2684bf846560dcb2e63988 | frozen: e5e69704fc49babacb2684bf846560dcb2e63988 | MATCH
+check2 bundle raw pages: total_count 141 items 141 incomplete False
+check3 live merged>=2026-04-24 (all bases): 141
+check4 live merged>=2026-04-24 base:main: 129 (worker git population: 128)
+check5 worker noise-15: [5743, 5723, 5742, 5656, 5727, 5541, 5721, 5722, 5602, 5695, 5386, 5274, 5604, 5171, 5606]
+check6 in-window base:main PRs (>= oldest selected 2026-08-29T23:43:38Z ): 37
+check7 live merged_at-DESC eligible: [5723, 5742, 5656, 5727, 5541, 5722, 5386, 5274, 5171, 5606]
+check8 ORDER MATCH: False
+check9 in-window zero-ruby skips: [5743, 5731, 5740, 5737, 5734, 5739, 5738, 5736, 5735, 5733, 5732, 5721, 5709, 5708, 5602, 5704, 5706, 5705, 5703, 5702, 5701, 5700, 5699, 5698, 5697, 5695, 5604]
+check10 PR5635 base ref live: kits-to-kit-items
+check10 PR5720 base ref live: guide/12-guide-refresh-inventory
+check11 PR5709 merge_commit_sha: 6aa0d2cc69a3db20229ef1f7cb31ddbd7e6392ef merged: True
+check12 that commit message first line: Merge pull request #5719 from rubyforgood/guide/12-guide-refresh-inventory
+
+MERGER HE RECONCILIATION part 2, 08:37 IST
+PR5743 files(2): ['app/views/partners/requests/new.html.erb', 'spec/requests/partners/requests_spec.rb']
+  app/lib .rb: []
+PR5721 files(8): ['.gitignore', 'docs/agentic_update.md', 'docs/readme.md', 'docs/utils/check_guide_images.sh', 'docs/utils/screenshots/README.md', 'docs/utils/screenshots/example_spec.json', 'docs/utils/screenshots/mkshot', 'docs/utils/screenshots/shot.tmpl.js']
+  app/lib .rb: []
+PR5602 files(2): ['app/views/line_items/_line_item_fields.html.erb', 'spec/system/distribution_system_spec.rb']
+  app/lib .rb: []
+PR5695 files(1): ['app/views/barcode_items/_form.html.erb']
+  app/lib .rb: []
+PR5604 files(3): ['app/views/transfers/_transfer_row.html.erb', 'spec/requests/transfers_request_spec.rb', 'spec/system/transfer_system_spec.rb']
+  app/lib .rb: []
+base:main live count: 129 ; PRs not in worker bundle pages: []
+TRUE live merged_at-DESC eligible-15 (strict app/lib .rb):
+  5723 2026-10-16T19:59:48Z files=3
+  5742 2026-10-12T19:57:37Z files=2
+  5656 2026-10-11T14:59:33Z files=1
+  5727 2026-09-27T20:19:09Z files=1
+  5541 2026-09-20T14:22:50Z files=5
+  5722 2026-09-19T20:41:14Z files=4
+  5386 2026-08-30T13:53:56Z files=9
+  5274 2026-08-30T00:20:24Z files=2
+  5171 2026-08-30T00:00:51Z files=7
+  5606 2026-08-29T23:43:38Z files=2
+  5628 2026-08-29T23:01:05Z files=1
+  5690 2026-08-29T22:46:31Z files=2
+  5692 2026-08-29T22:45:28Z files=2
+  5686 2026-08-29T20:37:27Z files=7
+  5684 2026-08-29T20:24:27Z files=1

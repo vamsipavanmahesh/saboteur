@@ -1,0 +1,31 @@
+MERGER DIAGNOSIS lobsters SHA-loss claim, 2026-10-24 08:35 IST, live GitHub API
+check1 master HEAD live: 407536444934ac7d78f4ce1c18f228e3891a8663 (old pin was 407536444934ac7d78f4ce1c18f228e3891a8663)
+  PR2231: ledger 9fd8f5fc live-merge 9fd8f5fc object exists parents=['372345a2'] -> OK
+  PR2157: ledger 8e46ece7 live-merge 8e46ece7 object exists parents=['d9998c25'] -> OK
+  PR2156: ledger d9998c25 live-merge d9998c25 object exists parents=['9a773eac'] -> OK
+  PR2171: ledger 9a773eac live-merge 9a773eac object exists parents=['e2ef864f'] -> OK
+  PR2172: ledger 98a1ae5e live-merge 98a1ae5e object exists parents=['5c9c1331'] -> OK
+  PR2183: ledger 0c8b0f4c live-merge 0c8b0f4c object exists parents=['809f7030'] -> OK
+  PR2197: ledger 747a64b7 live-merge 747a64b7 object exists parents=['01a8041f'] -> OK
+  PR2182: ledger afd505e4 live-merge afd505e4 object exists parents=['e5fda597'] -> OK
+  PR2175: ledger ce153e44 live-merge ce153e44 object exists parents=['f8fb7998'] -> OK
+  PR2103: ledger 67beed5a live-merge 67beed5a object exists parents=['1c22c1e3', 'a11fe0c5'] -> OK
+  PR2205: ledger 1c22c1e3 live-merge 1c22c1e3 object exists parents=['fb4afa93'] -> OK
+  PR2174: ledger 09a4a77f live-merge 09a4a77f object exists parents=['8b1a3435'] -> OK
+  PR2204: ledger ed722e44 live-merge ed722e44 object exists parents=['8f1b5006'] -> OK
+  PR2178: ledger c7dce360 live-merge c7dce360 object exists parents=['d44b5012'] -> OK
+  PR2158: ledger af7b9b4d live-merge af7b9b4d object exists parents=['87b1befa'] -> OK
+check2 changed merge SHAs: NONE
+check3 objects gone from GitHub: NONE - all 15 ledger SHAs exist
+check4 recent PushEvents: 31
+  2026-10-23T15:06:30Z ref=refs/heads/main forced=None head=40753644 before=f6cba972
+  2026-10-23T15:04:06Z ref=refs/heads/main forced=None head=f6cba972 before=e646f63a
+  2026-10-20T14:06:02Z ref=refs/heads/main forced=None head=559e00ca before=a01cc3c6
+  2026-10-21T19:37:20Z ref=refs/heads/main forced=None head=e646f63a before=ff94d3b3
+  2026-10-18T19:08:20Z ref=refs/heads/main forced=None head=c3700d8d before=e3571e38
+  2026-10-18T16:36:23Z ref=refs/heads/main forced=None head=e3571e38 before=b9efcf73
+  2026-10-19T15:05:37Z ref=refs/heads/main forced=None head=ba32068c before=5db504b5
+  2026-10-19T23:39:09Z ref=refs/heads/main forced=None head=1efec52b before=ba32068c
+  2026-10-18T19:42:05Z ref=refs/heads/main forced=None head=89e416e3 before=c3700d8d
+  2026-10-18T21:38:07Z ref=refs/heads/main forced=None head=824b9b80 before=0e06b59f
+check5 FORCED pushes in recent events: NONE

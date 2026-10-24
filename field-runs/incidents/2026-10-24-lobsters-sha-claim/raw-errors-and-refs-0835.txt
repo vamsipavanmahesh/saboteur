@@ -1,0 +1,81 @@
+== 2026-10-24T03:05:35Z raw diagnostics, repo ~/field-runs/lobsters (partial clone blob:none, promisor=origin)
+-- cat-file -t on vanished SHA:
+fatal: remote error: upload-pack: not our ref 9fd8f5fc6c5ec0a7366a0e4a5dc3e04c78dbf230
+fatal: git cat-file: could not get object info
+-- fetch by SHA:
+fatal: remote error: upload-pack: not our ref 9fd8f5fc6c5ec0a7366a0e4a5dc3e04c78dbf230
+-- fetch master:
+fatal: couldn't find remote ref master
+-- for-each-ref:
+407536444934ac7d78f4ce1c18f228e3891a8663 commit	refs/heads/main
+407536444934ac7d78f4ce1c18f228e3891a8663 commit	refs/remotes/origin/HEAD
+04cec334ec9e1e9d126e7c7280eaf438367681cb commit	refs/remotes/origin/avatar
+a56ee7ad654541b7fd07b8e35cc048b9918fcfa6 commit	refs/remotes/origin/dependabot/bundler/brakeman-8.1.0
+a4bb53abd20518796153b27374a7cafda65d4510 commit	refs/remotes/origin/guideline
+f1c190485df3d6f3c5e3dcd09d9350759d6a3839 commit	refs/remotes/origin/hatchbox
+407536444934ac7d78f4ce1c18f228e3891a8663 commit	refs/remotes/origin/main
+e09b02e0844e17379324f0913d33b6f4926e023a commit	refs/remotes/origin/repaginate
+738a324e947abffd345b22dbfeaff741b71772f6 commit	refs/remotes/origin/revert-1758-stats-extrapolate-current-month
+36ee03f52e0848ae0b25246859897bde97aec423 commit	refs/remotes/origin/revert-1871-td-sqlite-2
+-- ls-remote origin (head):
+407536444934ac7d78f4ce1c18f228e3891a8663	HEAD
+04cec334ec9e1e9d126e7c7280eaf438367681cb	refs/heads/avatar
+a56ee7ad654541b7fd07b8e35cc048b9918fcfa6	refs/heads/dependabot/bundler/brakeman-8.1.0
+a4bb53abd20518796153b27374a7cafda65d4510	refs/heads/guideline
+f1c190485df3d6f3c5e3dcd09d9350759d6a3839	refs/heads/hatchbox
+407536444934ac7d78f4ce1c18f228e3891a8663	refs/heads/main
+e09b02e0844e17379324f0913d33b6f4926e023a	refs/heads/repaginate
+738a324e947abffd345b22dbfeaff741b71772f6	refs/heads/revert-1758-stats-extrapolate-current-month
+36ee03f52e0848ae0b25246859897bde97aec423	refs/heads/revert-1871-td-sqlite-2
+cc42f1c907ce9e0292603ae4f59a008bf1bda246	refs/pull/10/head
+-- worktree list:
+/home/sandbox/field-runs/lobsters                     40753644 (detached HEAD)
+/home/sandbox/field-runs/pr-trees/bug2204-intro       b8cc0cef (detached HEAD)
+/home/sandbox/field-runs/pr-trees/bug2204-intro-base  7037494e (detached HEAD)
+/home/sandbox/field-runs/pr-trees/pr2090              87e1e318 (detached HEAD)
+/home/sandbox/field-runs/pr-trees/pr2103              67beed5a (detached HEAD)
+/home/sandbox/field-runs/pr-trees/pr2103-base         1c22c1e3 (detached HEAD)
+/home/sandbox/field-runs/pr-trees/pr2156              d9998c25 (detached HEAD)
+/home/sandbox/field-runs/pr-trees/pr2156-base         9a773eac (detached HEAD)
+/home/sandbox/field-runs/pr-trees/pr2157              8e46ece7 (detached HEAD)
+/home/sandbox/field-runs/pr-trees/pr2157-base         d9998c25 (detached HEAD)
+/home/sandbox/field-runs/pr-trees/pr2171              9a773eac (detached HEAD)
+/home/sandbox/field-runs/pr-trees/pr2171-base         e2ef864f (detached HEAD)
+/home/sandbox/field-runs/pr-trees/pr2172              98a1ae5e (detached HEAD)
+/home/sandbox/field-runs/pr-trees/pr2172-base         5c9c1331 (detached HEAD)
+/home/sandbox/field-runs/pr-trees/pr2174              09a4a77f (detached HEAD)
+/home/sandbox/field-runs/pr-trees/pr2174-base         8b1a3435 (detached HEAD)
+/home/sandbox/field-runs/pr-trees/pr2182              afd505e4 (detached HEAD)
+/home/sandbox/field-runs/pr-trees/pr2182-base         e5fda597 (detached HEAD)
+/home/sandbox/field-runs/pr-trees/pr2183              0c8b0f4c (detached HEAD)
+/home/sandbox/field-runs/pr-trees/pr2183-base         809f7030 (detached HEAD)
+/home/sandbox/field-runs/pr-trees/pr2197              747a64b7 (detached HEAD)
+/home/sandbox/field-runs/pr-trees/pr2197-base         01a8041f (detached HEAD)
+/home/sandbox/field-runs/pr-trees/pr2204              ed722e44 (detached HEAD)
+/home/sandbox/field-runs/pr-trees/pr2204-base         8f1b5006 (detached HEAD)
+/home/sandbox/field-runs/pr-trees/pr2205              1c22c1e3 (detached HEAD)
+/home/sandbox/field-runs/pr-trees/pr2205-base         fb4afa93 (detached HEAD)
+/home/sandbox/field-runs/pr-trees/pr2231              9fd8f5fc (detached HEAD)
+/home/sandbox/field-runs/pr-trees/pr2231-base         372345a2 (detached HEAD)
+-- grep (#N) in origin/main for 15 PRs:
+PR2231: NOT_FOUND
+PR2157: NOT_FOUND
+PR2156: NOT_FOUND
+PR2171: NOT_FOUND
+PR2172: NOT_FOUND
+PR2183: NOT_FOUND
+PR2197: NOT_FOUND
+PR2182: NOT_FOUND
+PR2175: NOT_FOUND
+PR2103: NOT_FOUND
+PR2205: NOT_FOUND
+PR2174: NOT_FOUND
+PR2204: NOT_FOUND
+PR2178: NOT_FOUND
+PR2158: af7b9b4df3337c439e98dbfcf23f39be1b75b455 optimize story_threads query (#2158)
+-- ancestry of surviving 5 in origin/main:
+PR2182 IN main
+PR2103 IN main
+PR2205 IN main
+PR2174 IN main
+PR2204 IN main

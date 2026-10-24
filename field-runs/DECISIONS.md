@@ -241,3 +241,25 @@ pointers are to files on this branch.
 - Impact: no published row may claim whole-era-suite coverage from
   v2 maps; earlier v2 survivor rows keep their unconfirmed status
   and gain this coverage-gap label.
+
+## D25 - 08:38 - Lobsters "force-push / vanished SHAs" claim refuted
+- Decision: treat the worker's claim as a local artifact, not an
+  upstream incident. Live API: all 15 published merge SHAs match
+  merge_commit_sha (40/40 chars), all objects exist, all are
+  ancestors of main (behind_by=0); the 10 worker-local SHAs are 422
+  upstream. No remapping; no raw discard; 2231 v2 tree identity
+  valid. Worker repairs its partial clone and regenerates its local
+  ledger from the published CSV.
+- Evidence: incidents/2026-10-24-lobsters-sha-claim/.
+- Side finding: 2231 base run crashed exit 70 (saboteur
+  diagnostics ENOENT on its own progress tmpfile at 4/11869
+  mutants) after map cached; reported for issue filing.
+
+## D26 - 08:38 - human-essentials noise-15 attempt 1 INVALID
+- Decision: HE attempt-1 is not adopted: 5 of 15 selected PRs have
+  zero app//lib .rb files live (5743, 5721, 5602, 5695, 5604;
+  .erb/docs/spec-only changes); 5 eligible PRs missed. Worker
+  regenerates with the anchored .rb filter; the bug-20 candidate
+  list needs the same filter audit. Frozen HEAD and population
+  reconciliation (141/129/128) verified.
+- Evidence: noise/human-essentials/attempt-1/.

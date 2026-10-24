@@ -1,0 +1,60 @@
+saboteur: warning: 185 uncommitted or untracked change(s) in the working tree: none inside the mutation scope, 184 outside it (2 tracked, 182 untracked), 1 saboteur setup file(s) (0 tracked, 1 untracked).
+  setup files: config/saboteur.rb
+  Mutants run your code and could alter or delete files; run on a clean, committed tree or a CI checkout.
+saboteur: Operators: operator_assignment, condition_negation, range, body_nil, body_true, body_false, body_raise, comparison, arithmetic, boolean_logic, condition_true, condition_false, negation_removal, literal_number, or_assign, and_assign, safe_navigation, statement_removal, filter_replacement, copy_replacement, literal_string, literal_boolean, argument_swap, argument_removal, pair_removal, element_removal, endpoint_replacement, chain_removal, method_swap, operand_replacement, interpolation_removal, jump_value, rescue_removal, ensure_removal, when_removal, unary_removal, regex_replacement
+saboteur: loading the application
+saboteur: SimpleCov.start ignored for this run (saboteur needs Ruby's Coverage itself)
+saboteur: running the loaded suite unscoped: 882 examples in 107 spec files; 3 full passes (2 baseline checks + 1 coverage map build).
+saboteur: checking the unchanged suite twice (seed 1)
+W, [2026-10-24T08:23:13.700896 #19094]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+saboteur: baseline check 1: 30 s elapsed, 825/882 examples (93 %), about 3 s left
+saboteur: baseline check 1 took 32 s; about 64 s left for the remaining 1 full pass and the coverage map build at that rate
+saboteur: baseline check 2: 30 s elapsed, 775/882 examples (87 %), about 5 s left
+saboteur: building coverage map (runs the whole suite once)
+saboteur: building coverage map: 30 s elapsed, 75/882 examples (8 %), about 327 s left
+saboteur: building coverage map: 61 s elapsed, 200/882 examples (22 %), about 208 s left
+saboteur: building coverage map: 91 s elapsed, 325/882 examples (36 %), about 157 s left
+saboteur: building coverage map: 122 s elapsed, 475/882 examples (53 %), about 105 s left
+saboteur: building coverage map: 152 s elapsed, 625/882 examples (70 %), about 63 s left
+saboteur: building coverage map: 182 s elapsed, 800/882 examples (90 %), about 19 s left
+saboteur: 741 subjects, 882 tests in coverage map
+.:killed S:survived T:timeout E:error s:skipped L:resource limit
+...S  4/11869 (0%) eta 182m36s
+saboteur: internal error (Errno::ENOENT: No such file or directory @ rb_sysopen - /tmp/saboteur-progress20261024-19094-vvwtpy) - please report it: https://github.com/vamsipavanmahesh/saboteur/issues; full backtrace: .saboteur/internal-error.log
+exit 70 - internal crash (a saboteur bug, never your code)
+Errno::ENOENT: No such file or directory @ rb_sysopen - /tmp/saboteur-progress20261024-19094-vvwtpy
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/saboteur-0.12.3/lib/saboteur/engine/diagnostics.rb:389:in 'IO.binread'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/saboteur-0.12.3/lib/saboteur/engine/diagnostics.rb:389:in 'Saboteur::Engine::Diagnostics#painted_file_glyphs'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/saboteur-0.12.3/lib/saboteur/engine/diagnostics.rb:383:in 'Saboteur::Engine::Diagnostics#commit_file_chunk'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/saboteur-0.12.3/lib/saboteur/engine/diagnostics.rb:327:in 'Saboteur::Engine::Diagnostics#finish_progress'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/saboteur-0.12.3/lib/saboteur/engine.rb:326:in 'Saboteur::Engine#run_candidates'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/saboteur-0.12.3/lib/saboteur/engine.rb:293:in 'Saboteur::Engine#run_and_confirm'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/saboteur-0.12.3/lib/saboteur/engine.rb:277:in 'Saboteur::Engine#run_and_confirm_timed'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/saboteur-0.12.3/lib/saboteur/engine.rb:251:in 'Saboteur::Engine#mutate'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/saboteur-0.12.3/lib/saboteur/engine/pipelines.rb:24:in 'Saboteur::Engine::Pipelines#run_pipeline'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/saboteur-0.12.3/lib/saboteur/engine.rb:78:in 'Saboteur::Engine#call'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/saboteur-0.12.3/lib/saboteur/cli/run_reporting.rb:77:in 'Saboteur::CLI::RunReporting#execute_run'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/saboteur-0.12.3/lib/saboteur/cli/run_command.rb:60:in 'Saboteur::CLI::RunCommand#run'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/saboteur-0.12.3/lib/saboteur/cli/run_command.rb:42:in 'Saboteur::CLI::RunCommand#run_command'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/saboteur-0.12.3/lib/saboteur/cli.rb:111:in 'Saboteur::CLI#call'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/saboteur-0.12.3/exe/saboteur:38:in '<top (required)>'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/rubygems.rb:303:in 'Kernel#load'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/rubygems.rb:303:in 'Gem.activate_and_load_bin_path'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/bin/saboteur:25:in '<top (required)>'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/bundler/cli/exec.rb:61:in 'Kernel.load'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/bundler/cli/exec.rb:61:in 'Bundler::CLI::Exec#kernel_load'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/bundler/cli/exec.rb:24:in 'Bundler::CLI::Exec#run'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/bundler/cli.rb:500:in 'Bundler::CLI#exec'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/bundler/vendor/thor/lib/thor/command.rb:28:in 'Bundler::Thor::Command#run'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/bundler/vendor/thor/lib/thor/invocation.rb:127:in 'Bundler::Thor::Invocation#invoke_command'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/bundler/vendor/thor/lib/thor.rb:538:in 'Bundler::Thor.dispatch'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/bundler/cli.rb:35:in 'Bundler::CLI.dispatch'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/bundler/vendor/thor/lib/thor/base.rb:584:in 'Bundler::Thor::Base::ClassMethods#start'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/bundler/cli.rb:29:in 'Bundler::CLI.start'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/bundler-4.0.3/exe/bundle:28:in 'block in <top (required)>'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/bundler/friendly_errors.rb:118:in 'Bundler.with_friendly_errors'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/gems/4.0.0/gems/bundler-4.0.3/exe/bundle:20:in '<top (required)>'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/rubygems.rb:303:in 'Kernel#load'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/lib/ruby/4.0.0/rubygems.rb:303:in 'Gem.activate_and_load_bin_path'
+/home/sandbox/field-runs/ruby/ruby-4.0.0/bin/bundle:25:in '<main>'
+MEASURED exit=70 wall=285.49s rss_kb=490232

@@ -1,0 +1,35 @@
+EXACT 40-CHAR IDENTITY VERIFICATION, 2026-10-24 08:36 IST
+PR2231: local 9fd8f5fc6c5ec0a7366a0e4a5dc3e04c78dbf230
+  -> exists on GitHub: HTTP 422
+  published ledger 9fd8f5fca9b5f93a465a079cd0847b17b2acebe8 == live merge_commit_sha: True
+PR2157: local 8e46ece7d84c0ee4936d43819cd01e35e5a22155
+  -> exists on GitHub: HTTP 422
+  published ledger 8e46ece70245f834e4f43a5563cd9b90efc6e1d0 == live merge_commit_sha: True
+PR2156: local d9998c2563b5ed24c23d6613607d42308991b190
+  -> exists on GitHub: HTTP 422
+  published ledger d9998c2555317db7b3cb9a159ef7878ff993ab78 == live merge_commit_sha: True
+PR2171: local 9a773eacba05de4121786a8160cbb00672f86329
+  -> exists on GitHub: HTTP 422
+  published ledger 9a773eac0b49fd86b16585ad503de9a51919c496 == live merge_commit_sha: True
+PR2172: local 98a1ae5ee2d00b44cd5b9e00e2e705711fc19e1c
+  -> exists on GitHub: HTTP 422
+  published ledger 98a1ae5ead42504bea28370f3102fe821965b0ec == live merge_commit_sha: True
+PR2183: local 0c8b0f4c2fbb6cb5ecc9263668744305b379399c
+  -> exists on GitHub: HTTP 422
+  published ledger 0c8b0f4c648d7ae6e6ff735ac20f2753b02f3b8e == live merge_commit_sha: True
+PR2197: local 747a64b74f630900ac69a5fb38c774478ee65c13
+  -> exists on GitHub: HTTP 422
+  published ledger 747a64b7c3b3ef9758f28708947cd7c5d9266d45 == live merge_commit_sha: True
+PR2175: local ce153e443e94b47be0a26a1854a9d622df3bec9e
+  -> exists on GitHub: HTTP 422
+  published ledger ce153e446a944c36135d65a1e333475dd348f0c0 == live merge_commit_sha: True
+PR2178: local c7dce36075c201e13f63fdd38a3c35cf02252ce8
+  -> exists on GitHub: HTTP 422
+  published ledger c7dce360bf6173244712e6fdd72136a0e318b7c7 == live merge_commit_sha: True
+PR2158: local af7b9b4d0d2d246766c8bd93230e05210b29ea8b
+  -> exists on GitHub: HTTP 422
+  published ledger af7b9b4df3337c439e98dbfcf23f39be1b75b455 == live merge_commit_sha: True
+2231 published SHA full: 9fd8f5fca9b5f93a465a079cd0847b17b2acebe8
+  tree: d51d28cbe347364a0c0e0b81caa3436eeec83a99  parents: ['372345a2cca5ed8e5d3376dcdc7e0a33e7f4f17c']
+  message: Comment#parents: order by depth so no-JS reply/edit pages render ancestors root-first (#2190)
+branches/main HEAD: 407536444934ac7d78f4ce1c18f228e3891a8663

@@ -1,0 +1,50 @@
+# Incident review: worker "upstream force-push / 10 vanished SHAs" claim - REFUTED
+
+Worker raw inputs preserved byte-exact (vanished-10-shas.txt,
+raw-errors-and-refs-0835.txt, pr2231-base-map-20261024.log,
+basemapwatch-2231.log, empty FETCH_HEAD). Merger verification
+transcripts: lobsters-sha-diagnosis.txt, sha40-verify.txt,
+sha-ancestry-verify.txt.
+
+Verdict (2026-10-24 08:35-08:38 IST, live GitHub API):
+- NO upstream force-push or object loss. main HEAD =
+  407536444934ac7d78f4ce1c18f228e3891a8663 (the known pin), unchanged.
+- All 15 published ledger merge SHAs (noise/lobsters/attempt-3) ==
+  live /pulls/N merge_commit_sha (full 40 chars), all commit objects
+  exist (HTTP 200 with parents), and all 15 are ancestors of main
+  (compare behind_by=0, 15/15).
+- The worker-local ledger SHAs (same 8-char prefix, different tail)
+  are HTTP 422 upstream - they do not exist on GitHub. Local
+  derivation corrupted the tails; cause on the worker side
+  (listing/derivation bug), NOT upstream history change. The
+  worker's message-grep "(#N) NOT_FOUND" and ancestry "not in main"
+  results are local-clone artifacts (partial blob:none clone with a
+  failing promisor remote; message-based search is unreliable -
+  e.g. 2231's squash subject has no "(#2231)" in its first line).
+- Worker worktrees are checked out at the CORRECT published SHAs
+  (pr2231 at 9fd8f5fc, base 372345a2 = verified parent
+  372345a2cca5ed8e5d3376dcdc7e0a33e7f4f17c; tree
+  d51d28cbe347364a0c0e0b81caa3436eeec83a99). The 2231 v2 base-map
+  raw and other in-flight trees are NOT invalidated; tree identity
+  proof: sha40-verify.txt.
+- No remapping, no synthetic-SHA cleanup, no discard of preserved
+  raws. Worker should repair its local clone (fresh full clone or
+  fetch with fixed refspec; git fsck) and regenerate its local
+  ledger from the published attempt-3 CSV.
+
+SEPARATE FINDING in the worker's raw log (pr2231-base-map-20261024.log):
+the 2231 base run crashed exit 70 - saboteur internal error
+Errno::ENOENT on its own progress file
+(/tmp/saboteur-progress20261024-19094-vvwtpy) in
+Diagnostics#painted_file_glyphs (diagnostics.rb:389), at 4/11869
+mutants, wall 285.49s, rss 490232 KB. Baselines (882 examples, 2
+checks) and the coverage map (741 subjects) completed first;
+BOUNDARY_STOP_MAP_CACHED at 08:27:54. This is a saboteur crash bug
+candidate (diagnostics kills the run when its progress tmpfile
+disappears), reported to the study lead for issue filing. The crash
+is in the mutation phase; the cached map's usability is for the
+worker to confirm.
+Minor datum caveat: skip-row PR 2202's API merge_commit_sha is not
+an ancestor of main (compare diverged, behind_by=1) - merged
+elsewhere or history note; 2202 stays excluded on its 0-Ruby-file
+ground either way.
