@@ -1,0 +1,222 @@
+[
+  {
+    "pr": 2157,
+    "gap": "story-social-metadata",
+    "mutant_ids": [
+      "3aa0bb7820610094",
+      "43dda9ad5517cd5d",
+      "1f1092204c9a42bb",
+      "bea8f4593231093a",
+      "605c15816c32610f",
+      "5cacdbc3d0bc508e"
+    ],
+    "value": "low",
+    "reason": "These mutants remove or corrupt social-preview image/author meta tags, which the rubric explicitly puts in the low tier.",
+    "noise_class": "real_gap",
+    "classification_limit": "Existing independent unit proof; whole-suite completeness limits remain as recorded",
+    "proof": "pr2157-independent-triage/triage.csv and per-ID receipt.json",
+    "report": "apps/lobsters/reports/pr2157-independent-triage/source-report.json",
+    "rating_status": "provisional_overlap",
+    "overlap": "Explicit meta/title LOW vs PR-own-change HIGH: user priority decision pending"
+  },
+  {
+    "pr": 2156,
+    "gap": "rename-only-on-actual-change",
+    "mutant_ids": [
+      "84a2b3ca16355339"
+    ],
+    "value": "high",
+    "reason": "Treating an unchanged username as a rename can create incorrect rename/history data, so this is a wrong-data boundary rather than presentation.",
+    "noise_class": "real_gap",
+    "classification_limit": "Existing independent unit proof; whole-suite completeness limits remain as recorded",
+    "proof": "pr2156-map-replay-c1/README.md, independent no-rename specimen",
+    "report": "apps/lobsters/reports/pr2156-map-replay-c1/report.json",
+    "rating_status": "proposed_unambiguous",
+    "overlap": null
+  },
+  {
+    "pr": 2204,
+    "gap": "gone-moderation-boundary",
+    "mutant_ids": [
+      "56ec2857eb8103bd",
+      "695982748e0e8ebb",
+      "9786b8df27eddc21"
+    ],
+    "value": "high",
+    "reason": "Changing the deleted/banned/negative-score/moderated visibility predicate changes moderation behavior and the PR's own bug class.",
+    "noise_class": "real_gap",
+    "classification_limit": "Existing independent unit proof; whole-suite completeness limits remain as recorded",
+    "proof": "pr2204-canary-c1/README-AUDIT.md and independent boundary proofs",
+    "report": "apps/lobsters/reports/pr2204-canary-c1/reports/pr2204-replay-c1r/report.json",
+    "rating_status": "proposed_unambiguous",
+    "overlap": null
+  },
+  {
+    "pr": 2103,
+    "gap": "empty-css-class-normalization",
+    "mutant_ids": [
+      "97154a11ddda03c6",
+      "b108a3614e6b02a4",
+      "629ab82786f06cb3",
+      "3357bbd3579ca0dc"
+    ],
+    "value": "low",
+    "reason": "The demonstrated difference is empty/nonempty class-attribute normalization, explicitly a CSS-class issue in the low rubric.",
+    "noise_class": "real_gap",
+    "classification_limit": "Existing independent unit proof; whole-suite completeness limits remain as recorded",
+    "proof": "pr2103-replay-d54/triage/MANIFEST.md and pr2103-triage-corrective2/MANIFEST.md",
+    "report": "apps/lobsters/reports/pr2103-replay-corrective2/report.json",
+    "rating_status": "proposed_unambiguous",
+    "overlap": null
+  },
+  {
+    "pr": 2103,
+    "gap": "seasonal-logo-output",
+    "mutant_ids": [
+      "556caf228d63258a",
+      "2da30124e7509574"
+    ],
+    "value": "low",
+    "reason": "Removing seasonal logo decoration changes presentation only, so this is low-value styling rather than a data or moderation failure.",
+    "noise_class": "real_gap",
+    "classification_limit": "Existing independent unit proof; whole-suite completeness limits remain as recorded",
+    "proof": "pr2103-triage-corrective2/MANIFEST.md",
+    "report": "apps/lobsters/reports/pr2103-replay-corrective2/report.json",
+    "rating_status": "proposed_unambiguous",
+    "overlap": null
+  },
+  {
+    "pr": 2205,
+    "gap": "hidden-state-predicate",
+    "mutant_ids": [
+      "380d564f2434c995",
+      "030338415f22872f",
+      "48e53f1a3e940cd8",
+      "ce014587c8ab2093"
+    ],
+    "value": "medium",
+    "reason": "The probe changes which user/story is reported as hidden, a user-visible state-logic edge without a demonstrated persistent-data, security, or moderation effect.",
+    "noise_class": "real_gap",
+    "classification_limit": "Existing independent unit proof; whole-suite completeness limits remain as recorded",
+    "proof": "pr2205-triage/MANIFEST.md",
+    "report": "apps/lobsters/reports/pr2205-replay-corrective/pr2205-replay-corrective/report.json",
+    "rating_status": "proposed_unambiguous",
+    "overlap": null
+  },
+  {
+    "pr": 2205,
+    "gap": "saved-state-predicate",
+    "mutant_ids": [
+      "f50093f348880e7f",
+      "f5f54769759d3f8a",
+      "5988c535eefd7cbd",
+      "77cce71ad8c3e450"
+    ],
+    "value": "medium",
+    "reason": "The probe changes which user/story is reported as saved, a user-visible state-logic edge without a demonstrated persistent-data, security, or moderation effect.",
+    "noise_class": "real_gap",
+    "classification_limit": "Existing independent unit proof; whole-suite completeness limits remain as recorded",
+    "proof": "pr2205-triage/MANIFEST.md",
+    "report": "apps/lobsters/reports/pr2205-replay-corrective/pr2205-replay-corrective/report.json",
+    "rating_status": "proposed_unambiguous",
+    "overlap": null
+  },
+  {
+    "pr": 2174,
+    "gap": "flagged-commenter-threshold",
+    "mutant_ids": [
+      "de7560d08996f4ef"
+    ],
+    "value": "high",
+    "reason": "Dropping the threshold admits below-threshold users into a moderator-facing flagged-commenter list, a moderation error in the PR's bug class.",
+    "noise_class": "real_gap",
+    "classification_limit": "Existing independent unit proof; whole-suite completeness limits remain as recorded",
+    "proof": "pr2174-replay-d54/triage/MANIFEST.md",
+    "report": "apps/lobsters/reports/pr2174-replay-d54/report.json",
+    "rating_status": "proposed_unambiguous",
+    "overlap": null
+  },
+  {
+    "pr": 2183,
+    "gap": "traffic-intensity-value",
+    "mutant_ids": [
+      "0e77ab7c5fd1ae29",
+      "a7b41e60aed29c41",
+      "0a158cf837a4e9ac",
+      "6ad124cc7a87c548",
+      "c8e920b3b0bbbbed"
+    ],
+    "value": "high",
+    "reason": "These mutations return a wrong numeric traffic-intensity value or ignore the keystore key, meeting the rubric's wrong-data category independently of the query-storm coincidence.",
+    "noise_class": "real_gap",
+    "classification_limit": "Existing independent unit proof; whole-suite completeness limits remain as recorded",
+    "proof": "pr2183-triage/MANIFEST.md",
+    "report": "apps/lobsters/reports/pr2183-replay-ex2/pr2183-replay-ex2b/report.json",
+    "rating_status": "proposed_unambiguous",
+    "overlap": null
+  },
+  {
+    "pr": 2197,
+    "gap": "page-title-text",
+    "mutant_ids": [
+      "111b8e283f0397ea",
+      "16ca5c211943b17d",
+      "265ba36e379f861c",
+      "45122517a7ddc0c8",
+      "82e793cd9460447c",
+      "85a0d301c72ae598",
+      "8ff5c5c19270c92b",
+      "9a31f624b2f1c8d4",
+      "aa15cc2fbfadb177",
+      "cac125b5b23f254f",
+      "d1902dce1d6c0bed",
+      "d3ef739e94f76ceb",
+      "ee7636cfd988297a",
+      "f55b6ebc7e08c7bf",
+      "f98739566ebb7713"
+    ],
+    "value": "low",
+    "reason": "The probes detect missing or changed page title text, explicitly low under the titles rubric.",
+    "noise_class": "real_gap",
+    "classification_limit": "Existing independent unit proof; whole-suite completeness limits remain as recorded",
+    "proof": "pr2197-triage-corrective2/MANIFEST.md",
+    "report": "apps/lobsters/reports/pr2197-replay-corrective2/report.json",
+    "rating_status": "provisional_overlap",
+    "overlap": "Explicit meta/title LOW vs PR-own-change HIGH: user priority decision pending"
+  },
+  {
+    "pr": 2197,
+    "gap": "duplicate-heading-suppression",
+    "mutant_ids": [
+      "6384cf5436c30d89",
+      "7628a88b22719ecf",
+      "a0cee31e8852087b",
+      "f480c446a09839fa"
+    ],
+    "value": "low",
+    "reason": "These mutants add duplicate page headings, a presentation-only title/header defect.",
+    "noise_class": "real_gap",
+    "classification_limit": "Existing independent unit proof; whole-suite completeness limits remain as recorded",
+    "proof": "pr2197-triage-corrective2/MANIFEST.md",
+    "report": "apps/lobsters/reports/pr2197-replay-corrective2/report.json",
+    "rating_status": "provisional_overlap",
+    "overlap": "Explicit meta/title LOW vs PR-own-change HIGH: user priority decision pending"
+  },
+  {
+    "pr": 2197,
+    "gap": "search-title-default-branch",
+    "mutant_ids": [
+      "721be5b96d2f1bf9",
+      "7a2eb67c33630d46",
+      "b3c29e6d9b83c93b"
+    ],
+    "value": "low",
+    "reason": "The changed condition selects the wrong search page title, not wrong search results, so the demonstrated effect remains low-value title text.",
+    "noise_class": "real_gap",
+    "classification_limit": "Existing independent unit proof; whole-suite completeness limits remain as recorded",
+    "proof": "pr2197-triage-corrective2/MANIFEST.md",
+    "report": "apps/lobsters/reports/pr2197-replay-corrective2/report.json",
+    "rating_status": "provisional_overlap",
+    "overlap": "Explicit meta/title LOW vs PR-own-change HIGH: user priority decision pending"
+  }
+]

@@ -1,0 +1,1 @@
+`field-runs/apps/chatwoot/selected_prs.json` lists 5 PRs (16185, 15978, 15807, 16182, 16253) from an earlier selection. It is kept unchanged and is not the current study population. The current selections are `noise-selection-10.json` and `bug-candidates-10.json` in this directory.

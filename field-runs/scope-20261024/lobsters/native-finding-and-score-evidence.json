@@ -1,0 +1,1380 @@
+[
+  {
+    "path": "apps/lobsters/reports/pr2103-replay-corrective2/report.json",
+    "sha256": "3d0988e8838fc02d9bfa9bc1e054459b25d4120c1b92a694698fd869866b65af",
+    "native_findings": {
+      "version": 1,
+      "ordering": "surviving mutants per statement descending, then fewer covering tests, coarse first, larger edited-line span, nearer changed lines, then file, line and digest",
+      "limit": 10,
+      "survivors": [
+        {
+          "digest": "3357bbd3579ca0dc",
+          "path": "app/helpers/application_helper.rb",
+          "line": 109,
+          "endLine": 109,
+          "subject": "ApplicationHelper#link_to_different_page",
+          "operator": "condition_negation",
+          "original": "options[:class].empty?",
+          "replacement": "!(options[:class].empty?)",
+          "edits": [
+            {
+              "line": 109,
+              "endLine": 109,
+              "original": "options[:class].empty?",
+              "replacement": "!(options[:class].empty?)"
+            }
+          ],
+          "coarse": false,
+          "classification": "branch",
+          "kind": "branch",
+          "changedLines": [
+            109
+          ]
+        },
+        {
+          "digest": "97154a11ddda03c6",
+          "path": "app/helpers/application_helper.rb",
+          "line": 109,
+          "endLine": 109,
+          "subject": "ApplicationHelper#link_to_different_page",
+          "operator": "condition_true",
+          "original": "options[:class].empty?",
+          "replacement": "true",
+          "edits": [
+            {
+              "line": 109,
+              "endLine": 109,
+              "original": "options[:class].empty?",
+              "replacement": "true"
+            }
+          ],
+          "coarse": false,
+          "classification": "branch",
+          "kind": "branch",
+          "changedLines": [
+            109
+          ]
+        },
+        {
+          "digest": "b108a3614e6b02a4",
+          "path": "app/helpers/application_helper.rb",
+          "line": 109,
+          "endLine": 109,
+          "subject": "ApplicationHelper#link_to_different_page",
+          "operator": "condition_false",
+          "original": "options[:class].empty?",
+          "replacement": "false",
+          "edits": [
+            {
+              "line": 109,
+              "endLine": 109,
+              "original": "options[:class].empty?",
+              "replacement": "false"
+            }
+          ],
+          "coarse": false,
+          "classification": "branch",
+          "kind": "branch",
+          "changedLines": [
+            109
+          ]
+        },
+        {
+          "digest": "629ab82786f06cb3",
+          "path": "app/helpers/application_helper.rb",
+          "line": 108,
+          "endLine": 108,
+          "subject": "ApplicationHelper#link_to_different_page",
+          "operator": "argument_removal",
+          "original": "options[:class]",
+          "replacement": "",
+          "edits": [
+            {
+              "line": 108,
+              "endLine": 108,
+              "original": "options[:class]",
+              "replacement": ""
+            }
+          ],
+          "coarse": false,
+          "classification": "effect",
+          "kind": "effect",
+          "changedLines": [
+            108
+          ]
+        },
+        {
+          "digest": "556caf228d63258a",
+          "path": "app/helpers/traffic_helper.rb",
+          "line": 63,
+          "endLine": 101,
+          "subject": "TrafficHelper.novelty_logo",
+          "operator": "body_nil",
+          "original": "time = Time.current\n    h = ActionController::Base.helpers\n\n    if time.month == 3 && time.day <= 7 && time.monday?\n      return h.content_tag(:a,\n        \"\",\n        aria: {label: \"Casimir Pulaski Day\"},\n        href: \"https://en.wikipedia.org/wiki/Casimir_Pulaski_Day\",\n        style: \"\n          position: absolute;\n          width: 17px;\n          height: 32px;\n          padding: 1px;\n          margin-left: -21px;\n          margin-bottom: -16px;\n          top: 1px;\n          left: 1.3rem;\n          background-image:\n            radial-gradient(circle at 18% 63%, var(--color-bg) 15%, transparent 12.8%),\n            radial-gradient(circle at 23% 70%, var(--color-fg) 15%, transparent 12.8%),\n            radial-gradient(circle at 82% 63%, var(--color-bg) 15%, transparent 12.8%),\n            radial-gradient(circle at 77% 70%, var(--color-fg) 15%, transparent 12.8%),\n            linear-gradient(180deg, transparent 0, transparent 100%);\n      \") <<\n          h.content_tag(:style, \"@media only screen and (max-width: 480px) {.casimir {\n            background-image:\n              radial-gradient(circle at 18% 63%, var(--color-box-bg-shaded) 15%, transparent 12.8%),\n              radial-gradient(circle at 23% 70%, var(--color-fg) 15%, transparent 12.8%),\n              radial-gradient(circle at 82% 63%, var(--color-box-bg-shaded) 15%, transparent 12.8%),\n              radial-gradient(circle at 77% 70%, var(--color-fg) 15%, transparent 12.8%),\n              linear-gradient(180deg, transparent 0, transparent 100%) !important;\n} }\")\n    elsif time.month == 6 && time.day == 28 # Stonewall riots\n      return h.content_tag :style, \"#logo { background: url(#{ActionController::Base.helpers.asset_path(\"logo-transparent.svg\")}) no-repeat center, linear-gradient(180deg, #FE0000 16.66%, #FD8C00 16.66%, 33.32%, #FFE500 33.32%, 49.98%, #119F0B 49.98%, 66.64%, #0644B3 66.64%, 83.3%, #C22EDC 83.3%); }\"\n    elsif time.month == 12 && time.day == 25 # Christmas\n      return h.content_tag :style, \"#logo { background: conic-gradient(at 50% 0, #9f3631 157.5deg, #01c94f 0, #01c94f 202.5deg, #9f3631 0); }\"\n    end\n\n    nil",
+          "replacement": "nil",
+          "edits": [
+            {
+              "line": 63,
+              "endLine": 101,
+              "original": "time = Time.current\n    h = ActionController::Base.helpers\n\n    if time.month == 3 && time.day <= 7 && time.monday?\n      return h.content_tag(:a,\n        \"\",\n        aria: {label: \"Casimir Pulaski Day\"},\n        href: \"https://en.wikipedia.org/wiki/Casimir_Pulaski_Day\",\n        style: \"\n          position: absolute;\n          width: 17px;\n          height: 32px;\n          padding: 1px;\n          margin-left: -21px;\n          margin-bottom: -16px;\n          top: 1px;\n          left: 1.3rem;\n          background-image:\n            radial-gradient(circle at 18% 63%, var(--color-bg) 15%, transparent 12.8%),\n            radial-gradient(circle at 23% 70%, var(--color-fg) 15%, transparent 12.8%),\n            radial-gradient(circle at 82% 63%, var(--color-bg) 15%, transparent 12.8%),\n            radial-gradient(circle at 77% 70%, var(--color-fg) 15%, transparent 12.8%),\n            linear-gradient(180deg, transparent 0, transparent 100%);\n      \") <<\n          h.content_tag(:style, \"@media only screen and (max-width: 480px) {.casimir {\n            background-image:\n              radial-gradient(circle at 18% 63%, var(--color-box-bg-shaded) 15%, transparent 12.8%),\n              radial-gradient(circle at 23% 70%, var(--color-fg) 15%, transparent 12.8%),\n              radial-gradient(circle at 82% 63%, var(--color-box-bg-shaded) 15%, transparent 12.8%),\n              radial-gradient(circle at 77% 70%, var(--color-fg) 15%, transparent 12.8%),\n              linear-gradient(180deg, transparent 0, transparent 100%) !important;\n} }\")\n    elsif time.month == 6 && time.day == 28 # Stonewall riots\n      return h.content_tag :style, \"#logo { background: url(#{ActionController::Base.helpers.asset_path(\"logo-transparent.svg\")}) no-repeat center, linear-gradient(180deg, #FE0000 16.66%, #FD8C00 16.66%, 33.32%, #FFE500 33.32%, 49.98%, #119F0B 49.98%, 66.64%, #0644B3 66.64%, 83.3%, #C22EDC 83.3%); }\"\n    elsif time.month == 12 && time.day == 25 # Christmas\n      return h.content_tag :style, \"#logo { background: conic-gradient(at 50% 0, #9f3631 157.5deg, #01c94f 0, #01c94f 202.5deg, #9f3631 0); }\"\n    end\n\n    nil",
+              "replacement": "nil"
+            }
+          ],
+          "coarse": true,
+          "changedLines": [
+            69,
+            70,
+            71,
+            72,
+            78,
+            79
+          ]
+        },
+        {
+          "digest": "2da30124e7509574",
+          "path": "app/helpers/traffic_helper.rb",
+          "line": 66,
+          "endLine": 99,
+          "subject": "TrafficHelper.novelty_logo",
+          "operator": "statement_removal",
+          "original": "if time.month == 3 && time.day <= 7 && time.monday?\n      return h.content_tag(:a,\n        \"\",\n        aria: {label: \"Casimir Pulaski Day\"},\n        href: \"https://en.wikipedia.org/wiki/Casimir_Pulaski_Day\",\n        style: \"\n          position: absolute;\n          width: 17px;\n          height: 32px;\n          padding: 1px;\n          margin-left: -21px;\n          margin-bottom: -16px;\n          top: 1px;\n          left: 1.3rem;\n          background-image:\n            radial-gradient(circle at 18% 63%, var(--color-bg) 15%, transparent 12.8%),\n            radial-gradient(circle at 23% 70%, var(--color-fg) 15%, transparent 12.8%),\n            radial-gradient(circle at 82% 63%, var(--color-bg) 15%, transparent 12.8%),\n            radial-gradient(circle at 77% 70%, var(--color-fg) 15%, transparent 12.8%),\n            linear-gradient(180deg, transparent 0, transparent 100%);\n      \") <<\n          h.content_tag(:style, \"@media only screen and (max-width: 480px) {.casimir {\n            background-image:\n              radial-gradient(circle at 18% 63%, var(--color-box-bg-shaded) 15%, transparent 12.8%),\n              radial-gradient(circle at 23% 70%, var(--color-fg) 15%, transparent 12.8%),\n              radial-gradient(circle at 82% 63%, var(--color-box-bg-shaded) 15%, transparent 12.8%),\n              radial-gradient(circle at 77% 70%, var(--color-fg) 15%, transparent 12.8%),\n              linear-gradient(180deg, transparent 0, transparent 100%) !important;\n} }\")\n    elsif time.month == 6 && time.day == 28 # Stonewall riots\n      return h.content_tag :style, \"#logo { background: url(#{ActionController::Base.helpers.asset_path(\"logo-transparent.svg\")}) no-repeat center, linear-gradient(180deg, #FE0000 16.66%, #FD8C00 16.66%, 33.32%, #FFE500 33.32%, 49.98%, #119F0B 49.98%, 66.64%, #0644B3 66.64%, 83.3%, #C22EDC 83.3%); }\"\n    elsif time.month == 12 && time.day == 25 # Christmas\n      return h.content_tag :style, \"#logo { background: conic-gradient(at 50% 0, #9f3631 157.5deg, #01c94f 0, #01c94f 202.5deg, #9f3631 0); }\"\n    end",
+          "replacement": "nil",
+          "edits": [
+            {
+              "line": 66,
+              "endLine": 99,
+              "original": "if time.month == 3 && time.day <= 7 && time.monday?\n      return h.content_tag(:a,\n        \"\",\n        aria: {label: \"Casimir Pulaski Day\"},\n        href: \"https://en.wikipedia.org/wiki/Casimir_Pulaski_Day\",\n        style: \"\n          position: absolute;\n          width: 17px;\n          height: 32px;\n          padding: 1px;\n          margin-left: -21px;\n          margin-bottom: -16px;\n          top: 1px;\n          left: 1.3rem;\n          background-image:\n            radial-gradient(circle at 18% 63%, var(--color-bg) 15%, transparent 12.8%),\n            radial-gradient(circle at 23% 70%, var(--color-fg) 15%, transparent 12.8%),\n            radial-gradient(circle at 82% 63%, var(--color-bg) 15%, transparent 12.8%),\n            radial-gradient(circle at 77% 70%, var(--color-fg) 15%, transparent 12.8%),\n            linear-gradient(180deg, transparent 0, transparent 100%);\n      \") <<\n          h.content_tag(:style, \"@media only screen and (max-width: 480px) {.casimir {\n            background-image:\n              radial-gradient(circle at 18% 63%, var(--color-box-bg-shaded) 15%, transparent 12.8%),\n              radial-gradient(circle at 23% 70%, var(--color-fg) 15%, transparent 12.8%),\n              radial-gradient(circle at 82% 63%, var(--color-box-bg-shaded) 15%, transparent 12.8%),\n              radial-gradient(circle at 77% 70%, var(--color-fg) 15%, transparent 12.8%),\n              linear-gradient(180deg, transparent 0, transparent 100%) !important;\n} }\")\n    elsif time.month == 6 && time.day == 28 # Stonewall riots\n      return h.content_tag :style, \"#logo { background: url(#{ActionController::Base.helpers.asset_path(\"logo-transparent.svg\")}) no-repeat center, linear-gradient(180deg, #FE0000 16.66%, #FD8C00 16.66%, 33.32%, #FFE500 33.32%, 49.98%, #119F0B 49.98%, 66.64%, #0644B3 66.64%, 83.3%, #C22EDC 83.3%); }\"\n    elsif time.month == 12 && time.day == 25 # Christmas\n      return h.content_tag :style, \"#logo { background: conic-gradient(at 50% 0, #9f3631 157.5deg, #01c94f 0, #01c94f 202.5deg, #9f3631 0); }\"\n    end",
+              "replacement": "nil"
+            }
+          ],
+          "coarse": false,
+          "classification": "effect",
+          "kind": "effect",
+          "changedLines": [
+            69,
+            70,
+            71,
+            72,
+            78,
+            79
+          ]
+        }
+      ],
+      "survivorsTruncated": 0,
+      "accepted": [],
+      "acceptedTruncated": 0,
+      "order": [
+        "3357bbd3579ca0dc",
+        "97154a11ddda03c6",
+        "b108a3614e6b02a4",
+        "629ab82786f06cb3",
+        "556caf228d63258a",
+        "2da30124e7509574"
+      ]
+    },
+    "scores": {
+      "all": {
+        "score": 0.45454545454545453,
+        "tested": 11,
+        "assertionKills": 1,
+        "crashKills": 4,
+        "unclassifiedKills": 0,
+        "timeouts": 0,
+        "survivors": 6,
+        "assertionShare": 0.09090909090909091,
+        "crashShare": 0.36363636363636365
+      },
+      "withoutWholeBodyMutants": {
+        "score": 0.2857142857142857,
+        "tested": 7,
+        "assertionKills": 0,
+        "crashKills": 2,
+        "unclassifiedKills": 0,
+        "timeouts": 0,
+        "survivors": 5,
+        "assertionShare": 0.0,
+        "crashShare": 0.2857142857142857
+      }
+    }
+  },
+  {
+    "path": "apps/lobsters/reports/pr2156-map-replay-c1/report.json",
+    "sha256": "11545d0b3a62a9a3fef7edea79e39cf765984222cc219e2e9f518b559cfee6ff",
+    "native_findings": {
+      "version": 1,
+      "ordering": "surviving mutants per statement descending, then fewer covering tests, coarse first, larger edited-line span, nearer changed lines, then file, line and digest",
+      "limit": 10,
+      "survivors": [
+        {
+          "digest": "84a2b3ca16355339",
+          "path": "app/controllers/settings_controller.rb",
+          "line": 51,
+          "endLine": 51,
+          "subject": "SettingsController#update",
+          "operator": "condition_true",
+          "original": "@edit_user.username_previously_changed?",
+          "replacement": "true",
+          "edits": [
+            {
+              "line": 51,
+              "endLine": 51,
+              "original": "@edit_user.username_previously_changed?",
+              "replacement": "true"
+            }
+          ],
+          "coarse": false,
+          "classification": "branch",
+          "kind": "branch",
+          "changedLines": [
+            51
+          ]
+        }
+      ],
+      "survivorsTruncated": 0,
+      "accepted": [],
+      "acceptedTruncated": 0,
+      "order": [
+        "84a2b3ca16355339"
+      ]
+    },
+    "scores": {
+      "all": {
+        "score": 0.8571428571428571,
+        "tested": 7,
+        "assertionKills": 4,
+        "crashKills": 2,
+        "unclassifiedKills": 0,
+        "timeouts": 0,
+        "survivors": 1,
+        "assertionShare": 0.5714285714285714,
+        "crashShare": 0.2857142857142857
+      },
+      "withoutWholeBodyMutants": {
+        "score": 0.8,
+        "tested": 5,
+        "assertionKills": 3,
+        "crashKills": 1,
+        "unclassifiedKills": 0,
+        "timeouts": 0,
+        "survivors": 1,
+        "assertionShare": 0.6,
+        "crashShare": 0.2
+      }
+    }
+  },
+  {
+    "path": "apps/lobsters/reports/pr2157-independent-triage/source-report.json",
+    "sha256": "5cbcb207706fa69f1df3135d9baf889eeca91db1ae870855c3e19c71a8a7f877",
+    "native_findings": {
+      "version": 1,
+      "ordering": "surviving mutants per statement descending, then fewer covering tests, coarse first, larger edited-line span, nearer changed lines, then file, line and digest",
+      "limit": 10,
+      "survivors": [
+        {
+          "digest": "5cacdbc3d0bc508e",
+          "path": "app/controllers/stories_controller.rb",
+          "line": 189,
+          "endLine": 190,
+          "subject": "StoriesController#show",
+          "operator": "element_removal",
+          "original": ", | {property: \"article:author\", content: Routes.user_url(@story.user)}",
+          "replacement": " | ",
+          "edits": [
+            {
+              "line": 189,
+              "endLine": 189,
+              "original": ",",
+              "replacement": ""
+            },
+            {
+              "line": 190,
+              "endLine": 190,
+              "original": "{property: \"article:author\", content: Routes.user_url(@story.user)}",
+              "replacement": ""
+            }
+          ],
+          "coarse": false,
+          "classification": "effect",
+          "kind": "effect",
+          "changedLines": [
+            189
+          ]
+        },
+        {
+          "digest": "1f1092204c9a42bb",
+          "path": "app/controllers/stories_controller.rb",
+          "line": 189,
+          "endLine": 189,
+          "subject": "StoriesController#show",
+          "operator": "pair_removal",
+          "original": "property: \"og:image\" | ,",
+          "replacement": " | ",
+          "edits": [
+            {
+              "line": 189,
+              "endLine": 189,
+              "original": "property: \"og:image\"",
+              "replacement": ""
+            },
+            {
+              "line": 189,
+              "endLine": 189,
+              "original": ",",
+              "replacement": ""
+            }
+          ],
+          "coarse": false,
+          "classification": "effect",
+          "kind": "effect",
+          "changedLines": [
+            189
+          ]
+        },
+        {
+          "digest": "43dda9ad5517cd5d",
+          "path": "app/controllers/stories_controller.rb",
+          "line": 189,
+          "endLine": 189,
+          "subject": "StoriesController#show",
+          "operator": "literal_string",
+          "original": "\"og:image\"",
+          "replacement": "\"\"",
+          "edits": [
+            {
+              "line": 189,
+              "endLine": 189,
+              "original": "\"og:image\"",
+              "replacement": "\"\""
+            }
+          ],
+          "coarse": false,
+          "classification": "result unchecked",
+          "kind": "result unchecked",
+          "changedLines": [
+            189
+          ]
+        },
+        {
+          "digest": "605c15816c32610f",
+          "path": "app/controllers/stories_controller.rb",
+          "line": 189,
+          "endLine": 189,
+          "subject": "StoriesController#show",
+          "operator": "element_removal",
+          "original": "{property: \"og:image\", content: Routes.story_image_or_logo_url(@story)} | ,",
+          "replacement": " | ",
+          "edits": [
+            {
+              "line": 189,
+              "endLine": 189,
+              "original": "{property: \"og:image\", content: Routes.story_image_or_logo_url(@story)}",
+              "replacement": ""
+            },
+            {
+              "line": 189,
+              "endLine": 189,
+              "original": ",",
+              "replacement": ""
+            }
+          ],
+          "coarse": false,
+          "classification": "effect",
+          "kind": "effect",
+          "changedLines": [
+            189
+          ]
+        },
+        {
+          "digest": "bea8f4593231093a",
+          "path": "app/controllers/stories_controller.rb",
+          "line": 189,
+          "endLine": 189,
+          "subject": "StoriesController#show",
+          "operator": "pair_removal",
+          "original": ", | content: Routes.story_image_or_logo_url(@story)",
+          "replacement": " | ",
+          "edits": [
+            {
+              "line": 189,
+              "endLine": 189,
+              "original": ",",
+              "replacement": ""
+            },
+            {
+              "line": 189,
+              "endLine": 189,
+              "original": "content: Routes.story_image_or_logo_url(@story)",
+              "replacement": ""
+            }
+          ],
+          "coarse": false,
+          "classification": "effect",
+          "kind": "effect",
+          "changedLines": [
+            189
+          ]
+        },
+        {
+          "digest": "3aa0bb7820610094",
+          "path": "app/controllers/stories_controller.rb",
+          "line": 184,
+          "endLine": 191,
+          "subject": "StoriesController#show",
+          "operator": "statement_removal",
+          "original": "@meta_tags = [\n          {property: \"og:type\", content: \"article\"},\n          {property: \"og:site_name\", content: Rails.application.name},\n          {property: \"og:title\", content: @story.title},\n          {property: \"og:description\", content: @story.comments_count.to_s + \" \" + \"comment\".pluralize(@story.comments_count)},\n          {property: \"og:image\", content: Routes.story_image_or_logo_url(@story)},\n          {property: \"article:author\", content: Routes.user_url(@story.user)}\n        ]",
+          "replacement": "nil",
+          "edits": [
+            {
+              "line": 184,
+              "endLine": 191,
+              "original": "@meta_tags = [\n          {property: \"og:type\", content: \"article\"},\n          {property: \"og:site_name\", content: Rails.application.name},\n          {property: \"og:title\", content: @story.title},\n          {property: \"og:description\", content: @story.comments_count.to_s + \" \" + \"comment\".pluralize(@story.comments_count)},\n          {property: \"og:image\", content: Routes.story_image_or_logo_url(@story)},\n          {property: \"article:author\", content: Routes.user_url(@story.user)}\n        ]",
+              "replacement": "nil"
+            }
+          ],
+          "coarse": false,
+          "classification": "effect",
+          "kind": "effect",
+          "changedLines": [
+            189
+          ]
+        }
+      ],
+      "survivorsTruncated": 0,
+      "accepted": [],
+      "acceptedTruncated": 0,
+      "order": [
+        "5cacdbc3d0bc508e",
+        "1f1092204c9a42bb",
+        "43dda9ad5517cd5d",
+        "605c15816c32610f",
+        "bea8f4593231093a",
+        "3aa0bb7820610094"
+      ]
+    },
+    "scores": {
+      "all": {
+        "score": 0.45454545454545453,
+        "tested": 11,
+        "assertionKills": 2,
+        "crashKills": 3,
+        "unclassifiedKills": 0,
+        "timeouts": 0,
+        "survivors": 6,
+        "assertionShare": 0.18181818181818182,
+        "crashShare": 0.2727272727272727
+      },
+      "withoutWholeBodyMutants": {
+        "score": 0.3333333333333333,
+        "tested": 9,
+        "assertionKills": 2,
+        "crashKills": 1,
+        "unclassifiedKills": 0,
+        "timeouts": 0,
+        "survivors": 6,
+        "assertionShare": 0.2222222222222222,
+        "crashShare": 0.1111111111111111
+      }
+    }
+  },
+  {
+    "path": "apps/lobsters/reports/pr2174-replay-d54/report.json",
+    "sha256": "c20e2bb5bb2fdf321352baead5509bd748a2e7c62ba7e643f7a8a6a6495f7fee",
+    "native_findings": {
+      "version": 1,
+      "ordering": "surviving mutants per statement descending, then fewer covering tests, coarse first, larger edited-line span, nearer changed lines, then file, line and digest",
+      "limit": 10,
+      "survivors": [
+        {
+          "digest": "de7560d08996f4ef",
+          "path": "app/models/flagged_commenters.rb",
+          "line": 72,
+          "endLine": 73,
+          "subject": "FlaggedCommenters#commenters",
+          "operator": "chain_removal",
+          "original": "\n        .having(\"n_comments > 4 and n_stories > 1 and n_flags >= 10 and percent_flagged > 10\")",
+          "replacement": "",
+          "edits": [
+            {
+              "line": 72,
+              "endLine": 73,
+              "original": "\n        .having(\"n_comments > 4 and n_stories > 1 and n_flags >= 10 and percent_flagged > 10\")",
+              "replacement": ""
+            }
+          ],
+          "coarse": false,
+          "classification": "effect",
+          "kind": "effect",
+          "changedLines": [
+            72
+          ]
+        }
+      ],
+      "survivorsTruncated": 0,
+      "accepted": [],
+      "acceptedTruncated": 0,
+      "order": [
+        "de7560d08996f4ef"
+      ]
+    },
+    "scores": {
+      "all": {
+        "score": 0.8571428571428571,
+        "tested": 7,
+        "assertionKills": 0,
+        "crashKills": 6,
+        "unclassifiedKills": 0,
+        "timeouts": 0,
+        "survivors": 1,
+        "assertionShare": 0.0,
+        "crashShare": 0.8571428571428571
+      },
+      "withoutWholeBodyMutants": {
+        "score": 0.8,
+        "tested": 5,
+        "assertionKills": 0,
+        "crashKills": 4,
+        "unclassifiedKills": 0,
+        "timeouts": 0,
+        "survivors": 1,
+        "assertionShare": 0.0,
+        "crashShare": 0.8
+      }
+    }
+  },
+  {
+    "path": "apps/lobsters/reports/pr2183-replay-ex2/pr2183-replay-ex2b/report.json",
+    "sha256": "e68ccac85e117c1b8a9fff9fd1a551057ca2cc133b9d1db62cbcd54811a63060",
+    "native_findings": {
+      "version": 1,
+      "ordering": "surviving mutants per statement descending, then fewer covering tests, coarse first, larger edited-line span, nearer changed lines, then file, line and digest",
+      "limit": 10,
+      "survivors": [
+        {
+          "digest": "0a158cf837a4e9ac",
+          "path": "app/helpers/traffic_helper.rb",
+          "line": 59,
+          "endLine": 59,
+          "subject": "TrafficHelper.cached_current_intensity",
+          "operator": "literal_number",
+          "original": "0.5",
+          "replacement": "(-0.5)",
+          "edits": [
+            {
+              "line": 59,
+              "endLine": 59,
+              "original": "0.5",
+              "replacement": "(-0.5)"
+            }
+          ],
+          "coarse": false,
+          "classification": "number",
+          "kind": "number",
+          "changedLines": [
+            59
+          ]
+        },
+        {
+          "digest": "0e77ab7c5fd1ae29",
+          "path": "app/helpers/traffic_helper.rb",
+          "line": 59,
+          "endLine": 59,
+          "subject": "TrafficHelper.cached_current_intensity",
+          "operator": "boolean_logic",
+          "original": "Keystore.value_for(\"traffic:intensity\") || 0.5",
+          "replacement": "0.5",
+          "edits": [
+            {
+              "line": 59,
+              "endLine": 59,
+              "original": "Keystore.value_for(\"traffic:intensity\") || 0.5",
+              "replacement": "0.5"
+            }
+          ],
+          "coarse": false,
+          "classification": "branch",
+          "kind": "branch",
+          "changedLines": [
+            59
+          ]
+        },
+        {
+          "digest": "6ad124cc7a87c548",
+          "path": "app/helpers/traffic_helper.rb",
+          "line": 59,
+          "endLine": 59,
+          "subject": "TrafficHelper.cached_current_intensity",
+          "operator": "literal_number",
+          "original": "0.5",
+          "replacement": "0.0",
+          "edits": [
+            {
+              "line": 59,
+              "endLine": 59,
+              "original": "0.5",
+              "replacement": "0.0"
+            }
+          ],
+          "coarse": false,
+          "classification": "number",
+          "kind": "number",
+          "changedLines": [
+            59
+          ]
+        },
+        {
+          "digest": "a7b41e60aed29c41",
+          "path": "app/helpers/traffic_helper.rb",
+          "line": 59,
+          "endLine": 59,
+          "subject": "TrafficHelper.cached_current_intensity",
+          "operator": "literal_number",
+          "original": "0.5",
+          "replacement": "1.5",
+          "edits": [
+            {
+              "line": 59,
+              "endLine": 59,
+              "original": "0.5",
+              "replacement": "1.5"
+            }
+          ],
+          "coarse": false,
+          "classification": "number",
+          "kind": "number",
+          "changedLines": [
+            59
+          ]
+        },
+        {
+          "digest": "c8e920b3b0bbbbed",
+          "path": "app/helpers/traffic_helper.rb",
+          "line": 59,
+          "endLine": 59,
+          "subject": "TrafficHelper.cached_current_intensity",
+          "operator": "literal_string",
+          "original": "\"traffic:intensity\"",
+          "replacement": "\"\"",
+          "edits": [
+            {
+              "line": 59,
+              "endLine": 59,
+              "original": "\"traffic:intensity\"",
+              "replacement": "\"\""
+            }
+          ],
+          "coarse": false,
+          "classification": "result unchecked",
+          "kind": "result unchecked",
+          "changedLines": [
+            59
+          ]
+        }
+      ],
+      "survivorsTruncated": 0,
+      "accepted": [],
+      "acceptedTruncated": 0,
+      "order": [
+        "0a158cf837a4e9ac",
+        "0e77ab7c5fd1ae29",
+        "6ad124cc7a87c548",
+        "a7b41e60aed29c41",
+        "c8e920b3b0bbbbed"
+      ]
+    },
+    "scores": {
+      "all": {
+        "score": 0.5,
+        "tested": 10,
+        "assertionKills": 0,
+        "crashKills": 5,
+        "unclassifiedKills": 0,
+        "timeouts": 0,
+        "survivors": 5,
+        "assertionShare": 0.0,
+        "crashShare": 0.5
+      },
+      "withoutWholeBodyMutants": {
+        "score": 0.375,
+        "tested": 8,
+        "assertionKills": 0,
+        "crashKills": 3,
+        "unclassifiedKills": 0,
+        "timeouts": 0,
+        "survivors": 5,
+        "assertionShare": 0.0,
+        "crashShare": 0.375
+      }
+    }
+  },
+  {
+    "path": "apps/lobsters/reports/pr2197-replay-corrective2/report.json",
+    "sha256": "dda6b71550153be07a3085146672d1dbbcb6751bba087d340a3d716b33424c87",
+    "native_findings": {
+      "version": 1,
+      "ordering": "surviving mutants per statement descending, then fewer covering tests, coarse first, larger edited-line span, nearer changed lines, then file, line and digest",
+      "limit": 10,
+      "survivors": [
+        {
+          "digest": "ee7636cfd988297a",
+          "path": "app/controllers/mod/reparents_controller.rb",
+          "line": 6,
+          "endLine": 7,
+          "subject": "Mod::ReparentsController#new",
+          "operator": "body_nil",
+          "original": "@title = \"Reparent #{@reparent_user.username}\"\n    @title_h1 = false",
+          "replacement": "nil",
+          "edits": [
+            {
+              "line": 6,
+              "endLine": 7,
+              "original": "@title = \"Reparent #{@reparent_user.username}\"\n    @title_h1 = false",
+              "replacement": "nil"
+            }
+          ],
+          "coarse": true,
+          "changedLines": [
+            6,
+            7
+          ]
+        },
+        {
+          "digest": "111b8e283f0397ea",
+          "path": "app/controllers/mod/reparents_controller.rb",
+          "line": 6,
+          "endLine": 6,
+          "subject": "Mod::ReparentsController#new",
+          "operator": "interpolation_removal",
+          "original": "Reparent ",
+          "replacement": "",
+          "edits": [
+            {
+              "line": 6,
+              "endLine": 6,
+              "original": "Reparent ",
+              "replacement": ""
+            }
+          ],
+          "coarse": false,
+          "classification": "result unchecked",
+          "kind": "result unchecked",
+          "changedLines": [
+            6
+          ]
+        },
+        {
+          "digest": "16ca5c211943b17d",
+          "path": "app/controllers/mod/reparents_controller.rb",
+          "line": 6,
+          "endLine": 6,
+          "subject": "Mod::ReparentsController#new",
+          "operator": "statement_removal",
+          "original": "@title = \"Reparent #{@reparent_user.username}\"",
+          "replacement": "nil",
+          "edits": [
+            {
+              "line": 6,
+              "endLine": 6,
+              "original": "@title = \"Reparent #{@reparent_user.username}\"",
+              "replacement": "nil"
+            }
+          ],
+          "coarse": false,
+          "classification": "effect",
+          "kind": "effect",
+          "changedLines": [
+            6
+          ]
+        },
+        {
+          "digest": "aa15cc2fbfadb177",
+          "path": "app/controllers/mod/reparents_controller.rb",
+          "line": 6,
+          "endLine": 6,
+          "subject": "Mod::ReparentsController#new",
+          "operator": "interpolation_removal",
+          "original": "#{@reparent_user.username}",
+          "replacement": "",
+          "edits": [
+            {
+              "line": 6,
+              "endLine": 6,
+              "original": "#{@reparent_user.username}",
+              "replacement": ""
+            }
+          ],
+          "coarse": false,
+          "classification": "result unchecked",
+          "kind": "result unchecked",
+          "changedLines": [
+            6
+          ]
+        },
+        {
+          "digest": "721be5b96d2f1bf9",
+          "path": "app/controllers/search_controller.rb",
+          "line": 19,
+          "endLine": 19,
+          "subject": "SearchController#index",
+          "operator": "condition_false",
+          "original": "!params[:what].nil?",
+          "replacement": "false",
+          "edits": [
+            {
+              "line": 19,
+              "endLine": 19,
+              "original": "!params[:what].nil?",
+              "replacement": "false"
+            }
+          ],
+          "coarse": false,
+          "classification": "branch",
+          "kind": "branch",
+          "changedLines": [
+            19
+          ]
+        },
+        {
+          "digest": "7a2eb67c33630d46",
+          "path": "app/controllers/search_controller.rb",
+          "line": 19,
+          "endLine": 19,
+          "subject": "SearchController#index",
+          "operator": "condition_true",
+          "original": "!params[:what].nil?",
+          "replacement": "true",
+          "edits": [
+            {
+              "line": 19,
+              "endLine": 19,
+              "original": "!params[:what].nil?",
+              "replacement": "true"
+            }
+          ],
+          "coarse": false,
+          "classification": "branch",
+          "kind": "branch",
+          "changedLines": [
+            19
+          ]
+        },
+        {
+          "digest": "b3c29e6d9b83c93b",
+          "path": "app/controllers/search_controller.rb",
+          "line": 19,
+          "endLine": 19,
+          "subject": "SearchController#index",
+          "operator": "negation_removal",
+          "original": "!params[:what].nil?",
+          "replacement": "params[:what].nil?",
+          "edits": [
+            {
+              "line": 19,
+              "endLine": 19,
+              "original": "!params[:what].nil?",
+              "replacement": "params[:what].nil?"
+            }
+          ],
+          "coarse": false,
+          "classification": "branch",
+          "kind": "branch",
+          "changedLines": [
+            19
+          ]
+        },
+        {
+          "digest": "d1902dce1d6c0bed",
+          "path": "app/controllers/search_controller.rb",
+          "line": 19,
+          "endLine": 19,
+          "subject": "SearchController#index",
+          "operator": "literal_string",
+          "original": "\"Search results\"",
+          "replacement": "\"\"",
+          "edits": [
+            {
+              "line": 19,
+              "endLine": 19,
+              "original": "\"Search results\"",
+              "replacement": "\"\""
+            }
+          ],
+          "coarse": false,
+          "classification": "result unchecked",
+          "kind": "result unchecked",
+          "changedLines": [
+            19
+          ]
+        },
+        {
+          "digest": "45122517a7ddc0c8",
+          "path": "app/controllers/mod/domains_controller.rb",
+          "line": 18,
+          "endLine": 19,
+          "subject": "Mod::DomainsController#edit",
+          "operator": "body_nil",
+          "original": "@title = \"Edit Domain #{params[:id]}\"\n    @title_h1 = false",
+          "replacement": "nil",
+          "edits": [
+            {
+              "line": 18,
+              "endLine": 19,
+              "original": "@title = \"Edit Domain #{params[:id]}\"\n    @title_h1 = false",
+              "replacement": "nil"
+            }
+          ],
+          "coarse": true,
+          "changedLines": [
+            18,
+            19
+          ]
+        },
+        {
+          "digest": "9a31f624b2f1c8d4",
+          "path": "app/controllers/mod/domains_controller.rb",
+          "line": 18,
+          "endLine": 18,
+          "subject": "Mod::DomainsController#edit",
+          "operator": "statement_removal",
+          "original": "@title = \"Edit Domain #{params[:id]}\"",
+          "replacement": "nil",
+          "edits": [
+            {
+              "line": 18,
+              "endLine": 18,
+              "original": "@title = \"Edit Domain #{params[:id]}\"",
+              "replacement": "nil"
+            }
+          ],
+          "coarse": false,
+          "classification": "effect",
+          "kind": "effect",
+          "changedLines": [
+            18
+          ]
+        }
+      ],
+      "survivorsTruncated": 12,
+      "accepted": [],
+      "acceptedTruncated": 0,
+      "order": [
+        "ee7636cfd988297a",
+        "111b8e283f0397ea",
+        "16ca5c211943b17d",
+        "aa15cc2fbfadb177",
+        "721be5b96d2f1bf9",
+        "7a2eb67c33630d46",
+        "b3c29e6d9b83c93b",
+        "d1902dce1d6c0bed",
+        "45122517a7ddc0c8",
+        "9a31f624b2f1c8d4",
+        "d3ef739e94f76ceb",
+        "f98739566ebb7713",
+        "6384cf5436c30d89",
+        "7628a88b22719ecf",
+        "85a0d301c72ae598",
+        "cac125b5b23f254f",
+        "82e793cd9460447c",
+        "f55b6ebc7e08c7bf",
+        "265ba36e379f861c",
+        "8ff5c5c19270c92b",
+        "a0cee31e8852087b",
+        "f480c446a09839fa"
+      ]
+    },
+    "scores": {
+      "all": {
+        "score": 0.3888888888888889,
+        "tested": 36,
+        "assertionKills": 2,
+        "crashKills": 12,
+        "unclassifiedKills": 0,
+        "timeouts": 0,
+        "survivors": 22,
+        "assertionShare": 0.05555555555555555,
+        "crashShare": 0.3333333333333333
+      },
+      "withoutWholeBodyMutants": {
+        "score": 0.09090909090909091,
+        "tested": 22,
+        "assertionKills": 1,
+        "crashKills": 1,
+        "unclassifiedKills": 0,
+        "timeouts": 0,
+        "survivors": 20,
+        "assertionShare": 0.045454545454545456,
+        "crashShare": 0.045454545454545456
+      }
+    }
+  },
+  {
+    "path": "apps/lobsters/reports/pr2204-canary-c1/reports/pr2204-replay-c1r/report.json",
+    "sha256": "7bdcef4f7897c1649d11f1c6affb00fadb4ae62f1d6a3e3965f0e6988fa99564",
+    "native_findings": {
+      "version": 1,
+      "ordering": "surviving mutants per statement descending, then fewer covering tests, coarse first, larger edited-line span, nearer changed lines, then file, line and digest",
+      "limit": 10,
+      "survivors": [
+        {
+          "digest": "56ec2857eb8103bd",
+          "path": "app/models/story.rb",
+          "line": 777,
+          "endLine": 777,
+          "subject": "Story#is_gone?",
+          "operator": "comparison",
+          "original": "<",
+          "replacement": "<=",
+          "edits": [
+            {
+              "line": 777,
+              "endLine": 777,
+              "original": "<",
+              "replacement": "<="
+            }
+          ],
+          "coarse": false,
+          "classification": "boundary",
+          "kind": "boundary",
+          "changedLines": [
+            777
+          ]
+        },
+        {
+          "digest": "695982748e0e8ebb",
+          "path": "app/models/story.rb",
+          "line": 777,
+          "endLine": 777,
+          "subject": "Story#is_gone?",
+          "operator": "literal_number",
+          "original": "0",
+          "replacement": "1",
+          "edits": [
+            {
+              "line": 777,
+              "endLine": 777,
+              "original": "0",
+              "replacement": "1"
+            }
+          ],
+          "coarse": false,
+          "classification": "number",
+          "kind": "number",
+          "changedLines": [
+            777
+          ]
+        },
+        {
+          "digest": "9786b8df27eddc21",
+          "path": "app/models/story.rb",
+          "line": 777,
+          "endLine": 777,
+          "subject": "Story#is_gone?",
+          "operator": "literal_number",
+          "original": "0",
+          "replacement": "(-1)",
+          "edits": [
+            {
+              "line": 777,
+              "endLine": 777,
+              "original": "0",
+              "replacement": "(-1)"
+            }
+          ],
+          "coarse": false,
+          "classification": "number",
+          "kind": "number",
+          "changedLines": [
+            777
+          ]
+        }
+      ],
+      "survivorsTruncated": 0,
+      "accepted": [],
+      "acceptedTruncated": 0,
+      "order": [
+        "56ec2857eb8103bd",
+        "695982748e0e8ebb",
+        "9786b8df27eddc21"
+      ]
+    },
+    "scores": {
+      "all": {
+        "score": 0.8636363636363636,
+        "tested": 22,
+        "assertionKills": 18,
+        "crashKills": 1,
+        "unclassifiedKills": 0,
+        "timeouts": 0,
+        "survivors": 3,
+        "assertionShare": 0.8181818181818182,
+        "crashShare": 0.045454545454545456
+      },
+      "withoutWholeBodyMutants": {
+        "score": 0.8421052631578947,
+        "tested": 19,
+        "assertionKills": 16,
+        "crashKills": 0,
+        "unclassifiedKills": 0,
+        "timeouts": 0,
+        "survivors": 3,
+        "assertionShare": 0.8421052631578947,
+        "crashShare": 0.0
+      }
+    }
+  },
+  {
+    "path": "apps/lobsters/reports/pr2205-replay-corrective/pr2205-replay-corrective/report.json",
+    "sha256": "7d9882227f3f73f660604bd9c0ea6db05151412528901d8429432a139a26b359",
+    "native_findings": {
+      "version": 1,
+      "ordering": "surviving mutants per statement descending, then fewer covering tests, coarse first, larger edited-line span, nearer changed lines, then file, line and digest",
+      "limit": 10,
+      "survivors": [
+        {
+          "digest": "030338415f22872f",
+          "path": "app/models/story.rb",
+          "line": 781,
+          "endLine": 781,
+          "subject": "Story#is_hidden_by_user?",
+          "operator": "body_false",
+          "original": "HiddenStory.exists?(user_id: user.id, story_id: id)",
+          "replacement": "false",
+          "edits": [
+            {
+              "line": 781,
+              "endLine": 781,
+              "original": "HiddenStory.exists?(user_id: user.id, story_id: id)",
+              "replacement": "false"
+            }
+          ],
+          "coarse": true,
+          "changedLines": [
+            781
+          ]
+        },
+        {
+          "digest": "380d564f2434c995",
+          "path": "app/models/story.rb",
+          "line": 781,
+          "endLine": 781,
+          "subject": "Story#is_hidden_by_user?",
+          "operator": "body_true",
+          "original": "HiddenStory.exists?(user_id: user.id, story_id: id)",
+          "replacement": "true",
+          "edits": [
+            {
+              "line": 781,
+              "endLine": 781,
+              "original": "HiddenStory.exists?(user_id: user.id, story_id: id)",
+              "replacement": "true"
+            }
+          ],
+          "coarse": true,
+          "changedLines": [
+            781
+          ]
+        },
+        {
+          "digest": "f50093f348880e7f",
+          "path": "app/models/story.rb",
+          "line": 789,
+          "endLine": 789,
+          "subject": "Story#is_saved_by_user?",
+          "operator": "body_true",
+          "original": "SavedStory.exists?(user_id: user.id, story_id: id)",
+          "replacement": "true",
+          "edits": [
+            {
+              "line": 789,
+              "endLine": 789,
+              "original": "SavedStory.exists?(user_id: user.id, story_id: id)",
+              "replacement": "true"
+            }
+          ],
+          "coarse": true,
+          "changedLines": [
+            789
+          ]
+        },
+        {
+          "digest": "f5f54769759d3f8a",
+          "path": "app/models/story.rb",
+          "line": 789,
+          "endLine": 789,
+          "subject": "Story#is_saved_by_user?",
+          "operator": "body_false",
+          "original": "SavedStory.exists?(user_id: user.id, story_id: id)",
+          "replacement": "false",
+          "edits": [
+            {
+              "line": 789,
+              "endLine": 789,
+              "original": "SavedStory.exists?(user_id: user.id, story_id: id)",
+              "replacement": "false"
+            }
+          ],
+          "coarse": true,
+          "changedLines": [
+            789
+          ]
+        },
+        {
+          "digest": "48e53f1a3e940cd8",
+          "path": "app/models/story.rb",
+          "line": 781,
+          "endLine": 781,
+          "subject": "Story#is_hidden_by_user?",
+          "operator": "pair_removal",
+          "original": "user_id: user.id | ,",
+          "replacement": " | ",
+          "edits": [
+            {
+              "line": 781,
+              "endLine": 781,
+              "original": "user_id: user.id",
+              "replacement": ""
+            },
+            {
+              "line": 781,
+              "endLine": 781,
+              "original": ",",
+              "replacement": ""
+            }
+          ],
+          "coarse": false,
+          "classification": "effect",
+          "kind": "effect",
+          "changedLines": [
+            781
+          ]
+        },
+        {
+          "digest": "ce014587c8ab2093",
+          "path": "app/models/story.rb",
+          "line": 781,
+          "endLine": 781,
+          "subject": "Story#is_hidden_by_user?",
+          "operator": "pair_removal",
+          "original": ", | story_id: id",
+          "replacement": " | ",
+          "edits": [
+            {
+              "line": 781,
+              "endLine": 781,
+              "original": ",",
+              "replacement": ""
+            },
+            {
+              "line": 781,
+              "endLine": 781,
+              "original": "story_id: id",
+              "replacement": ""
+            }
+          ],
+          "coarse": false,
+          "classification": "effect",
+          "kind": "effect",
+          "changedLines": [
+            781
+          ]
+        },
+        {
+          "digest": "5988c535eefd7cbd",
+          "path": "app/models/story.rb",
+          "line": 789,
+          "endLine": 789,
+          "subject": "Story#is_saved_by_user?",
+          "operator": "pair_removal",
+          "original": "user_id: user.id | ,",
+          "replacement": " | ",
+          "edits": [
+            {
+              "line": 789,
+              "endLine": 789,
+              "original": "user_id: user.id",
+              "replacement": ""
+            },
+            {
+              "line": 789,
+              "endLine": 789,
+              "original": ",",
+              "replacement": ""
+            }
+          ],
+          "coarse": false,
+          "classification": "effect",
+          "kind": "effect",
+          "changedLines": [
+            789
+          ]
+        },
+        {
+          "digest": "77cce71ad8c3e450",
+          "path": "app/models/story.rb",
+          "line": 789,
+          "endLine": 789,
+          "subject": "Story#is_saved_by_user?",
+          "operator": "pair_removal",
+          "original": ", | story_id: id",
+          "replacement": " | ",
+          "edits": [
+            {
+              "line": 789,
+              "endLine": 789,
+              "original": ",",
+              "replacement": ""
+            },
+            {
+              "line": 789,
+              "endLine": 789,
+              "original": "story_id: id",
+              "replacement": ""
+            }
+          ],
+          "coarse": false,
+          "classification": "effect",
+          "kind": "effect",
+          "changedLines": [
+            789
+          ]
+        }
+      ],
+      "survivorsTruncated": 0,
+      "accepted": [],
+      "acceptedTruncated": 0,
+      "order": [
+        "030338415f22872f",
+        "380d564f2434c995",
+        "f50093f348880e7f",
+        "f5f54769759d3f8a",
+        "48e53f1a3e940cd8",
+        "ce014587c8ab2093",
+        "5988c535eefd7cbd",
+        "77cce71ad8c3e450"
+      ]
+    },
+    "scores": {
+      "all": {
+        "score": 0.2,
+        "tested": 10,
+        "assertionKills": 0,
+        "crashKills": 2,
+        "unclassifiedKills": 0,
+        "timeouts": 0,
+        "survivors": 8,
+        "assertionShare": 0.0,
+        "crashShare": 0.2
+      },
+      "withoutWholeBodyMutants": {
+        "score": 0.0,
+        "tested": 4,
+        "assertionKills": 0,
+        "crashKills": 0,
+        "unclassifiedKills": 0,
+        "timeouts": 0,
+        "survivors": 4,
+        "assertionShare": 0.0,
+        "crashShare": 0.0
+      }
+    }
+  }
+]

@@ -1,0 +1,14 @@
+fdfdaa57787c74255c5b9aff03f234a1eb94460fa4080128989c85f4a6131cbc  ./README.md
+d4c7ad2d01689ce1d810ab2b84f4692497ad83991341f15380918d7375297568  ./chatwoot/STALE-selected_prs.md
+8df85dbd85759a5d38d51ae7f2b450269f1f823b4eb027e0280bfe34fa48ae45  ./chatwoot/bug-candidates-10.json
+f948f928ef8d8e683d76d4ff4e69a08cf2aea815409df2303d1afb8aefee9b47  ./chatwoot/noise-selection-10.json
+0bacb9dea4889912ff04990e5aa612ca76e25929825503b51c31a05cac248d43  ./he/bug-ledger-v6-scope10.json
+f648166fde4057770dd1516ede3ec6132e7a958f3da95c834d88895cb22b39d7  ./he/excluded-by-scope-only.json
+a25f45c4a91a8204b76be21fff43d49f1f2a9016a604e6bf68c13801140d7af1  ./he/noise-ledger-scope10.csv
+0f1e3f9779233462846e7a5a2754fe377df35f640625f7908f99a9c4988c1e41  ./he/out-of-scope-inventory-scope10.json
+4748a3f66df73bedbd72ba3c04f8a92307fe1a199d369f7b90a38d65924dd400  ./he/selection-v4-scope10.json
+0008cf0e235d2e89c2e367d326a0a34e19cb03e87688088c4406720f07e698a2  ./he/snapshot-compat-matrix-scope10.json
+eda3b9baa78c31df902c2fff3bc37eadcab43879571e7f98c545f3095de2e36b  ./he/triage-schema.json
+584cb4c910d61095d298f4716a6f311a8f59403a8abc6145fca970fe556e2d28  ./lobsters/gap-values.json
+3aea88f94e1d87012f38e2fcf54af8a90b4fad724d15d23f345a036e55561859  ./lobsters/native-finding-and-score-evidence.json
+822bb1f8d0a51aea0178f973650de2a47fd9d33f0f12e075a5a966c26114a77d  ./lobsters/summary-and-native-ranking.json

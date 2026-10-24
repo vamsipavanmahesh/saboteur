@@ -1,0 +1,80 @@
+{
+ "study": "chatwoot-noise",
+ "scope": 10,
+ "generated": "2026-10-24T15:31+05:30",
+ "rule": "Same original qualification rule as the qualified noise-15 (live-API qualification, selection manifest a97b9911, 436/436); reduced to N=10 as an ORDER-PRESERVING PREFIX as the scope for this study (2026-10-24). No re-qualification, no cherry-picking.",
+ "order_evidence": "Qualified-15 order preserved from the earlier per-PR out-of-scope inventory (read from the original noise-selection.json).",
+ "prs": [
+  16092,
+  15761,
+  16094,
+  16358,
+  16208,
+  16093,
+  16266,
+  16329,
+  16281,
+  16328
+ ],
+ "dropped_by_reduction": [
+  15594,
+  16185,
+  16182,
+  16319,
+  16317
+ ],
+ "per_pr_file_scope": {
+  "16092": {
+   "in_scope_CE_app_lib": 3,
+   "out_of_scope_CE_config_db_spec": 0,
+   "enterprise_scope_excluded": 6
+  },
+  "15761": {
+   "in_scope_CE_app_lib": 1,
+   "out_of_scope_CE_config_db_spec": 0,
+   "enterprise_scope_excluded": 0
+  },
+  "16094": {
+   "in_scope_CE_app_lib": 3,
+   "out_of_scope_CE_config_db_spec": 1,
+   "enterprise_scope_excluded": 7
+  },
+  "16358": {
+   "in_scope_CE_app_lib": 1,
+   "out_of_scope_CE_config_db_spec": 0,
+   "enterprise_scope_excluded": 5
+  },
+  "16208": {
+   "in_scope_CE_app_lib": 1,
+   "out_of_scope_CE_config_db_spec": 3,
+   "enterprise_scope_excluded": 23
+  },
+  "16093": {
+   "in_scope_CE_app_lib": 1,
+   "out_of_scope_CE_config_db_spec": 4,
+   "enterprise_scope_excluded": 46
+  },
+  "16266": {
+   "in_scope_CE_app_lib": 10,
+   "out_of_scope_CE_config_db_spec": 13,
+   "enterprise_scope_excluded": 18
+  },
+  "16329": {
+   "in_scope_CE_app_lib": 1,
+   "out_of_scope_CE_config_db_spec": 1,
+   "enterprise_scope_excluded": 16
+  },
+  "16281": {
+   "in_scope_CE_app_lib": 2,
+   "out_of_scope_CE_config_db_spec": 3,
+   "enterprise_scope_excluded": 6
+  },
+  "16328": {
+   "in_scope_CE_app_lib": 1,
+   "out_of_scope_CE_config_db_spec": 0,
+   "enterprise_scope_excluded": 9
+  }
+ },
+ "ee_heavy_note": "EE-heavy rows must state explicitly that in-scope replay covers only the CE portion (per D35): 16093 (1 in-scope vs 46 EE-excluded), 16208 (1 vs 23), 16329 (1 vs 16), 16328 (1 vs 9), 16358 (1 vs 5), 16281 (2 vs 6).",
+ "status": "selection only: candidates, not verified bug fixes; no run rows"
+}

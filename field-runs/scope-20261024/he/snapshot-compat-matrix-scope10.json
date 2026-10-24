@@ -1,0 +1,176 @@
+[
+  {
+    "pr": 5723,
+    "head": "ace6151d2296a3b252d5ccdbcc4a838caf2d388c",
+    "snapshot": "ace6151d2296a3b252d5ccdbcc4a838caf2d388c",
+    "commits_to_snapshot": 0,
+    "config_drift": [],
+    "hashes": {
+      "Gemfile": {
+        "head": "b5afae36a49a6aebc4ebbccf67db7ac5d07a3289f800b26f6f55b4c83d328205",
+        "snapshot": "b5afae36a49a6aebc4ebbccf67db7ac5d07a3289f800b26f6f55b4c83d328205"
+      },
+      "Gemfile.lock": {
+        "head": "664e253b7da735414d011725876efddbae95bc258f80bf6dd2da073c686de437",
+        "snapshot": "664e253b7da735414d011725876efddbae95bc258f80bf6dd2da073c686de437"
+      }
+    }
+  },
+  {
+    "pr": 5742,
+    "head": "6453a3de3150592dc5708d4fafb3aa7e3df3270e",
+    "snapshot": "6453a3de3150592dc5708d4fafb3aa7e3df3270e",
+    "commits_to_snapshot": 0,
+    "config_drift": [],
+    "hashes": {
+      "Gemfile": {
+        "head": "b5afae36a49a6aebc4ebbccf67db7ac5d07a3289f800b26f6f55b4c83d328205",
+        "snapshot": "b5afae36a49a6aebc4ebbccf67db7ac5d07a3289f800b26f6f55b4c83d328205"
+      },
+      "Gemfile.lock": {
+        "head": "78ce7f9ffe24abeac4e0a119bba4b2cffb345ff6a593479cb997d9eac44b970b",
+        "snapshot": "78ce7f9ffe24abeac4e0a119bba4b2cffb345ff6a593479cb997d9eac44b970b"
+      }
+    }
+  },
+  {
+    "pr": 5656,
+    "head": "6b5bc26be9f6d31818959bb77e16a573e18e920e",
+    "snapshot": "6453a3de3150592dc5708d4fafb3aa7e3df3270e",
+    "commits_to_snapshot": 1,
+    "config_drift": [],
+    "hashes": {
+      "Gemfile": {
+        "head": "63ddd3a8ff414134f9174aa9dce873b4202fec7888389f0a35a7960c505b0cb5",
+        "snapshot": "b5afae36a49a6aebc4ebbccf67db7ac5d07a3289f800b26f6f55b4c83d328205"
+      },
+      "Gemfile.lock": {
+        "head": "78ce7f9ffe24abeac4e0a119bba4b2cffb345ff6a593479cb997d9eac44b970b",
+        "snapshot": "78ce7f9ffe24abeac4e0a119bba4b2cffb345ff6a593479cb997d9eac44b970b"
+      }
+    }
+  },
+  {
+    "pr": 5727,
+    "head": "1085e87e8fda78a75910063cc59201c288e578f5",
+    "snapshot": "1085e87e8fda78a75910063cc59201c288e578f5",
+    "commits_to_snapshot": 0,
+    "config_drift": [],
+    "hashes": {
+      "Gemfile": {
+        "head": "4e56c118824fc1f82802db67f597786c254c5c12b4372098047f648e954ee881",
+        "snapshot": "4e56c118824fc1f82802db67f597786c254c5c12b4372098047f648e954ee881"
+      },
+      "Gemfile.lock": {
+        "head": "122d305c1640a3451dd6f92c8c2c0e3fcf78e0195e8280939096989a311fcea0",
+        "snapshot": "122d305c1640a3451dd6f92c8c2c0e3fcf78e0195e8280939096989a311fcea0"
+      }
+    }
+  },
+  {
+    "pr": 5541,
+    "head": "2493ab00eae8d71732d24380bee7440b9ead473c",
+    "snapshot": "1085e87e8fda78a75910063cc59201c288e578f5",
+    "commits_to_snapshot": 2,
+    "config_drift": [],
+    "hashes": {
+      "Gemfile": {
+        "head": "4e56c118824fc1f82802db67f597786c254c5c12b4372098047f648e954ee881",
+        "snapshot": "4e56c118824fc1f82802db67f597786c254c5c12b4372098047f648e954ee881"
+      },
+      "Gemfile.lock": {
+        "head": "122d305c1640a3451dd6f92c8c2c0e3fcf78e0195e8280939096989a311fcea0",
+        "snapshot": "122d305c1640a3451dd6f92c8c2c0e3fcf78e0195e8280939096989a311fcea0"
+      }
+    }
+  },
+  {
+    "pr": 5722,
+    "head": "306c0ae8402f9baf5b8e6d411b6c1319d7c91448",
+    "snapshot": "1085e87e8fda78a75910063cc59201c288e578f5",
+    "commits_to_snapshot": 24,
+    "config_drift": [],
+    "hashes": {
+      "Gemfile": {
+        "head": "4e56c118824fc1f82802db67f597786c254c5c12b4372098047f648e954ee881",
+        "snapshot": "4e56c118824fc1f82802db67f597786c254c5c12b4372098047f648e954ee881"
+      },
+      "Gemfile.lock": {
+        "head": "122d305c1640a3451dd6f92c8c2c0e3fcf78e0195e8280939096989a311fcea0",
+        "snapshot": "122d305c1640a3451dd6f92c8c2c0e3fcf78e0195e8280939096989a311fcea0"
+      }
+    }
+  },
+  {
+    "pr": 5386,
+    "head": "2857b48f59b58770660a3cc120d25f2170e4c1bf",
+    "snapshot": "2857b48f59b58770660a3cc120d25f2170e4c1bf",
+    "commits_to_snapshot": 0,
+    "config_drift": [],
+    "hashes": {
+      "Gemfile": {
+        "head": "15edc5118052ceac15bb0b302e064d0a302b3fea682087fb07218e0e3614372e",
+        "snapshot": "15edc5118052ceac15bb0b302e064d0a302b3fea682087fb07218e0e3614372e"
+      },
+      "Gemfile.lock": {
+        "head": "de1b4172e28bdf01d67532e0d6dbe4f65602f18dd44535eae5afdd29d5557a19",
+        "snapshot": "de1b4172e28bdf01d67532e0d6dbe4f65602f18dd44535eae5afdd29d5557a19"
+      }
+    }
+  },
+  {
+    "pr": 5274,
+    "head": "76f2c6d251789f3d306c21fe47e2b826adc1999b",
+    "snapshot": "2857b48f59b58770660a3cc120d25f2170e4c1bf",
+    "commits_to_snapshot": 19,
+    "config_drift": [],
+    "hashes": {
+      "Gemfile": {
+        "head": "15edc5118052ceac15bb0b302e064d0a302b3fea682087fb07218e0e3614372e",
+        "snapshot": "15edc5118052ceac15bb0b302e064d0a302b3fea682087fb07218e0e3614372e"
+      },
+      "Gemfile.lock": {
+        "head": "de1b4172e28bdf01d67532e0d6dbe4f65602f18dd44535eae5afdd29d5557a19",
+        "snapshot": "de1b4172e28bdf01d67532e0d6dbe4f65602f18dd44535eae5afdd29d5557a19"
+      }
+    }
+  },
+  {
+    "pr": 5171,
+    "head": "46420673724f20bb7abe83022e869a42f7295dbf",
+    "snapshot": "2857b48f59b58770660a3cc120d25f2170e4c1bf",
+    "commits_to_snapshot": 37,
+    "config_drift": [
+      "config/routes.rb"
+    ],
+    "hashes": {
+      "Gemfile": {
+        "head": "15edc5118052ceac15bb0b302e064d0a302b3fea682087fb07218e0e3614372e",
+        "snapshot": "15edc5118052ceac15bb0b302e064d0a302b3fea682087fb07218e0e3614372e"
+      },
+      "Gemfile.lock": {
+        "head": "de1b4172e28bdf01d67532e0d6dbe4f65602f18dd44535eae5afdd29d5557a19",
+        "snapshot": "de1b4172e28bdf01d67532e0d6dbe4f65602f18dd44535eae5afdd29d5557a19"
+      }
+    }
+  },
+  {
+    "pr": 5606,
+    "head": "fbaa7e42a2bf7522e5ab0c4e09fe5804212272c8",
+    "snapshot": "2857b48f59b58770660a3cc120d25f2170e4c1bf",
+    "commits_to_snapshot": 59,
+    "config_drift": [
+      "config/routes.rb"
+    ],
+    "hashes": {
+      "Gemfile": {
+        "head": "15edc5118052ceac15bb0b302e064d0a302b3fea682087fb07218e0e3614372e",
+        "snapshot": "15edc5118052ceac15bb0b302e064d0a302b3fea682087fb07218e0e3614372e"
+      },
+      "Gemfile.lock": {
+        "head": "de1b4172e28bdf01d67532e0d6dbe4f65602f18dd44535eae5afdd29d5557a19",
+        "snapshot": "de1b4172e28bdf01d67532e0d6dbe4f65602f18dd44535eae5afdd29d5557a19"
+      }
+    }
+  }
+]

@@ -1,0 +1,286 @@
+{
+  "gaps": {
+    "low": 6,
+    "high": 4,
+    "medium": 2
+  },
+  "mutants": {
+    "low": 34,
+    "high": 10,
+    "medium": 8
+  },
+  "noise": {
+    "equivalent": 0,
+    "false_survivor": 0,
+    "environment_noise": 0,
+    "real_gap_gaps": 12,
+    "real_gap_mutants": 52
+  },
+  "ranking": [
+    {
+      "pr": 2157,
+      "native_order": [
+        "5cacdbc3d0bc508e",
+        "1f1092204c9a42bb",
+        "43dda9ad5517cd5d",
+        "605c15816c32610f",
+        "bea8f4593231093a",
+        "3aa0bb7820610094"
+      ],
+      "first_gap_order": [
+        "story-social-metadata"
+      ],
+      "values_by_native_mutant_order": [
+        "low",
+        "low",
+        "low",
+        "low",
+        "low",
+        "low"
+      ],
+      "high_value_positions": [],
+      "high_first": "not_applicable_no_high_gap",
+      "discrimination": "not_testable_all_same_value"
+    },
+    {
+      "pr": 2156,
+      "native_order": [
+        "84a2b3ca16355339"
+      ],
+      "first_gap_order": [
+        "rename-only-on-actual-change"
+      ],
+      "values_by_native_mutant_order": [
+        "high"
+      ],
+      "high_value_positions": [
+        1
+      ],
+      "high_first": true,
+      "discrimination": "not_testable_all_same_value"
+    },
+    {
+      "pr": 2204,
+      "native_order": [
+        "56ec2857eb8103bd",
+        "695982748e0e8ebb",
+        "9786b8df27eddc21"
+      ],
+      "first_gap_order": [
+        "gone-moderation-boundary"
+      ],
+      "values_by_native_mutant_order": [
+        "high",
+        "high",
+        "high"
+      ],
+      "high_value_positions": [
+        1,
+        2,
+        3
+      ],
+      "high_first": true,
+      "discrimination": "not_testable_all_same_value"
+    },
+    {
+      "pr": 2103,
+      "native_order": [
+        "3357bbd3579ca0dc",
+        "97154a11ddda03c6",
+        "b108a3614e6b02a4",
+        "629ab82786f06cb3",
+        "556caf228d63258a",
+        "2da30124e7509574"
+      ],
+      "first_gap_order": [
+        "empty-css-class-normalization",
+        "seasonal-logo-output"
+      ],
+      "values_by_native_mutant_order": [
+        "low",
+        "low",
+        "low",
+        "low",
+        "low",
+        "low"
+      ],
+      "high_value_positions": [],
+      "high_first": "not_applicable_no_high_gap",
+      "discrimination": "not_testable_all_same_value"
+    },
+    {
+      "pr": 2205,
+      "native_order": [
+        "030338415f22872f",
+        "380d564f2434c995",
+        "f50093f348880e7f",
+        "f5f54769759d3f8a",
+        "48e53f1a3e940cd8",
+        "ce014587c8ab2093",
+        "5988c535eefd7cbd",
+        "77cce71ad8c3e450"
+      ],
+      "first_gap_order": [
+        "hidden-state-predicate",
+        "saved-state-predicate"
+      ],
+      "values_by_native_mutant_order": [
+        "medium",
+        "medium",
+        "medium",
+        "medium",
+        "medium",
+        "medium",
+        "medium",
+        "medium"
+      ],
+      "high_value_positions": [],
+      "high_first": "not_applicable_no_high_gap",
+      "discrimination": "not_testable_all_same_value"
+    },
+    {
+      "pr": 2174,
+      "native_order": [
+        "de7560d08996f4ef"
+      ],
+      "first_gap_order": [
+        "flagged-commenter-threshold"
+      ],
+      "values_by_native_mutant_order": [
+        "high"
+      ],
+      "high_value_positions": [
+        1
+      ],
+      "high_first": true,
+      "discrimination": "not_testable_all_same_value"
+    },
+    {
+      "pr": 2183,
+      "native_order": [
+        "0a158cf837a4e9ac",
+        "0e77ab7c5fd1ae29",
+        "6ad124cc7a87c548",
+        "a7b41e60aed29c41",
+        "c8e920b3b0bbbbed"
+      ],
+      "first_gap_order": [
+        "traffic-intensity-value"
+      ],
+      "values_by_native_mutant_order": [
+        "high",
+        "high",
+        "high",
+        "high",
+        "high"
+      ],
+      "high_value_positions": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "high_first": true,
+      "discrimination": "not_testable_all_same_value"
+    },
+    {
+      "pr": 2197,
+      "native_order": [
+        "ee7636cfd988297a",
+        "111b8e283f0397ea",
+        "16ca5c211943b17d",
+        "aa15cc2fbfadb177",
+        "721be5b96d2f1bf9",
+        "7a2eb67c33630d46",
+        "b3c29e6d9b83c93b",
+        "d1902dce1d6c0bed",
+        "45122517a7ddc0c8",
+        "9a31f624b2f1c8d4",
+        "d3ef739e94f76ceb",
+        "f98739566ebb7713",
+        "6384cf5436c30d89",
+        "7628a88b22719ecf",
+        "85a0d301c72ae598",
+        "cac125b5b23f254f",
+        "82e793cd9460447c",
+        "f55b6ebc7e08c7bf",
+        "265ba36e379f861c",
+        "8ff5c5c19270c92b",
+        "a0cee31e8852087b",
+        "f480c446a09839fa"
+      ],
+      "first_gap_order": [
+        "page-title-text",
+        "search-title-default-branch",
+        "duplicate-heading-suppression"
+      ],
+      "values_by_native_mutant_order": [
+        "low",
+        "low",
+        "low",
+        "low",
+        "low",
+        "low",
+        "low",
+        "low",
+        "low",
+        "low",
+        "low",
+        "low",
+        "low",
+        "low",
+        "low",
+        "low",
+        "low",
+        "low",
+        "low",
+        "low",
+        "low",
+        "low"
+      ],
+      "high_value_positions": [],
+      "high_first": "not_applicable_no_high_gap",
+      "discrimination": "not_testable_all_same_value"
+    }
+  ],
+  "precedence_scenarios": {
+    "specific_presentation_low": {
+      "gaps": {
+        "high": 4,
+        "medium": 2,
+        "low": 6
+      },
+      "mutants": {
+        "high": 10,
+        "medium": 8,
+        "low": 34
+      }
+    },
+    "own_bug_high_2197_titles_only": {
+      "gaps": {
+        "high": 7,
+        "medium": 2,
+        "low": 3
+      },
+      "mutants": {
+        "high": 32,
+        "medium": 8,
+        "low": 12
+      }
+    },
+    "own_change_high_also_2157_metadata_if_accepted_as_bug_class": {
+      "gaps": {
+        "high": 8,
+        "medium": 2,
+        "low": 2
+      },
+      "mutants": {
+        "high": 38,
+        "medium": 8,
+        "low": 6
+      }
+    }
+  },
+  "ranking_limit": "Every PR with survivors is single-value under each stated scenario, so high-first is vacuous where high exists; this data does not test prioritization of high above lower-value gaps within a PR."
+}

@@ -1,0 +1,47 @@
+{
+ "study": "chatwoot-missed-bugs",
+ "scope": 10,
+ "generated": "2026-10-24T15:31+05:30",
+ "rule": "Same declared order as bug-candidates-eligible-20 (first N eligible by merged_at DESC from the classified 961-PR ledger, 3-signal eligibility ANY of fix-title/linked-issue/test-added-code); reduced to N=10 as an ORDER-PRESERVING PREFIX as the scope for this study (2026-10-24). No re-qualification.",
+ "source": "field-runs/apps/chatwoot/selection/bug-candidates-eligible-20.json @ ed701fc0bca7b69f1804b11637be9e60fe48e141 (public branch field-runs/lobsters)",
+ "window_utc": [
+  "2026-04-23T18:30:00Z",
+  "2026-10-24T02:53:20Z"
+ ],
+ "prs": [
+  16092,
+  16385,
+  16374,
+  15761,
+  16247,
+  16094,
+  16358,
+  16208,
+  16093,
+  16266
+ ],
+ "dropped_by_reduction": [
+  16329,
+  16350,
+  16240,
+  16281,
+  16328,
+  16200,
+  16327,
+  15594,
+  16185,
+  16326
+ ],
+ "protocol_unchanged": "regression FAIL-before/PASS-after witness; git-blame introducing mapping; saboteur --since <parent> on introducing PR with tests as then; HIT/MISS one-based-inclusive line intersection; flag rate.",
+ "overlap_with_noise10": [
+  15761,
+  16092,
+  16093,
+  16094,
+  16208,
+  16266,
+  16358
+ ],
+ "note": "Shared PRs: whether they share one whole-suite map snapshot is NOT established here; lock/config/time grouping must be verified before any snapshot-reuse claim.",
+ "status": "selection only: candidates, not verified bug fixes; no run rows"
+}

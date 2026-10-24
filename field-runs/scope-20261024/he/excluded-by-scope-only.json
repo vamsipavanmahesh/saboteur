@@ -1,0 +1,146 @@
+{
+  "noise": [
+    {
+      "pr": 5628,
+      "sha": "d58875f12bb93bdece948af84382ee18aa0f8d36",
+      "merged_at": "2026-08-29T23:01:05+00:00",
+      "title": "#5568 Fix kit allocation/deallocation history display direction (fixes #5568)"
+    },
+    {
+      "pr": 5690,
+      "sha": "23841081aa6299ec9cc2480d4d395da90265ae34",
+      "merged_at": "2026-08-29T22:46:31+00:00",
+      "title": "Fix lockout from stale session[:current_role] when a different user signs in"
+    },
+    {
+      "pr": 5692,
+      "sha": "558a2351dadcab3abaec75359bb9a27ceb45c482",
+      "merged_at": "2026-08-29T22:45:28+00:00",
+      "title": "Rename audit status confimr to pending finalization"
+    },
+    {
+      "pr": 5686,
+      "sha": "e2c82669d98223740ed7173decdfdf751bf6a746",
+      "merged_at": "2026-08-29T20:37:27+00:00",
+      "title": "Resolves #5668 Org level disable reminder emails"
+    },
+    {
+      "pr": 5684,
+      "sha": "99ed41b75eddca66a5584d48ff34f0b2a7eff55d",
+      "merged_at": "2026-08-29T20:24:27+00:00",
+      "title": "Natural Alphabetization of Product drive oarticipants"
+    }
+  ],
+  "bug_candidates": [
+    {
+      "pr": 5386,
+      "sha": "2857b48f59b58770660a3cc120d25f2170e4c1bf",
+      "merged_at": "2026-08-30T13:53:56+00:00",
+      "title": "Allow a hard limit on number of specific items per request",
+      "signals": [
+        "test-added-code"
+      ],
+      "source_types": [
+        "app",
+        "db",
+        "spec"
+      ]
+    },
+    {
+      "pr": 5274,
+      "sha": "76f2c6d251789f3d306c21fe47e2b826adc1999b",
+      "merged_at": "2026-08-30T00:20:24+00:00",
+      "title": "[4987] Annual Reports range Export",
+      "signals": [
+        "linked-issue"
+      ],
+      "source_types": null
+    },
+    {
+      "pr": 5604,
+      "sha": "d61f0280a93fa0a2b64f734453b668298ac06080",
+      "merged_at": "2026-08-30T00:12:06+00:00",
+      "title": "Reorder and relabel transfer action buttons to Undo (5560)",
+      "signals": [
+        "linked-issue"
+      ],
+      "source_types": null
+    },
+    {
+      "pr": 5171,
+      "sha": "46420673724f20bb7abe83022e869a42f7295dbf",
+      "merged_at": "2026-08-30T00:00:51+00:00",
+      "title": "Enable csv import of partners with six fields",
+      "signals": [
+        "linked-issue"
+      ],
+      "source_types": null
+    },
+    {
+      "pr": 5606,
+      "sha": "fbaa7e42a2bf7522e5ab0c4e09fe5804212272c8",
+      "merged_at": "2026-08-29T23:43:38+00:00",
+      "title": "Send request cancellation email to the request sender as well as the partner (5564)",
+      "signals": [
+        "linked-issue"
+      ],
+      "source_types": null
+    },
+    {
+      "pr": 5628,
+      "sha": "d58875f12bb93bdece948af84382ee18aa0f8d36",
+      "merged_at": "2026-08-29T23:01:05+00:00",
+      "title": "#5568 Fix kit allocation/deallocation history display direction (fixes #5568)",
+      "signals": [
+        "fix-title",
+        "linked-issue"
+      ],
+      "source_types": null
+    },
+    {
+      "pr": 5690,
+      "sha": "23841081aa6299ec9cc2480d4d395da90265ae34",
+      "merged_at": "2026-08-29T22:46:31+00:00",
+      "title": "Fix lockout from stale session[:current_role] when a different user signs in",
+      "signals": [
+        "fix-title"
+      ],
+      "source_types": null
+    },
+    {
+      "pr": 5692,
+      "sha": "558a2351dadcab3abaec75359bb9a27ceb45c482",
+      "merged_at": "2026-08-29T22:45:28+00:00",
+      "title": "Rename audit status confimr to pending finalization",
+      "signals": [
+        "test-added-code"
+      ],
+      "source_types": [
+        "app",
+        "spec"
+      ]
+    },
+    {
+      "pr": 5686,
+      "sha": "e2c82669d98223740ed7173decdfdf751bf6a746",
+      "merged_at": "2026-08-29T20:37:27+00:00",
+      "title": "Resolves #5668 Org level disable reminder emails",
+      "signals": [
+        "fix-title",
+        "linked-issue"
+      ],
+      "source_types": null
+    },
+    {
+      "pr": 5689,
+      "sha": "61921fbfb992fe8a47f8f06d980584d32d2e15c1",
+      "merged_at": "2026-08-29T20:00:31+00:00",
+      "title": "update password reset email to include datetime and signature",
+      "signals": [
+        "linked-issue"
+      ],
+      "source_types": null
+    }
+  ],
+  "reason": "user2026-10-24T15:30 scope reduction, not qualification failures; historical evidence preserved"
+}

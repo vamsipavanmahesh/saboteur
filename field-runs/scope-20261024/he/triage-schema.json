@@ -1,0 +1,34 @@
+{
+  "scope": "future independently reviewed surviving gaps, no HE results currently",
+  "rubric": {
+    "high": "wrong data, security, money, moderation, or PR own bug class",
+    "medium": "user-visible logic edge",
+    "low": "copy, titles, CSS classes, meta tags"
+  },
+  "gap_fields": [
+    "pr",
+    "gap_id",
+    "member_mutant_digests",
+    "equivalent_or_false_noise_status",
+    "noise_reason",
+    "value_rating_high_medium_low",
+    "one_sentence_value_reason",
+    "triage_witness_refs",
+    "native_member_positions",
+    "native_gap_first_position"
+  ],
+  "native_order": {
+    "source": "native Stryker JSON report saboteur.findings.order uncapped digest list (Reporter::Stryker:59, Findings:full_order) at source pin6f87ccc98377bf0c23f3cf409006f0464c2aa67c; preserve raw report and terminal/log as evidence",
+    "not_allowed": "never infer semantic importance from array/source-file order or invent a numeric score",
+    "gap_projection": "earliest position of any gap member in native digest order; retain ALL member positions to disclose interleaving",
+    "high_first_per_pr": "Compare high gap first positions to medium/low gap first positions; yes if every high gap first appearance precedes every medium/low, no if inversion; unavailable if incomplete evidence. If no high or no comparison group, not_applicable. Preserve ordered gap IDs/values so alternate interpretations are inspectable."
+  },
+  "summary_fields": [
+    "per_PR_and_total_equivalent_false_noise_gap_numerator_denominator_CI95",
+    "per_PR_and_total_equivalent_false_noise_mutant_numerator_denominator_CI95",
+    "per_PR_and_total_value_gap_counts_high_medium_low_unrated",
+    "per_PR_and_total_value_mutant_counts_high_medium_low_unrated",
+    "per_PR_native_high_first_yes_no_unavailable_not_applicable"
+  ],
+  "counting": "Each deduped gap counts once; its distinct member mutants weight mutant distribution. Unrated/uncertain states shown separately. Low value is not equivalent/false noise. Keep existing denominator eligibility and uncertainty rules; no HE estimates before qualified results."
+}
