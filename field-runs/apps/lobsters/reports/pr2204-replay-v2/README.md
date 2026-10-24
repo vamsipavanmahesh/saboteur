@@ -71,3 +71,18 @@ survivors - all on story.rb:777, a line THIS PR edited - unconfirmed,
 because the base-tree whole-suite map cannot cover lines the PR
 changed. This is a scoped observation, NOT a universal claim about
 all edited-line cases. No fix proposed.
+
+## ROW RESOLUTION 10:09 IST - PR 2204 noise row: QUALIFIED WITH DISCLOSED DEVIATION (merger decision D44)
+
+Evidence chain (all published on this branch):
+- R (this packet): 22 tested = 18 assertion kills + 1 crash kill + 3 survivors, seed 1, EX-1, jobs 1, --since 8f1b50061e5ef0b88ddbadc675395f7b5cf4eb76 (merger API-verified sole parent of merge ed722e449227b39ab6268f4260aaa66df95275bd). Whole-suite map consumed via the supported pointer restore (base map at 8f1b5006).
+- Bridge: survivor-confirmation mechanism proven from raws in pr2204-canary-c1/ (pointer present, confirmation engaged; key c091018a...).
+- Survivor triage (user-contract gate): 3/3 REAL GAP, independently proven bump-free by the verifier (packet 2a): original-code PASS (2 examples 0 failures) + new-test assertion-KILL for each of 56ec2857eb8103bd (comparison -> "<="), 695982748e0e8ebb (literal_number -> 1), 9786b8df27eddc21 (literal_number -> -1) - all at app/models/story.rb:777, Story#is_gone?.
+- Kill confidence: seeded 10-of-36 sample closed 10/10 (verify-packet-2a/2b), including 7 of this row's 19 kills (6 assertion + 1 crash/RuntimeError); remaining kills keep tool-reported classes per D43.
+
+ROW RESULTS:
+- Survivors resolved: 3/3. Noise classes among them: 0 equivalent, 0 false-survivor, 0 environment-noise. Row noise = 0/3 = 0%. No unresolved at row level. (The 6 rejected kills of the SEPARATE inclusive all-tests run stay unresolved in that run and are not row survivors.)
+- Findings (terminal order from report.json): 56ec2857eb8103bd, 695982748e0e8ebb, 9786b8df27eddc21. TOP-RANKED FINDING = 56ec2857eb8103bd: REAL GAP (proven). The 3 survivors are ONE finding group (Story#is_gone? score boundary, story.rb:777) - mutant-level count 3, finding-level count 1; metric arithmetic here uses mutant level per the metric contract.
+- 95% interval: NOT computed - per-app interval requires the full lobsters noise block (15 rows); one row supports no interval and no overall claim.
+
+DEVIATION (disclosed, impact unassessed, not hidden): the producer-side 2204 v2 lock carried unrelated upgrades brakeman 8.0.5 -> 8.0.6 and matrix 0.4.2 -> 0.4.3. The row's metric-bearing content (survivor classification, noise, top-finding verdict) rests on the verifier's bump-free additions-only locks plus the bridge mechanism; the producer kill counts carry the environment deviation. Strict-era rerun NOT required (D44); the row reopens if a future anomaly implicates the bumped gems.

@@ -432,3 +432,11 @@ pointers are to files on this branch.
 - Reason: The user contract (08:11:34, verbatim re-read) requires fresh-context triage of EVERY survivor, a 95% interval, top-finding real-gap verdicts, and every number recomputable from files - it does not require per-kill cause verification at any count. The sample was our own added gate; extending it to every kill adds cost without a contract basis (user delegated such calls 08:20:52).
 - Evidence: tool-verification/verify-packet-2a/, verify-packet-2b/ (raws + audits).
 - Reversibility: If any future kill shows anomaly signs (fake-kill suspicion, red-credited kill), that row is held and its causes verified individually per the standing fake-kill rule.
+
+## D44 - 10:09 - PR 2204 row QUALIFIED WITH DISCLOSED DEVIATION; strict-era rerun not required; ledger keeps two explicit tiers
+
+- Decision: PR 2204's noise row is resolved as QUALIFIED WITH DISCLOSED DEVIATION: 22 mutants (18 assertion + 1 crash + 3 survivors), 3/3 survivors REAL GAP (independent bump-free proof), row noise 0/3 = 0%, top finding 56ec2857eb8103bd REAL GAP, 3 survivors = 1 finding group (Story#is_gone?, story.rb:777). The producer lock's brakeman/matrix bumps are a disclosed environment deviation with unassessed impact on kill counts; survivor-side evidence is bump-free. No strict-era rerun: the user-contract outputs (survivor triage, noise, top-finding verdict, recomputability) do not depend on the bumped gems, and the kill-confidence gate closed via the 10-sample (D43). The row reopens if an anomaly implicates those gems.
+- Reason: Main's explicit ruling request; user delegation 08:20:52; holding a finished row for a rerun whose outcome cannot change any contract number would be fake work.
+- Ledger tiers (explicit, consistent from here): STRICT-QUALIFIED rows = 1/45 (2231). QUALIFIED-WITH-DEVIATION rows = 1/45 (2204). Rows with complete evidence = 2/45. No per-app interval or overall claim until each app's noise block completes.
+- Evidence: apps/lobsters/reports/pr2204-replay-v2/ (row), pr2204-canary-c1/ (bridge), tool-verification/verify-packet-2a|2b/ (triage + sample).
+- Reversibility: Deviation reopen rule stated above; publication only.
