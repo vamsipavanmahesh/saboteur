@@ -404,3 +404,10 @@ pointers are to files on this branch.
 - Reason: Registry 0.12.3 differs from the pin in 18 lib files; any timing or behavior under it is not attributable to the pinned tool.
 - Evidence: noise/human-essentials/doctor-20261024-0941/ (RAWS.sha256).
 - Reversibility: Publication only; raws immutable.
+
+## D40 - 09:46 - Known-survivor canary 2204-c1: survivor-confirmation PROVEN; general noise-stage execution GO
+
+- Decision: The survivor-confirmation mechanism is proven from raws (whole-suite map consulted via pointer c091018a; covering specs outside the inferred selection actually executed; 3/3 confirmations ran and passed). General noise-stage execution may begin; per-row gates (M-side receipts in the row archive, kill-cause verification, noise triage) remain per-row. The 15-row stage no longer has a mechanism gate.
+- Reason: R's executed set includes search_spec examples unreachable from the 81-test scoped selection; the only source of that coverage is M's whole-suite map. Base parent verified independently via the GitHub API (merge ed722e44's sole parent = 8f1b5006).
+- Evidence: apps/lobsters/reports/pr2204-canary-c1/ (README-AUDIT.md); survivor/HIT scope separation and the two-scope UNRESOLVED-vs-confirmed distinction recorded there.
+- Reversibility: Publication only; raws immutable.
