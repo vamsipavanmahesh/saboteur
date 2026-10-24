@@ -1,4 +1,5 @@
 <!-- Provenance: frozen six-month cutoff clarification authored by the study lead 2026-10-24 08:50 IST, grounded in the user's original 08:11:34 IST request. Adopted verbatim; confirms METRICS.md 08:22 and DECISIONS.md D33. -->
+<!-- Publication note (merger, 08:50 IST): the author's closing "v3 packet lacks line-map files / ledger-consistency check only" caveat reflects the author's local packet at writing time. The merger's subsequent full audit (DECISIONS.md D33, noise/human-essentials/BUG-LEDGER-V3-CUTOFF-INVARIANCE.md) recomputed all 1,224 blame entries from the actual line-map raws: the 13-old/7-pending split is exact, and zero records fall in the 8h11m34s boundary margin, so the exact-time alternative recomputes identically. Temporal classification is closed; the semantic-causality caveats (unmapped additions, doc/spec provenance) remain open and are carried in the invariance proof. -->
 
 # Frozen six-month eligibility cutoff
 
