@@ -89,6 +89,9 @@ Names follow Uncle Bob's Clean Code conventions:
   projections.
 - When the maintainer gives a task a deadline and it has not reached the
   next stage by then, stop and report where it stands.
+- If a required input is missing - a release, a SHA, credentials, a
+  decision - stop within 15 minutes and ask. Do not spend a timebox on
+  work that cannot reach the goal; preparation is not the goal.
 - Log every estimate given and its actual in
   [docs/harness-metrics.md](docs/harness-metrics.md).
 
