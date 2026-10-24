@@ -1,0 +1,18 @@
+saboteur: preset 'pr': --baseline-passes 1 --max-duration 10m --since e5fda5974779549267ac25fdf4855fdd0cf0101b (explicit flags override)
+saboteur: warning: 186 uncommitted or untracked change(s) in the working tree: none inside the mutation scope, 185 outside it (2 tracked, 183 untracked), 1 saboteur setup file(s) (0 tracked, 1 untracked).
+  setup files: config/saboteur.rb
+  Mutants run your code and could alter or delete files; run on a clean, committed tree or a CI checkout.
+saboteur: inferred specs: no spec is required for app/models/story.rb: it has no changed mutation subjects
+saboteur: inferred specs: no changed file has a mutation subject on its changed lines, so there is nothing to mutate
+saboteur: SimpleCov.start ignored for this run (saboteur needs Ruby's Coverage itself)
+W, [2026-10-24T07:24:49.678971 #13002]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+W, [2026-10-24T07:24:53.381067 #13073]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+saboteur: --since e5fda5974779549267ac25fdf4855fdd0cf0101b: nothing to test - no subject covers the changed lines (layout-only edits, deletions, or intentionally untested code)
+
+saboteur: no mutants in the diff - nothing to gate
+saboteur 0.12.3: 0 subjects, 0 mutants, wall 10.13 s, seed 1 (repeat with --seed 1)
+Score: n/a - nothing tested
+saboteur: no mutants in 10s - score n/a
+
+Reports: /home/sandbox/field-runs/saboteur-field-runs/apps/lobsters/reports/pr2182-replay/report.json (JSON), /home/sandbox/field-runs/saboteur-field-runs/apps/lobsters/reports/pr2182-replay/report.html (HTML)
+MEASURED exit=0 wall=10.73s rss_kb=338344
