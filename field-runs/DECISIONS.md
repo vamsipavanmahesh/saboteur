@@ -470,3 +470,11 @@ pointers are to files on this branch.
 - Ledger: STRICT-QUALIFIED = 4/45 (2231, 2204, 2157, 2156); QUALIFIED-WITH-DEVIATION = 0; complete evidence = 4/45. No per-app interval until the lobsters 15-row block completes.
 - Evidence: apps/lobsters/reports/pr2156-map-replay-c1/lockbackfill/.
 - Reversibility: Publication only.
+
+## D49 - 10:55 - PR 2171 row STRICT-QUALIFIED (0 survivors, noise 0/0 undefined); ledger 5/45
+
+- Decision: PR 2171 is STRICT-QUALIFIED: 2 mutants both killed (1 assertion + 1 crash/RuntimeError), 0 survivors, 0 rejected; noise 0/0 UNDEFINED per the metric contract; top finding N/A. First headmap3 row with full preamble receipts (lock/bundle-list/version).
+- Note: merge order != PR-number order verified via API (2171's merge 9a773eac predates 2156's d9998c25); study row order follows merged_at DESC as specified.
+- Ledger: STRICT-QUALIFIED = 5/45 (2231, 2204, 2157, 2156, 2171); complete evidence = 5/45. 10 lobsters rows not executed.
+- Evidence: apps/lobsters/reports/pr2171-map-replay-c1/.
+- Reversibility: Publication only.
