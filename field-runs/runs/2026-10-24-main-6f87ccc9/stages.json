@@ -13,7 +13,8 @@
       "exit_code": 5,
       "wall_seconds": 49.66,
       "peak_rss_kb": 426384,
-      "reason": "First baseline check failed; no mutants started; raw log preserved; CGI setup then corrected, banning-email failure remains"
+      "reason": "First baseline check failed; no mutants started; raw log preserved; CGI setup then corrected, banning-email failure remains",
+      "next_state": "Execution resumed by assigned runner after approval; no new result received in this append"
     },
     "pr_replays": {
       "status": "not_started",
@@ -32,5 +33,19 @@
       "status": "not_started"
     }
   },
-  "raw_completeness_append_at": "2026-10-24T06:52:00+05:30"
+  "raw_completeness_append_at": "2026-10-24T06:52:00+05:30",
+  "scope_updated_at": "2026-10-24T06:52:04+05:30",
+  "exclusion": {
+    "approved": true,
+    "path": "spec/features/user_administration_spec.rb",
+    "mechanism": "rspec_args",
+    "scope": "field run only",
+    "app_file_edits": false,
+    "reason": "banning-email test independently red at40753644; not touched by selected PRs",
+    "issue2263_relation": "unverified"
+  },
+  "future_jobs": {
+    "serial": 1,
+    "parallel_comparison": 2
+  }
 }

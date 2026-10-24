@@ -205,8 +205,10 @@ f0fa6032d44ad5cef19582506590d959381c1d3e6bf5e09a1881efdf69372f73  apps/solidus/r
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  apps/solidus/verification/.gitkeep
 a87941060f569127a53ef75e9c01fb0f92374f1de1a8824fca64f8a8eceeeba7  findings.md
 963e363a5052ba30ca49086e58c7715bb5c0f26f4083cc2116a332a23de8e857  report.css
+d3cc8ed709fe73a8476582b05a4cf240e5aca139af633dc12786c22ba7178cd5  runs/2026-10-24-main-6f87ccc9/APPEND-0652-approval.md
 354f354b6b7d3cdd0c847a3d041f2728f8a7ea91626fefbbfcabc015324f0642  runs/2026-10-24-main-6f87ccc9/APPEND-0652.md
-89fbd4ac13f222785964512f72e1edede78605bbc46c43a632aa9fab53925c5b  runs/2026-10-24-main-6f87ccc9/README.md
+6ddf2bc12cd38fce96b039ab9a348fa4e48ec2679681b793629042e91ccd9302  runs/2026-10-24-main-6f87ccc9/ENV.md
+883cbd0224a76c8512345ab2da254a0b91f0cd278a97d18b13f0d8bd5cb81634  runs/2026-10-24-main-6f87ccc9/README.md
 ea6dfcb9ce8cef476d31ea20434e4372c1d1226537da21ae152d8167d0b5ccbc  runs/2026-10-24-main-6f87ccc9/artifacts/build-identity-inspection.txt
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  runs/2026-10-24-main-6f87ccc9/artifacts/payload-diff-lib-exe.EMPTY-means-identical.txt
 7f5b8949bce9bda19a584c079631d3b76ad37e700935285b550b7bb1c30689fa  runs/2026-10-24-main-6f87ccc9/artifacts/saboteur-0.12.3.gem
@@ -240,7 +242,7 @@ afd51d6bae0b57c8ce51751f779e5f48f09489bb351f99482409d81395e4fa9b  runs/2026-10-2
 5340ac4cd3ce9343da7c4d841af3dee2fee29557f0d42e58dcd2a5981a09c5e9  runs/2026-10-24-main-6f87ccc9/reports/map/measurement.json
 eeb471257e39c7d9ee57845e7f93355f54dbf94d7281e0ae1d3b248b4d976f99  runs/2026-10-24-main-6f87ccc9/reports/map/measurement.original.json
 34eeaf92592cdd643840a888dfac1c1b47dbbfc1b24fa281bb2a98150fd6f224  runs/2026-10-24-main-6f87ccc9/reports/saboteur-install/measurement.json
-9b1921c6328df7548cd2fc87877a1c0268fd488ca4a51e142fd3617855feb711  runs/2026-10-24-main-6f87ccc9/stages.json
+97a9ef824ef810209e4325cce2a9624ab9a019887e0ddf5dde6b3ff85a8132db  runs/2026-10-24-main-6f87ccc9/stages.json
 97b73a3d183cd3ceda73e4e8df4882ce401190b9330d90ecc7e12a9745620faf  script/measure.py
 dadb13b78dc70aad96675d259318146009cb18def6f6966aee4dc5935a2d8691  script/report.css
 b792996643b52c3ea1fdb6cbe920495f4582a07baa95c125396de17681152a30  script/summarize.rb
