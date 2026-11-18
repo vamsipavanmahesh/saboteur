@@ -6,7 +6,7 @@ require "bundler"
 RSpec.describe "development dependency compatibility" do
   # regexp_parser 2.13.2 made the syntax API used by json_schemer private.
   # Keep that broken resolution out without freezing working 2.x releases.
-  it "excludes the json_schemer regression while allowing compatible parser releases" do
+  it "excludes 2.13.2 without excluding neighboring parser releases" do
     dependency = Bundler.definition.dependencies.find { |entry| entry.name == "regexp_parser" }
     expect(dependency).not_to be_nil
 
