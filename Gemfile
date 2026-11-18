@@ -10,6 +10,8 @@ gem "activerecord", ">= 7.1"
 # the sandbox layers there (#639).
 gem "fiddle", ">= 1.1"
 gem "json_schemer", "~> 2.3"
+# 2.13.2 hides the syntax API json_schemer uses; 2.13.3 restores it.
+gem "regexp_parser", "!= 2.13.2"
 gem "rake", "~> 13.0"
 gem "rspec", "~> 3.13"
 gem "rubocop", "~> 1.65", require: false
